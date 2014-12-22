@@ -1,0 +1,70 @@
+#      edge.py
+#      
+#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      
+#      This program is free software; you can redistribute it and/or modify
+#      it under the terms of the GNU General Public License as published by
+#      the Free Software Foundation; either version 2 of the License, or
+#      (at your option) any later version.
+#      
+#      This program is distributed in the hope that it will be useful,
+#      but WITHOUT ANY WARRANTY; without even the implied warranty of
+#      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#      GNU General Public License for more details.
+#      
+#      You should have received a copy of the GNU General Public License
+#      along with this program; if not, write to the Free Software
+#      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#      MA 02110-1301, USA.
+
+from path import VDevPath
+    
+class Edge(VDevPath):
+    def can_touch(self):
+        return True
+    
+    def can_unlink(self):
+        return True
+    
+    def _new_edge(self, src, dest):
+        if self.manager:
+            if dest.startswith('.'):
+                edge = (src, dest[1:])
+            else:
+                edge = (src, dest)
+            self.manager.synchronizer.add_dispatcher(edge)
+    
+    def _create(self, uid, name):
+        if self.manager:
+            parent = self.parent(name)
+            child = self.child(name)
+            if parent != child:
+                self._new_edge(parent, child)
+    
+    def create(self, uid, name):
+        self.symlink(uid, name)
+        self._create(uid, name)
+        return 0
+    
+    def _unlink(self, uid, name):
+        if not self.manager:
+            return
+        parent = self.parent(name)
+        child = self.child(name)
+        if parent != child:
+            edge = (parent, child)
+            self.manager.synchronizer.remove_dispatcher(edge)
+    
+    def unlink(self, uid, name):
+        self._unlink(uid, name)
+        self.remove(uid, name)
+    
+    def readdir(self, uid, name):
+        return self.lsdir(uid, name)
+    
+    def readlink(self, uid, name):
+        return self.lslink(uid, name)
+    
+    def getattr(self, uid, name):
+        return self.lsattr(uid, name, symlink=True)
+    

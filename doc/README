@@ -1,0 +1,8 @@
+1) Install:
+path/to/virtdev/install.sh
+
+2) Run:
+python path/to/virtdev/start.py
+
+3) Config:
+path/to/virtdev/conf/virtdev.py
