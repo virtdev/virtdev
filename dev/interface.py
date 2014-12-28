@@ -30,7 +30,7 @@ from multiprocessing.pool import ThreadPool
 
 VDEV_PAIR_INTERVAL = 7 # sec
 VDEV_SCAN_INTERVAL = 7 # sec
-VDEV_MOUNT_TIMEOUT = 7 # sec
+VDEV_MOUNT_TIMEOUT = 15 # sec
 VDEV_MOUNT_RESET_INTERVAL = 1 # sec
 VDEV_DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
 

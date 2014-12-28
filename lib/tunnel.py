@@ -24,7 +24,6 @@ import socket
 import psutil
 import signal
 from log import log
-from threading import Thread
 from subprocess import Popen
 from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt
 from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
@@ -196,14 +195,3 @@ def put(addr, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
         return crypto.unpack(uid, ret, token)
     finally:
         sock.close()
-
-class VDevSupernode(Thread):
-    def __init__(self):
-        Thread.__init__(self)
-    
-    def start_super(self):
-        cmd = 'supernode -l %d>/dev/null' % VDEV_SUPERNODE_PORT
-        os.system(cmd)
-    
-    def run(self):
-        self.start_super()

@@ -1,4 +1,4 @@
-#      ppp.py
+#      HCHO.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,13 +17,10 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-PPP_FRAME_ID = 0
-PPP_FRAME_SEQ = 2
-PPP_FRAME_BUF = 3
-PPP_NR_FRAMES = 4
+from dev.vdev import VDev, VDEV_MODE_POLL, VDEV_MODE_SYNC, VDEV_MODE_VISI
 
-PPP_READY = "0x01"
-PPP_HEARTBEAT = "0x02"
-
-PPP_HEARTBEAT_LIVENESS = 3
-PPP_HEARTBEAT_INTERVAL = 10 # Seconds
+class HCHO(VDev):
+    def __init__(self):
+        VDev.__init__(self, VDEV_MODE_POLL | VDEV_MODE_SYNC | VDEV_MODE_VISI, PPM='int')
+        self.set_range({'PPM':(0, 1000)})
+        self.set_freq(0.01)

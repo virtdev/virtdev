@@ -221,14 +221,14 @@ class VDevSynchronizer(object):
     def _dispatch(self, name, buf):
         self._check_output(name)
         if not self._dispatcher.check(name):
-            self._log('_dispatch, send, name=%s' % name)
+            self._log('dispatch->send, name=%s' % name)
             mode = self._mode.get(name)
             self._dispatcher.send(name, buf, mode)
         else:
             res = self._dispatcher.put(name, buf)
             if res:
                 for i in res:
-                    self._log('_dispatch, sendto, name=%s, dest=%s' % (name, i[0]))
+                    self._log('dispatch->sendto, name=%s, dest=%s' % (name, i[0]))
                     self._dispatcher.sendto(i[0], name, i[1])
     
     def dispatch(self, name, buf):
@@ -261,7 +261,7 @@ class VDevSynchronizer(object):
         elif mode & VDEV_MODE_OUT:
             return VDEV_GET
     
-    def _default_proc(self, name, buf):
+    def _default_callback(self, name, buf):
         mode = self._mode.get(name)
         if not mode & VDEV_MODE_VIRT:
             oper = self._get_oper(buf, mode)
@@ -270,14 +270,14 @@ class VDevSynchronizer(object):
             for device in self.manager.devices:
                 dev = device.find(name)
                 if dev:
-                    self._log('_default_proc, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
+                    self._log('default callback, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
                     return dev.proc(name, oper, buf)
         else:
             if type(buf) == dict and 1 == len(buf):
-                self._log('_default_proc, name=%s' % name)
+                self._log('default callback, name=%s' % name)
                 return buf[buf.keys()[0]]
             oper = self._get_oper(buf, mode)
-            self._log('_default_proc, name=%s, oper=%s' % (name, oper))
+            self._log('default callback, name=%s, oper=%s' % (name, oper))
             if not oper:
                 return
             if oper == VDEV_OPEN:
@@ -285,11 +285,17 @@ class VDevSynchronizer(object):
             elif oper == VDEV_CLOSE:
                 return {'Enable':'False'}
     
+    def has_callback(self, name):
+        return self._handler.check(name)
+    
+    def callback(self, name, buf):
+        return self._handler.put(name, buf)
+    
     def _proc(self, name, buf):
-        if not self._handler.check(name):
-            return self._default_proc(name, buf)
+        if not self.has_callback(name):
+            return self._default_callback(name, buf)
         else:
-            return self._handler.put(name, buf)
+            return self.callback(name, buf)
     
     def _get_args(self, dest, src, buf, flags):
         args = {}
@@ -303,7 +309,7 @@ class VDevSynchronizer(object):
     
     def _put(self, dest, src, buf, flags):
         if not self._is_ready(dest, src, flags):
-            self._log('_put, not ready, dest=%s, src=%s' % (dest, src))
+            self._log('put->collect, dest=%s, src=%s' % (dest, src))
             if len(self._members[dest][src]) >= VDEV_SYNCHRONIZER_DEPTH:
                 return self._get_event(dest, src)
             else:
@@ -315,7 +321,7 @@ class VDevSynchronizer(object):
                 if not flags & VDEV_MODE_REFLECT:
                     self._dispatch(dest, ret)
                 else:
-                    self._log('_put, reflect, %s=>%s' % (dest, src))
+                    self._log('put->dispatch, %s=>%s' % (dest, src))
                     self._dispatcher.sendto(src, dest, ret, hidden=True)
     
     def _forward(self, name, buf):
@@ -323,13 +329,13 @@ class VDevSynchronizer(object):
         if not mode & VDEV_MODE_VIRT:
             return
         if not self._mapper.check(name):
-            self._log('_forward, send, name=%s' % name)
+            self._log('forward->send, name=%s' % name)
             self._dispatcher.send(name, buf, mode, output=False)
         else:
             res = self._mapper.put(name, buf)
             if res:
                 for i in res:
-                    self._log('_forward, send, name=%s, dest=%s' % (name, i[0]))
+                    self._log('forward->sendto, name=%s, dest=%s' % (name, i[0]))
                     self._dispatcher.sendto(i[0], name, i[1], output=False)
     
     def put(self, dest, src, buf, flags):
@@ -345,6 +351,6 @@ class VDevSynchronizer(object):
         finally:
             self._lock_release(dest)
             if retry:
-                self._log('put, wait, dest=%s, src=%s' % (dest, src))
+                self._log('put->wait, dest=%s, src=%s' % (dest, src))
                 retry.wait(VDEV_SYNCHRONIZER_WAIT_TIME)
     

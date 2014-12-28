@@ -34,7 +34,7 @@ from lib.request import VDevAuthRequest
 from proc.synchronizer import VDevSynchronizer
 from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_SYNC, VDEV_OPEN, VDEV_CLOSE
 from lib.util import USERNAME_SIZE, PASSWORD_SIZE, VDEV_FLAG_SPECIAL, netaddresses, get_node, vdev_name
-from conf.virtdev import VDEV_BLUETOOTH, VDEV_LO, VDEV_SANDBOX, VDEV_MAPPER_PORT, VDEV_HANDLER_PORT, VDEV_DISPATCHER_PORT
+from conf.virtdev import VDEV_LO, VDEV_BLUETOOTH, VDEV_SANDBOX, VDEV_MAPPER_PORT, VDEV_HANDLER_PORT, VDEV_DISPATCHER_PORT
 from conf.virtdev import VDEV_LIB_PATH, VDEV_RUN_PATH, VDEV_FS_MOUNTPOINT, VDEV_FILE_SERVICE, VDEV_FILE_SHADOW, VDEV_SPECIAL
 
 def excl(func):
@@ -80,8 +80,8 @@ class DeviceManager(object):
                 return
     
     @excl_name
-    def add(self, name, mode=None, profile=None):
-        return self._server.request.device.add(node=get_node(), name=name, addr=self._server.addr, mode=mode, profile=profile)
+    def add(self, name, mode=None, freq=None, profile=None):
+        return self._server.request.device.add(node=get_node(), addr=self._server.addr, name=name, mode=mode, freq=freq, profile=profile)
     
     @excl_name
     def sync(self, name, buf):

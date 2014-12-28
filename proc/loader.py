@@ -44,7 +44,7 @@ class VDevLoader(object):
         return self._get(name, VDEV_ATTR_HANDLER)
     
     def get_freq(self, name):
-        return int(self._get(name, VDEV_ATTR_FREQ))
+        return float(self._get(name, VDEV_ATTR_FREQ))
     
     def get_mode(self, name):
         return int(self._get(name, VDEV_ATTR_MODE))

@@ -82,22 +82,22 @@ def excl(func):
 
 class VDev(object):
     def __init__(self, mode=0, **fields):
-        self._index = 0
         self._buf = {}
         self._event = {}
         self._children = {}
+        self._requester = None
         self.manager = None
         self._atime = None
         self._range = None
         self._sock = None
         self._name = None
         self._uid = None
+        self._index = 0
         self._mode = mode
         self._wrlock = Lock()
         self._fields = fields
-        self._requester = None
-        self._lock = VDevLock()
         self._freq = VDEV_FREQ
+        self._lock = VDevLock()
         self._anon = mode & VDEV_MODE_ANON
         self._thread = Thread(target=self._run)
     
@@ -112,7 +112,7 @@ class VDev(object):
         
         if not buf and self._anon:
             return (self, '')
-   
+        
         output = ast.literal_eval(buf)
         if type(output) != dict:
             log_err(self, 'failed to read, invalid type')
@@ -190,14 +190,20 @@ class VDev(object):
         if not self.manager:
             return self._mode
         else:
-            return self.manager.synchronizer.get_mode()
+            try:
+                return self.manager.synchronizer.get_mode(self.d_name)
+            except:
+                return self._mode
     
     @property
     def d_freq(self):
         if not self.manager:
             return self._freq
         else:
-            return self.manager.synchronizer.get_freq()
+            try:
+                return self.manager.synchronizer.get_freq(self.d_name)
+            except:
+                return self._freq
     
     @property
     def d_index(self):
@@ -363,17 +369,22 @@ class VDev(object):
         poll.apply_async(self._poll)
         while True:
             try:
+                res = None
                 device, buf = self._read()
                 if not device:
                     continue
+                if self.manager.synchronizer.has_callback(device.d_name):
+                    res = self.manager.synchronizer.callback(device.d_name, {device.d_name:buf})
                 if not self._set(device, buf) and buf:
                     mode = device.d_mode
                     if not (mode & VDEV_MODE_TRIG) or device.check_atime():
                         if mode & VDEV_MODE_SYNC:
                             device.sync(buf)
+                        if res:
+                            buf = res
                         self.manager.synchronizer.dispatch(device.d_name, buf)
             except:
-                log_err(self, 'abort')
+                log_err(self, 'device=%s, restarting' % self.d_name)
                 poll.terminate()
                 self._sock.close()
                 break

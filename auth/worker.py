@@ -36,16 +36,18 @@ from lib.log import log_err, log_get
 from multiprocessing import TimeoutError
 from multiprocessing.pool import ThreadPool
 from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr
-from conf.virtdev import VDEV_AUTH_SERVERS, VDEV_BROKER_PORT
+from conf.virtdev import VDEV_DEFAULT_SERVERS, VDEV_BROKER_PORT
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
 
-VDEV_AUTH_POOL_SIZE = 32
+POOL_SIZE = 64
+SLEEP_TIME = 10 # Seconds
+TASK_TIMEOUT = 60 # Seconds
 
 class VDevAuthWorker(Thread):
     def _get_auth(self):
-        length = len(VDEV_AUTH_SERVERS)
+        length = len(VDEV_DEFAULT_SERVERS)
         n = randint(0, length - 1)
-        return VDEV_AUTH_SERVERS[n]
+        return VDEV_DEFAULT_SERVERS[n]
     
     def _init_tasks(self, query):
         self._tasks = {}
@@ -76,7 +78,7 @@ class VDevAuthWorker(Thread):
     
     def __init__(self, query):
         Thread.__init__(self)
-        self._pool = ThreadPool(processes=VDEV_AUTH_POOL_SIZE)
+        self._pool = ThreadPool(processes=POOL_SIZE)
         self._identity = bytes(uuid.uuid4())
         self._init_tasks(query)
         self._init_sock()
@@ -140,17 +142,17 @@ class VDevAuthWorker(Thread):
             pool = ThreadPool(processes=1)
             result = pool.apply_async(self._tasks[name].proc, args=(op, args))
             try:
-                if timeout:
-                    res = result.get(timeout=int(timeout))
+                if not timeout:
+                    timeout = TASK_TIMEOUT
                 else:
-                    res = result.get()
+                    timeout = int(timeout)
+                res = result.get(timeout=timeout)
                 ret = pack(buf[:UID_SIZE], res, token)
                 self._reply(identity, seq, ret)
             except TimeoutError:
                 log_err(self, 'failed to process, timeout')
             finally:
                 pool.terminate()
-                return
         except:
             log_err(self, 'failed to process')
     
@@ -173,7 +175,7 @@ class VDevAuthWorker(Thread):
             else:
                 liveness -= 1
                 if liveness == 0:
-                    time.sleep(random.randint(0, PPP_SLEEP_TIME))
+                    time.sleep(random.randint(0, SLEEP_TIME))
                     self._reset_sock()
                     liveness = PPP_HEARTBEAT_LIVENESS
             

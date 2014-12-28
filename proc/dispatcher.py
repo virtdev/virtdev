@@ -56,7 +56,7 @@ class VDevDispatcher(object):
         return buf
     
     def _send(self, dest, src, buf, flags):
-        self._log('_send, dest=%s, src=%s' % (dest, src))
+        self._log('send, dest=%s, src=%s' % (dest, src))
         Thread(target=self.manager.synchronizer.put, args=(dest, src, buf, flags)).start()
     
     def add(self, edge, output=True, hidden=False):
@@ -194,7 +194,7 @@ class VDevDispatcher(object):
             if not temp:
                 continue
             if not dest[i]:
-                self._log('send, dest=%s, src=%s' % (i, name))
+                self._log('send->tunnel, dest=%s, src=%s' % (i, name))
                 self.manager.tunnel.put(i, dest=i, src=name, buf=temp, flags=flags)
             else:
                 self._send(i, name, temp, flags)

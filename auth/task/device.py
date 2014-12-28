@@ -37,9 +37,9 @@ class Device(VDevAuthTask):
                     return 
             return device
     
-    def add(self, uid, node, addr, name, mode, profile):
+    def add(self, uid, node, addr, name, mode, freq, profile):
         if mode != None and profile != None:
-            mount_device(uid, name, mode, profile)
+            mount_device(uid, name, mode, freq, profile)
         update_device(self.query, uid, node, addr, name)
         self.query.event_put(uid, name)
         return True

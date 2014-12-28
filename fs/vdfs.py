@@ -274,7 +274,7 @@ class VDevFS(Operations):
                     raise FuseOSError(EINVAL)
         
         if self._shadow and (mode == None or not (mode & VDEV_MODE_VIRT)):
-            if not self._link.put(name=name, op=OP_ADD, mode=mode, profile=profile):
+            if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, profile=profile):
                 log_err(self, 'failed to mount device, cannot link, op=add')
                 raise FuseOSError(EINVAL)
     

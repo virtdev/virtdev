@@ -79,7 +79,6 @@ class Temp(object):
         path = self._check_path(uid, name)
         ret = os.open(path, os.O_RDWR | os.O_CREAT, 0644)
         if ret >= 0 and self._watcher:
-            path = self.get_path(uid, name)
             self._watcher.push(path)
         return ret
     
@@ -89,7 +88,7 @@ class Temp(object):
             f.truncate(length)
     
     def open(self, uid, name, flags):
-        path = self.get_path(uid, name)
+        path = self._check_path(uid, name)
         parent = self._parent.get_path(uid, name)
         t = self._parent.fs.mtime(uid, parent)
         if not t or t != self.mtime(uid, name):

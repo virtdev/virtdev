@@ -1,4 +1,4 @@
-#      USD.py
+#      USD.py (Ultrasonic Detector)
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      

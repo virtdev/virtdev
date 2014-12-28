@@ -22,5 +22,5 @@ from dev.vdev import VDev, VDEV_MODE_POLL, VDEV_MODE_SYNC, VDEV_MODE_VISI
 class CO(VDev):
     def __init__(self):
         VDev.__init__(self, VDEV_MODE_POLL | VDEV_MODE_SYNC | VDEV_MODE_VISI, PPM='int')
-        self.set_range({'PPM':(0, 10000)})
+        self.set_range({'PPM':(0, 1000)})
         self.set_freq(0.01)

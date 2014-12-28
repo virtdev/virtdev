@@ -1,4 +1,4 @@
-#      IRD.py
+#      IRD.py (Infrared Detector)
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      

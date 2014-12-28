@@ -21,8 +21,8 @@ from history import HistoryDB
 from event.event import VDevEvent
 from lib.router import VDevRouter
 from lib.log import log_get, log_err
-from conf.virtdev import VDEV_DB_SERVERS
 from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB
+from conf.virtdev import VDEV_DB_SERVERS, VDEV_EVENT_SERVERS, VDEV_DFS_SERVERS
 
 def pairvalue(func):
     def wrapper(*args, **kwargs):
@@ -58,15 +58,20 @@ class VDevDBQuery(object):
         self._history = HistoryDB(router)
     
     def _init_router(self, router):
-        for i in VDEV_DB_SERVERS:
+        for i in VDEV_EVENT_SERVERS:
             router.add_server('event', i)
+        
+        for i in VDEV_DB_SERVERS:
             router.add_server(str(self._node), i)
             router.add_server(str(self._user), i)
             router.add_server(str(self._token), i)
             router.add_server(str(self._guest), i)
             router.add_server(str(self._device), i)
             router.add_server(str(self._member), i)
+        
+        for i in VDEV_DFS_SERVERS:
             router.add_server(str(self._history), i)
+        
         self.router = router
     
     def __init__(self):

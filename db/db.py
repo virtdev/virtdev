@@ -22,7 +22,7 @@ import datetime
 from threading import Lock
 from cache import VDevDBCache
 from lib.log import log_err, log_get
-from conf.virtdev import VDEV_DEFAULT_ADDR, VDEV_DB_PORT
+from conf.virtdev import VDEV_DEFAULT_SERVERS, VDEV_DB_PORT
 
 VDEV_ADDR_TTL = 30 # minutes
 
@@ -77,7 +77,7 @@ class VDevDB(object):
     def __str__(self):
         return self.__class__.__name__.lower()
     
-    def __init__(self, router=None, multi=False, readOnly=False, increase=False, cache_port=0, ttl=0, addr=VDEV_DEFAULT_ADDR):
+    def __init__(self, router=None, multi=False, readOnly=False, increase=False, cache_port=0, ttl=0, addr=None):
         self._ttl = ttl
         self._cache = None
         self._lock = Lock()
@@ -96,6 +96,8 @@ class VDevDB(object):
         if self._router:
             self._db = {}
         else:
+            if not addr:
+                addr = VDEV_DEFAULT_SERVERS[0]
             conn = pymongo.Connection(addr, VDEV_DB_PORT)
             self._db = eval('conn.test.%s' % str(self))
     

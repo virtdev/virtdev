@@ -26,14 +26,11 @@ from lib.util import send_pkt, recv_pkt
 from conf.virtdev import VDEV_SANDBOX_ADDR
 from multiprocessing.pool import ThreadPool
 from RestrictedPython import compile_restricted
-from RestrictedPython.Guards import safe_builtins
 
 VDEV_SANDBOX_TIMEOUT = 20 # seconds
 
 VDEV_SANDBOX_PUT = 'put'
 VDEV_SANDBOX_OP = [VDEV_SANDBOX_PUT]
-
-restricted_globals = dict(__builtins__ = safe_builtins)
 
 def request(port, op, **args):
     if op not in VDEV_SANDBOX_OP:
@@ -47,6 +44,24 @@ def request(port, op, **args):
         return recv_pkt(sock)
     finally:
         sock.close()
+
+def _getattr_(obj, attr):
+    t = type(obj)
+    if t in [dict, list, tuple, int, float]:
+        return getattr(obj, attr)
+    else:
+        raise RuntimeError('invalid object')
+
+def _getitem_(obj, item):
+    t = type(obj)
+    if t == dict:
+        return dict.__getitem__(obj, item)
+    elif t == list:
+        return list.__getitem__(obj, item)
+    elif t == tuple:
+        return tuple.__getitem__(obj, item)
+    else:
+        raise RuntimeError('invalid object')
 
 def _sandbox(code, args):
     try:
@@ -71,13 +86,14 @@ class VDevSandbox(Thread):
         self._init_sock(port)
     
     def _put(self, code, args):
+        ret = None
         pool = ThreadPool(processes=1)
         result = pool.apply_async(_sandbox, args=(decodestring(code), args))
         try:
-            return result.get(timeout=VDEV_SANDBOX_TIMEOUT)
+            ret = result.get(timeout=VDEV_SANDBOX_TIMEOUT)
         finally:
             pool.terminate()
-            return
+            return ret
     
     def _proc(self, sock):
         try:
@@ -90,7 +106,7 @@ class VDevSandbox(Thread):
                     op = req['op']
                     args = req['args']
                     if op == VDEV_SANDBOX_PUT:
-                        ret = self._put(**args)
+                        ret = self._put(code=args['code'], args=args['args'])
                     if ret:
                         res = str(ret)
             send_pkt(sock, res)

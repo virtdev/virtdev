@@ -28,35 +28,45 @@ from lib.log import log_err
 from threading import Thread
 from queue import VDevAuthItem
 from queue import VDevAuthQueue
-from conf.virtdev import VDEV_AUTH_PORT, VDEV_BROKER_PORT
+from conf.virtdev import VDEV_AUTH_PORT, VDEV_BROKER_PORT, VDEV_IFBACK
 
 class VDevAuthBroker(Thread):
-    def _init_sock(self):
+    def _init_frontend(self):
         addr = util.ifaddr()
-        self._context = zmq.Context(1)
         self._frontend = self._context.socket(zmq.ROUTER)
-        self._backend = self._context.socket(zmq.ROUTER)
         self._frontend.bind(util.zmqaddr(addr, VDEV_AUTH_PORT))
+    
+    def _init_backend(self):
+        addr = util.ifaddr(VDEV_IFBACK)
+        self._backend = self._context.socket(zmq.ROUTER)
         self._backend.bind(util.zmqaddr(addr, VDEV_BROKER_PORT))
-        self._single = zmq.Poller()
-        self._single.register(self._backend, zmq.POLLIN)
-        self._double = zmq.Poller()
-        self._double.register(self._frontend, zmq.POLLIN)
-        self._double.register(self._backend, zmq.POLLIN)
+    
+    def _init_pollers(self):
+        self._poller1 = zmq.Poller()
+        self._poller1.register(self._backend, zmq.POLLIN)
+        self._poller2 = zmq.Poller()
+        self._poller2.register(self._frontend, zmq.POLLIN)
+        self._poller2.register(self._backend, zmq.POLLIN)
+        
+    def _init_context(self):
+        self._context = zmq.Context(1)
+        self._init_frontend()
+        self._init_backend()
+        self._init_pollers()
     
     def __init__(self):
         Thread.__init__(self)
         self._queue = VDevAuthQueue()
+        self._init_context()
         self._active = True
-        self._init_sock()
     
     def run(self):
         timeout = time.time() + PPP_HEARTBEAT_INTERVAL
         while self._active:
             if len(self._queue.queue) > 0:
-                poller = self._double
+                poller = self._poller2
             else:
-                poller = self._single
+                poller = self._poller1
             socks = dict(poller.poll(PPP_HEARTBEAT_INTERVAL * 1000))
             if socks.get(self._backend) == zmq.POLLIN:
                 frames = self._backend.recv_multipart()

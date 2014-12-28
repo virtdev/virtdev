@@ -18,18 +18,22 @@
 #      MA 02110-1301, USA.
 
 from threading import Thread
-from broker import VDevAuthBroker
-from worker import VDevAuthWorker
+from lib.log import log_err, log_get
 from lib.util import service_start, service_join
 from conf.virtdev import VDEV_AUTH_BROKER, VDEV_AUTH_WORKER
 
 class VDevAuthD(Thread):
-    def __init__(self, query):
+    def __init__(self, query=None):
         Thread.__init__(self)
         self._services = []
-        if VDEV_AUTH_BROKER:
-            self._services.append(VDevAuthWorker(query))
         if VDEV_AUTH_WORKER:
+            if not query:
+                log_err(self, 'no query')
+                raise Exception(log_get(self, 'no query'))
+            from worker import VDevAuthWorker
+            self._services.append(VDevAuthWorker(query))
+        if VDEV_AUTH_BROKER:
+            from broker import VDevAuthBroker
             self._services.append(VDevAuthBroker())
     
     def run(self):
