@@ -3,7 +3,6 @@ apt-get install -y build-essential
 apt-get install -y isc-dhcp-server
 apt-get install -y librsync-dev
 apt-get install -y n2n
-apt-get install -y bluez
 apt-get install -y mongo
 apt-get install -y libzmq-dev
 apt-get install -y memcached
@@ -14,9 +13,6 @@ apt-get install -y python-gevent
 apt-get install -y python-gi-dev
 apt-get install -y python-memcache
 apt-get install -y python-all-dev
-apt-get install -y python-imaging
-apt-get install -y python-pygame
-apt-get install -y python-bluez
 pip install pymongo
 pip install hash_ring
 pip install isodate
