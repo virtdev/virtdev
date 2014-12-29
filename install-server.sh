@@ -9,6 +9,7 @@ apt-get install -y memcached
 apt-get install -y python-pip
 apt-get install -y python-dbus
 apt-get install -y python-cffi
+apt-get install -y python-numpy
 apt-get install -y python-gevent
 apt-get install -y python-gi-dev
 apt-get install -y python-memcache
@@ -17,7 +18,6 @@ pip install pymongo
 pip install hash_ring
 pip install isodate
 pip install netifaces
-pip install numpy
 pip install happybase
 pip install pyzmq
 pip install zerorpc
