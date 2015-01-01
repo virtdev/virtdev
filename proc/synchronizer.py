@@ -25,7 +25,7 @@ from handler import VDevHandler
 from lib.log import log_get, log
 from threading import Lock, Event
 from dispatcher import VDevDispatcher
-from dev.vdev import VDEV_MODE_VIRT, VDEV_MODE_BOOL, VDEV_MODE_IN, VDEV_MODE_OUT, VDEV_MODE_REFLECT, VDEV_GET, VDEV_PUT, VDEV_OPEN, VDEV_CLOSE
+from dev.vdev import VDEV_MODE_VIRT, VDEV_MODE_SWITCH, VDEV_MODE_IN, VDEV_MODE_OUT, VDEV_MODE_REFLECT, VDEV_GET, VDEV_PUT, VDEV_OPEN, VDEV_CLOSE
 
 VDEV_SYNCHRONIZER_DEPTH = 4
 VDEV_SYNCHRONIZER_WAIT_TIME = 0.1 #second
@@ -241,7 +241,7 @@ class VDevSynchronizer(object):
     def _get_oper(self, buf, mode):
         if type(buf) != dict:
             return
-        if mode & VDEV_MODE_BOOL:
+        if mode & VDEV_MODE_SWITCH:
             ret = None
             for i in buf:
                 if type(buf[i]) == dict and buf[i].has_key('Enable'):

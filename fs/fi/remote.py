@@ -19,12 +19,12 @@
 
 import os
 import stat
-import hdfs
-import snakebite
 from fuse import FuseOSError
 from fi import VDevFileInterface
 from lib.log import log_get, log_err
 from lib.util import DIR_MODE, FILE_MODE
+from hdfs.client import Client as HTTPClient
+from snakebite.client import Client as DFSClient
 from conf.virtdev import VDEV_DFS_PORT, VDEV_DFS_HTTP_PORT
 
 VDEV_FILE_SIZE = 1000000
@@ -35,12 +35,12 @@ class VDevRemoteFS(VDevFileInterface):
     
     def _get_dfs_cli(self, uid):
         addr = self._router.get('dfs', uid)
-        return snakebite.client.Client(addr, VDEV_DFS_PORT, use_trash=False)
+        return DFSClient(addr, VDEV_DFS_PORT, use_trash=False)
     
     def _get_http_cli(self, uid):
         addr = self._router.get('dfs', uid)
         http_addr = 'http://%s:%d' % (addr, VDEV_DFS_HTTP_PORT)
-        return hdfs.client.Client(http_addr)
+        return HTTPClient(http_addr)
     
     def _truncate(self, uid, path, length):
         cli = self._get_http_cli(uid)
