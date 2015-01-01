@@ -14,6 +14,7 @@ apt-get install -y python-gevent
 apt-get install -y python-gi-dev
 apt-get install -y python-memcache
 apt-get install -y python-all-dev
+apt-get install -y python-imaging
 pip install pymongo
 pip install hash_ring
 pip install isodate
@@ -26,6 +27,7 @@ pip install xattr
 pip install psutil
 pip install fusepy
 pip install RestrictedPython
+pip install hdfs
 pip install snakebite
 pip install pycrypto
 pip install python-inotify==0.6-test

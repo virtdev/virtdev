@@ -22,4 +22,3 @@ from dev.vdev import VDev, VDEV_MODE_IN, VDEV_MODE_VISI
 class Light(VDev):
     def __init__(self):
         VDev.__init__(self, VDEV_MODE_IN | VDEV_MODE_VISI, Enable='bool')
-

@@ -22,5 +22,3 @@ from dev.vdev import VDev, VDEV_MODE_TRIG, VDEV_MODE_VISI
 class IRD(VDev):
     def __init__(self):
         VDev.__init__(self, VDEV_MODE_TRIG | VDEV_MODE_VISI, Enable='bool')
-
-    
