@@ -67,7 +67,7 @@ class VDevRemoteFS(VDevFileInterface):
         with open(src, 'r') as f:
             buf = f.read()
         cli = self._get_http_cli(uid)
-        cli.write(buf, overwrite=True)
+        cli.write(dest, buf, overwrite=True)
         return True
     
     def remove(self, uid, path):

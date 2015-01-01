@@ -163,7 +163,7 @@ class VDev(object):
             index = device.d_index
             if None == index:
                 index = 0
-            if device.d_mode & VDEV_MODE_BOOL:
+            if device.d_mode & VDEV_MODE_SWITCH:
                 self._write(req.req_open(index))
             else:
                 self._write(req.req_get(index))
@@ -336,10 +336,10 @@ class VDev(object):
             return
         index = dev.d_index
         if op == VDEV_OPEN:
-            if dev.d_mode & VDEV_MODE_BOOL:
+            if dev.d_mode & VDEV_MODE_SWITCH:
                 self._write(req.req_open(index))
         elif op == VDEV_CLOSE:
-            if dev.d_mode & VDEV_MODE_BOOL:
+            if dev.d_mode & VDEV_MODE_SWITCH:
                 self._write(req.req_close(index))
         elif op == VDEV_GET:
             self._register(name)
