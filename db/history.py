@@ -33,6 +33,33 @@ HISTORY_CF_LEN = len(HISTORY_CF)
 HISTORY_TAGS = (HISTORY_TAG_TODAY, HISTORY_TAG_YEAR, HISTORY_TAG_MONTH, HISTORY_TAG_DAY)
 
 HISTORY_ITEM_MAX = 1024
+HISTORY_STATISTIC = True
+
+if HISTORY_STATISTIC:
+    import unicorndb
+
+class Today(object):
+    def scan(self, db, key, num):
+        res = []
+        t = datetime.utcnow()
+        row_prefix = key + '%4d%02d%02d' % (t.year, t.month, t.day)
+        try:
+            for item in db.scan(row_prefix=row_prefix, limit=num):
+                val = {}
+                for column in item[1]:
+                    val.update({column[HISTORY_CF_LEN:]:item[1][column]})
+                res.append(val)
+        except:
+            log_err(self, 'failed, _today_list, key=%s, limit=%d' % (key, num))
+        return str(res)
+    
+    def average(self, db, key, num):
+        res = []
+        try:
+            res = unicorndb.stat(db, key, HISTORY_CF, num, "hour", "avg")
+        except:
+            log_err(self, 'failed, _today_average, key=%s, limit=%d' % (key, num))
+        return str(res)
 
 class HistoryDB(object):
     def __str__(self):
@@ -42,6 +69,7 @@ class HistoryDB(object):
         self._db = {}
         self._lock = Lock()
         self._router = router
+        self._today = Today()
     
     def _get_db(self, key):
         db = None
@@ -105,21 +133,13 @@ class HistoryDB(object):
             log_err(self, 'invalid query')
     
     def _find_today(self, key, num):
-        res = []
         if num > HISTORY_ITEM_MAX:
             num = HISTORY_ITEM_MAX
         db = self._get_db(key)
-        t = datetime.utcnow()
-        row_prefix = key + '%4d%02d%02d' % (t.year, t.month, t.day)
-        try:
-            for item in db.scan(row_prefix=row_prefix, limit=num):
-                val = {}
-                for column in item[1]:
-                    val.update({column[HISTORY_CF_LEN:]:item[1][column]})
-                res.append(val)
-        except:
-            log_err(self, 'failed, _find_today, key=%s, limit=%d' % (key, num))
-        return str(res)
+        if HISTORY_STATISTIC:
+            return self._today.average(db, key, num)
+        else:
+            return self._today.scan(db, key, num)
     
     def _find(self, key, tag, start, end):
         pass
