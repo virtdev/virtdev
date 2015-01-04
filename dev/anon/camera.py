@@ -24,7 +24,6 @@ from pygame import camera
 from aop import VDevAnonOper
 from StringIO import StringIO
 from base64 import encodestring
-from lib.log import log_get, log_err
 
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
@@ -40,18 +39,17 @@ if not _camera_init:
     pygame.camera.init()
 
 class Camera(VDevAnonOper):
-    def __init__(self, identity):
+    def __init__(self, index):
         self._cam = None
-        self._identity = identity
+        self._index = index
         cameras = camera.list_cameras()
-        if identity >= len(cameras):
-            log_err(self, 'no camera')
-            raise Exception(log_get(self, 'no camera'))
-        self._cam = camera.Camera(cameras[identity], (CAMERA_WIDTH, CAMERA_HEIGHT))
+        if index >= len(cameras):
+            raise Exception('no camera')
+        self._cam = camera.Camera(cameras[index], (CAMERA_WIDTH, CAMERA_HEIGHT))
         self._start()
     
     def __str__(self):
-        return 'CAM_%d' % self._identity
+        return 'CAM_%d' % self._index
     
     def _start(self):
         self._cam.start()
@@ -71,8 +69,6 @@ class Camera(VDevAnonOper):
 
 if __name__ == '__main__':
     cam = Camera(0)
-    ret = cam.get()
-    if ret:
-        with open('/tmp/cam0.jpg', 'w') as f:
-            f.write(ret)
-    
+    res = cam.get()
+    if res['Image']:
+        print('Camera: success, len=%d' % len(res['Image']))

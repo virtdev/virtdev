@@ -32,7 +32,7 @@ def excl(func):
             self._lock.release()
     return _excl
 
-def anon_identity(name):
+def anon_index(name):
     res = str(name).split('_')
     if len(res) == 2:
         return (res[0], int(res[1]))

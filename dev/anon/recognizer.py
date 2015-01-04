@@ -19,11 +19,11 @@
 from aop import VDevAnonOper
 
 class Recognizer(VDevAnonOper):
-    def __init__(self, identity):
-        self._identity = identity
+    def __init__(self, index):
+        self._index = index
     
     def __str__(self):
-        return 'REC_%d' % self._identity
+        return 'REC_%d' % self._index
     
     def recognize(self, args):
         print 'recognize: args=%s' % args.keys()

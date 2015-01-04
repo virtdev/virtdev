@@ -27,8 +27,10 @@ from drivers.CAM import VDEV_CAM_LIST
 from drivers.REC import VDEV_REC_LIST
 from conf.virtdev import VDEV_LO_PORT
 from anon.recognizer import Recognizer
-from anon.anon import VDevAnon, anon_identity
+from anon.anon import VDevAnon, anon_index
 
+VDEV_HAS_CAM = True
+VDEV_HAS_REC = False
 VDEV_LO_ADDR = '127.0.0.1'
 
 class VDevLo(VDevInterface):
@@ -41,12 +43,12 @@ class VDevLo(VDevInterface):
                     continue
                 device = None
                 item = stream.get(sock, anon=True)
-                dev, identity = anon_identity(item)
+                d_type, d_index = anon_index(item)
                 try:
-                    if dev == 'CAM':
-                        device = VDevAnon(Camera(identity), sock)
-                    if dev == 'REC':
-                        device = VDevAnon(Recognizer(identity), sock)
+                    if d_type == 'CAM':
+                        device = VDevAnon(Camera(d_index), sock)
+                    if d_type == 'REC':
+                        device = VDevAnon(Recognizer(d_index), sock)
                 except:
                     log_err(self, 'failed to listen, invalid device')
                     continue
@@ -71,7 +73,12 @@ class VDevLo(VDevInterface):
         self._anon = True
     
     def _list_devices(self):
-        return VDEV_CAM_LIST + VDEV_REC_LIST
+        devices = []
+        if VDEV_HAS_CAM:
+            devices += VDEV_CAM_LIST
+        if VDEV_HAS_REC:
+            devices += VDEV_REC_LIST
+        return devices
     
     def scan(self):
         devices = self._list_devices()
