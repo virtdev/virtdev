@@ -26,6 +26,7 @@ from conf.virtdev import VDEV_FS_PATH, VDEV_FS_MOUNTPOINT
 
 VDEV_FS_UPDATE = 0x00000001
 VDEV_FS_LABELS = {'vertex':'vertex', 'edge':'edge', 'data':'data', 'attr':'attr', 'temp':'temp'}
+VDEV_FS_REFLEXIVITY = True
 
 def undefined_opration():
     log_err(self, 'failed to truncate')
@@ -135,7 +136,7 @@ class VDevPath(object):
     def symlink(self, uid, name):
         child = self.child(name)
         parent = self.parent(name)
-        if child == parent:
+        if not VDEV_FS_REFLEXIVITY and child == parent:
             log_err(self, 'failed to create symlink')
             raise FuseOSError(EINVAL) 
         path = os.path.join(self.get_path(uid, parent), child)
@@ -179,7 +180,7 @@ class VDevPath(object):
         if symlink:
             parent = self.parent(name)
             child = self.child(name)
-            if parent != child:
+            if VDEV_FS_REFLEXIVITY or parent != child:
                 path = self.get_path(uid, child)
                 if os.path.exists(path):
                     mode = st['st_mode']

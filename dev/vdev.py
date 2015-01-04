@@ -163,10 +163,7 @@ class VDev(object):
             index = device.d_index
             if None == index:
                 index = 0
-            if device.d_mode & VDEV_MODE_SWITCH:
-                self._write(req.req_open(index))
-            else:
-                self._write(req.req_get(index))
+            self._write(req.req_get(index))
     
     def _poll(self):
         if not self.d_mode & VDEV_MODE_POLL:

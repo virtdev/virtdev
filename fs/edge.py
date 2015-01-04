@@ -17,7 +17,7 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from path import VDevPath
+from path import VDevPath, VDEV_FS_REFLEXIVITY
     
 class Edge(VDevPath):
     def can_touch(self):
@@ -38,7 +38,7 @@ class Edge(VDevPath):
         if self.manager:
             parent = self.parent(name)
             child = self.child(name)
-            if parent != child:
+            if VDEV_FS_REFLEXIVITY or parent != child:
                 self._new_edge(parent, child)
     
     def create(self, uid, name):
@@ -51,7 +51,7 @@ class Edge(VDevPath):
             return
         parent = self.parent(name)
         child = self.child(name)
-        if parent != child:
+        if VDEV_FS_REFLEXIVITY or parent != child:
             edge = (parent, child)
             self.manager.synchronizer.remove_dispatcher(edge)
     
