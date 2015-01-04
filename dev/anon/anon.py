@@ -75,8 +75,8 @@ class VDevAnon(Thread):
     def _pair(self, buf):
         if buf == VDEV_REQ_SECRET:
             name = str(self._dev)
-            dev, _ = anon_identity(name)
-            stream.put(self._sock, str({'0':dev}), anon=True)
+            d_type, _ = anon_index(name)
+            stream.put(self._sock, str({'0':d_type}), anon=True)
     
     def _proc(self):
         while True:
