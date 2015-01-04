@@ -70,5 +70,5 @@ class Camera(VDevAnonOper):
 if __name__ == '__main__':
     cam = Camera(0)
     res = cam.get()
-    if res['Image']:
+    if res and res.get('Image'):
         print('Camera: success, len=%d' % len(res['Image']))
