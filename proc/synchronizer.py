@@ -238,7 +238,7 @@ class VDevSynchronizer(object):
         finally:
             self._lock_release(name)
     
-    def _get_oper(self, buf, mode):
+    def get_oper(self, buf, mode):
         if type(buf) != dict:
             return
         if mode & VDEV_MODE_SWITCH:
@@ -264,7 +264,7 @@ class VDevSynchronizer(object):
     def _default_callback(self, name, buf):
         mode = self._mode.get(name)
         if not mode & VDEV_MODE_VIRT:
-            oper = self._get_oper(buf, mode)
+            oper = self.get_oper(buf, mode)
             if not oper:
                 return
             for device in self.manager.devices:
@@ -276,7 +276,7 @@ class VDevSynchronizer(object):
             if type(buf) == dict and 1 == len(buf):
                 self._log('default callback, name=%s' % name)
                 return buf[buf.keys()[0]]
-            oper = self._get_oper(buf, mode)
+            oper = self.get_oper(buf, mode)
             self._log('default callback, name=%s, oper=%s' % (name, oper))
             if not oper:
                 return

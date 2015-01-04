@@ -366,20 +366,26 @@ class VDev(object):
         poll.apply_async(self._poll)
         while True:
             try:
-                res = None
                 device, buf = self._read()
                 if not device:
                     continue
-                if self.manager.synchronizer.has_callback(device.d_name):
-                    res = self.manager.synchronizer.callback(device.d_name, {device.d_name:buf})
+                
+                name = device.d_name
+                if self.manager.synchronizer.has_callback(name):
+                    buf = self.manager.synchronizer.callback(name, {name:buf})
+                    if buf:
+                        mode = device.d_mode
+                        if mode & VDEV_MODE_REFLECT:
+                            op = self.manager.synchronizer.get_oper({name:buf}, mode)
+                            if op != None:
+                                buf = self.proc(name, op)
+                
                 if not self._set(device, buf) and buf:
                     mode = device.d_mode
                     if not (mode & VDEV_MODE_TRIG) or device.check_atime():
                         if mode & VDEV_MODE_SYNC:
                             device.sync(buf)
-                        if res:
-                            buf = res
-                        self.manager.synchronizer.dispatch(device.d_name, buf)
+                        self.manager.synchronizer.dispatch(name, buf)
             except:
                 log_err(self, 'device=%s, restarting' % self.d_name)
                 poll.terminate()
