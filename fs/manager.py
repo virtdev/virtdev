@@ -246,7 +246,7 @@ class VDevFSManager(object):
     
     def _check_user(self, user, password):
         length = len(user)
-        if length > 0 and length < USERNAME_SIZE and re.match('^[0-9a-fA-F]+$', user):
+        if length > 0 and length < USERNAME_SIZE and re.match('^[0-9a-zA-Z]+$', user):
             name = user + (USERNAME_SIZE - length) * '*'
         else:
             log_err(self, 'failed to login, invalid user name')

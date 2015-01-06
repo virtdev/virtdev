@@ -559,7 +559,7 @@ class VDevFS(Operations):
         return event
     
     def _is_query(self, name):
-        if re.match('[0-9a-z]+(_[0-9a-z]+)+', name):
+        if re.match('[0-9a-zA-Z]+(_[0-9a-zA-Z]+)+', name):
             return True
     
     def getxattr(self, path, name, position=0):
