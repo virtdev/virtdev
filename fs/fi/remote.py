@@ -48,16 +48,10 @@ class VDevRemoteFS(VDevFileInterface):
         cli.write(buf, overwrite=True)
         return True
     
-    def _rename(self, uid, src, dest):
-        cli = self._get_http_cli(uid)
-        cli.rename(src, dest)
-        return True
-    
     def load(self, uid, src, dest):
-        cli = self._get_dfs_cli(uid)
-        ret = cli.copyToLocal([src], dest).next()
-        if ret:
-            return ret['result']
+        cli = self._get_http_cli(uid)
+        cli.download(src, dest, overwrite=True)
+        return True
     
     def save(self, uid, src, dest):
         length = os.path.getsize(src)
@@ -100,13 +94,10 @@ class VDevRemoteFS(VDevFileInterface):
             return ret['result']
     
     def rename(self, uid, src, dest):
-        if self._namenode.get(uid, src) == self._namenode.get(uid, dest):
-            cli = self._get_dfs_cli(uid)
-            ret = cli.rename([src], dest).next()
-            if ret:
-                return ret['result']
-        else:
-            return self._rename(uid, src, dest)
+        cli = self._get_dfs_cli(uid)
+        ret = cli.rename([src], dest).next()
+        if ret:
+            return ret['result']
     
     def stat(self, uid, path):
         cli = self._get_dfs_cli(uid)

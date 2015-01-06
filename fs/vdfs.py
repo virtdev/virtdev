@@ -17,6 +17,7 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import re
 import os
 import ast
 import uuid
@@ -558,7 +559,8 @@ class VDevFS(Operations):
         return event
     
     def _is_query(self, name):
-        return name.find('_') > 0
+        if re.match('[0-9a-z]+(_[0-9a-z]+)+', name):
+            return True
     
     def getxattr(self, path, name, position=0):
         if name == OP_POLL:

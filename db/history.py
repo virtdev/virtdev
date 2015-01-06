@@ -23,14 +23,15 @@ from happybase import Connection
 from conf.virtdev import VDEV_STATISTIC
 from lib.log import log, log_get, log_err
 
-HISTORY_TABLE = 'history'
 HISTORY_TAG_DAY = 'day'
 HISTORY_TAG_YEAR = 'year'
 HISTORY_TAG_MONTH = 'month'
 HISTORY_TAG_TODAY = 'today'
+HISTORY_TABLE = 'history'
 
-HISTORY_CF = 'cf1:'
-HISTORY_CF_LEN = len(HISTORY_CF)
+HISTORY_CF = 'cf1'
+HISTORY_CF_HEAD = HISTORY_CF + ':'
+HISTORY_CF_HEAD_SIZE = len(HISTORY_CF_HEAD)
 HISTORY_TAGS = (HISTORY_TAG_TODAY, HISTORY_TAG_YEAR, HISTORY_TAG_MONTH, HISTORY_TAG_DAY)
 
 HISTORY_ITEM_MAX = 1024
@@ -48,10 +49,10 @@ class Today(object):
             for item in db.scan(row_prefix=row_prefix, limit=num):
                 val = {}
                 for column in item[1]:
-                    val.update({column[HISTORY_CF_LEN:]:item[1][column]})
+                    val.update({column[HISTORY_CF_HEAD_SIZE:]:item[1][column]})
                 res.append(val)
         except:
-            log_err(self, 'failed, _today_list, key=%s, limit=%d' % (key, num))
+            log_err(self, 'failed, key=%s, num=%d' % (key, num))
         return str(res)
     
     def average(self, db, key, num):
@@ -60,7 +61,7 @@ class Today(object):
             if VDEV_STATISTIC:
                 res = unicorndb.stat(db, key, HISTORY_CF, num, "hour", "avg")
         except:
-            log_err(self, 'failed, _today_average, key=%s, limit=%d' % (key, num))
+            log_err(self, 'failed, key=%s, num=%d' % (key, num))
         return str(res)
 
 class HistoryDB(object):
@@ -102,7 +103,7 @@ class HistoryDB(object):
         val = {}
         db = self._get_db(key)
         for i in fields:
-            val.update({HISTORY_CF + str(i):str(fields[i])})
+            val.update({HISTORY_CF_HEAD + str(i):str(fields[i])})
         rowkey = self._get_rowkey(key)
         db.put(rowkey, val)
     
@@ -159,6 +160,7 @@ class HistoryDB(object):
             ret = self._find_today(key, arg)
         else:
             ret = self._find(key, tag, arg[0], arg[1])
+        
         if not ret:
             return ''
         else:

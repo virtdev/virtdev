@@ -65,7 +65,7 @@ class Temp(object):
         path = self.get_path(uid, name, 'mtime')
         try:
             with open(path, 'r') as f:
-                t = long(f.read().stip())
+                t = long(f.read().strip())
             return t
         except:
             return 0
