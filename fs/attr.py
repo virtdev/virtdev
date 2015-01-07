@@ -91,6 +91,8 @@ class Attr(VDevPath):
             temp = self.path2temp(path)
             self.fs.rename(uid, path, temp)
             self._unlink(uid, name)
+        else:
+            self.fs.touch(uid, self.path2temp(path))
     
     def signature(self, uid, name):
         path = self.path2temp(self.get_path(uid, name))

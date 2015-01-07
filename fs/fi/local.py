@@ -49,7 +49,7 @@ class VDevLocalFS(VDevFileInterface):
         return os.path.exists(path)
     
     def touch(self, uid, path):
-        os.system('touch %s' % path)
+        open(path, 'a').close()
         return True
     
     def rename(self, uid, src, dest):
