@@ -372,7 +372,13 @@ class VDev(object):
                 
                 name = device.d_name
                 if self.manager.synchronizer.has_callback(name):
-                    buf = self.manager.synchronizer.callback(name, {name:buf})
+                    output = self.manager.synchronizer.callback(name, {name:buf})
+                    if not output:
+                        continue
+                    buf = ast.literal_eval(output)
+                    if type(buf) != dict:
+                        log_err(self, 'invalid result of callback function')
+                        continue
                     if buf:
                         mode = device.d_mode
                         if mode & VDEV_MODE_REFLECT:
