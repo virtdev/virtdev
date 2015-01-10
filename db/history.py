@@ -75,18 +75,18 @@ class HistoryDB(object):
         self._today = Today()
     
     def _get_db(self, key):
-        db = None
-        self._lock.acquire()
-        try:
-            addr = self._router.get(str(self), key)
-            if self._db.has_key(addr):
+        addr = self._router.get(str(self), key)
+        db = self._db.get(addr)
+        if not db:
+            self._lock.acquire()
+            try:
                 db = self._db.get(addr)
-            else:
-                conn = Connection(host=addr)
-                db = conn.table(HISTORY_TABLE)
-                self._db.update({addr:db})
-        finally:
-            self._lock.release()
+                if not db:
+                    conn = Connection(host=addr)
+                    db = conn.table(HISTORY_TABLE)
+                    self._db.update({addr:db})
+            finally:
+                self._lock.release()
         if not db:
             log_err(self, 'failed to get db')
             raise Exception(log_get(self, 'failed to get db'))

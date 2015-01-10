@@ -107,18 +107,19 @@ class VDevDB(object):
         elif not key:
             log_err(self, 'failed to get db, invalid key')
             raise Exception(log_get(self, 'failed to get db'))
-        db = None
-        self._lock.acquire()
-        try:
-            addr = self._router.get(str(self), key)
-            if self._db.has_key(addr):
+        addr = self._router.get(str(self), key)
+        db = self._db.get(addr)
+        if not db:
+            self._lock.acquire()
+            try:
                 db = self._db.get(addr)
-            else:
-                conn = pymongo.Connection(addr, VDEV_DB_PORT)
-                db = eval('conn.test.%s' % str(self))
-                self._db.update({addr:db})
-        finally:
-            self._lock.release()
+                if not db:
+                    conn = pymongo.Connection(addr, VDEV_DB_PORT)
+                    db = eval('conn.test.%s' % str(self))
+                    if db:
+                        self._db.update({addr:db})
+            finally:
+                self._lock.release()
         if not db:
             log_err(self, 'failed to get db')
             raise Exception(log_get(self, 'failed to get db'))
