@@ -19,6 +19,6 @@
 
 from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_SWITCH
 
-class Reset(VDev):
+class EG(VDev):
     def __init__(self):
         VDev.__init__(self, VDEV_MODE_VISI | VDEV_MODE_SWITCH)
