@@ -264,7 +264,6 @@ class VDev(object):
                 return True
         else:
             self._atime = now
-            return True
     
     def check_output(self, output):
         if output.has_key('_i'):
