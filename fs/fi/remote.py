@@ -32,15 +32,25 @@ VDEV_FILE_SIZE = 1000000
 class VDevRemoteFS(VDevFileInterface):
     def __init__(self, router):
         self._router = router
+        self._dfs_clients = {}
+        self._http_clients = {}
     
     def _get_dfs_cli(self, uid):
         addr = self._router.get('dfs', uid)
-        return DFSClient(addr, VDEV_DFS_PORT, use_trash=False)
+        cli = self._dfs_clients.get(addr)
+        if not cli:
+            cli = DFSClient(addr, VDEV_DFS_PORT, use_trash=False)
+            self._dfs_clients.update({addr:cli})
+        return cli
     
     def _get_http_cli(self, uid):
         addr = self._router.get('dfs', uid)
-        http_addr = 'http://%s:%d' % (addr, VDEV_DFS_HTTP_PORT)
-        return HTTPClient(http_addr)
+        cli = self._http_clients.get(addr)
+        if not cli:
+            http_addr = 'http://%s:%d' % (addr, VDEV_DFS_HTTP_PORT)
+            cli = HTTPClient(http_addr)
+            self._http_clients.update({addr:cli})
+        return cli
     
     def _truncate(self, uid, path, length):
         cli = self._get_http_cli(uid)

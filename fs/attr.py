@@ -87,12 +87,12 @@ class Attr(VDevPath):
     
     def invalidate(self, uid, name):
         path = self.get_path(uid, name)
+        temp = self.path2temp(path)
         if self.fs.exists(uid, path):
-            temp = self.path2temp(path)
             self.fs.rename(uid, path, temp)
             self._unlink(uid, name)
         else:
-            self.fs.touch(uid, self.path2temp(path))
+            self.fs.touch(uid, temp)
     
     def signature(self, uid, name):
         path = self.path2temp(self.get_path(uid, name))

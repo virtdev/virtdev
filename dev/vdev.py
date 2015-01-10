@@ -256,15 +256,15 @@ class VDev(object):
         self._children.update({device.d_name:device})
     
     def check_atime(self):
+        now = datetime.now()
         if self._atime:
-            curr = datetime.now()
-            delta = (curr - self._atime).total_seconds()
-            if delta >= self.d_intv:
-                self._atime = curr
+            intv = (now - self._atime).total_seconds()
+            if intv >= self.d_intv:
+                self._atime = now
                 return True
         else:
-            self._atime = datetime.now()
-        return False
+            self._atime = now
+            return True
     
     def check_output(self, output):
         if output.has_key('_i'):
