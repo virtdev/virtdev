@@ -65,9 +65,12 @@ class Attr(VDevPath):
             flags = 0
         return self._temp.open(uid, name, flags)
     
-    def release(self, uid, name, fh, force=False):
+    def _release(self, uid, name, fh, force=False):
         self._temp.close(uid, name, fh, force)
     
+    def release(self, uid, name, fh):
+        self._release(uid, name, fh)
+        
     def _unlink(self, uid, name):
         if not self.manager:
             return
@@ -124,7 +127,7 @@ class Attr(VDevPath):
         try:
             os.write(f, str(buf))
         finally:
-            self.release(uid, name, f, force=True)
+            self._release(uid, name, f, force=True)
     
     def _create_mode(self, uid, name, buf):
         name = os.path.join(name, VDEV_ATTR_MODE)
@@ -132,7 +135,7 @@ class Attr(VDevPath):
         try:
             os.write(f, str(buf))
         finally:
-            self.release(uid, name, f, force=True)
+            self._release(uid, name, f, force=True)
     
     def _create_freq(self, uid, name, buf):
         name = os.path.join(name, VDEV_ATTR_FREQ)
@@ -140,7 +143,7 @@ class Attr(VDevPath):
         try:
             os.write(f, str(buf))
         finally:
-            self.release(uid, name, f, force=True)
+            self._release(uid, name, f, force=True)
     
     def _create_handler(self, uid, name, buf):
         name = os.path.join(name, VDEV_ATTR_HANDLER)
@@ -148,7 +151,7 @@ class Attr(VDevPath):
         try:
             os.write(f, str(buf))
         finally:
-            self.release(uid, name, f, force=True)
+            self._release(uid, name, f, force=True)
     
     def _create_profile(self, uid, name, buf):
         name = os.path.join(name, VDEV_ATTR_PROFILE)
@@ -157,7 +160,7 @@ class Attr(VDevPath):
             for i in buf:
                 os.write(f, '%s=%s\n' % (str(i), str(buf[i])))
         finally:
-            self.release(uid, name, f, force=True)
+            self._release(uid, name, f, force=True)
     
     def _create_dispatcher(self, uid, name, buf):
         name = os.path.join(name, VDEV_ATTR_DISPATCHER)
@@ -165,7 +168,7 @@ class Attr(VDevPath):
         try:
             os.write(f, str(buf))
         finally:
-            self.release(uid, name, f, force=True)
+            self._release(uid, name, f, force=True)
     
     def initialize(self, attr, uid, name, buf):
         if attr == VDEV_ATTR_MAPPER:

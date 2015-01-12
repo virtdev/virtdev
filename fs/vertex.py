@@ -31,6 +31,9 @@ class Vertex(VDevPath):
         self.symlink(uid, name)
         return 0
     
+    def open(self, uid, name, flags):
+        return self.create(uid, name)
+    
     def unlink(self, uid, name):
         self.remove(uid, name)
     

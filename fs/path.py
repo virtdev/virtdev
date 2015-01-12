@@ -93,7 +93,7 @@ class VDevPath(object):
         return False
     
     def release(self, uid, name, fh):
-        pass
+        os.close(fh)
     
     def parent(self, name):
         tmp = name.split('/')

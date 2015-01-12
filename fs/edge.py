@@ -17,6 +17,7 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import os
 from path import VDevPath
     
 class Edge(VDevPath):
@@ -45,6 +46,9 @@ class Edge(VDevPath):
         self.symlink(uid, name)
         self._create(uid, name)
         return 0
+    
+    def open(self, uid, name, flags):
+        return self.create(uid, name)
     
     def _unlink(self, uid, name):
         if not self.manager:
