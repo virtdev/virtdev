@@ -188,17 +188,17 @@ class VDevFSDownlink(VDevFSLink):
             if name:
                 uid, addr = self._get_device(name)
         except:
-            log_err(self, 'failed to create, cannot get uid')
+            log_err(self, 'failed to connect, cannot get uid')
             return
         token = self._get_token(uid)
         if not token:
-            log_err(self, 'failed to create, cannot get token')
-            raise Exception(log_get(self, 'failed to create'))
+            log_err(self, 'failed to connect, cannot get token')
+            raise Exception(log_get(self, 'failed to connect'))
         try:
             tunnel.connect(addr, token, static=True)
             return addr
         except:
-            log_err(self, 'failed to create, cannot connect')
+            log_err(self, 'failed to connect')
     
     def _disconnect(self, addr):
         tunnel.disconnect(addr, force=True)

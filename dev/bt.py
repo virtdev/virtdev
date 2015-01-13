@@ -17,11 +17,8 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import re
 import os
-import commands
 import bluetooth
-from lib.log import log_get
 from interface import VDevInterface
 from conf.virtdev import VDEV_LIB_PATH
 
@@ -35,14 +32,12 @@ class VDevBT(VDevInterface):
         sock.connect((name, VDEV_BT_PORT))
         return sock
     
-    def _create(self, name):
-        cmd = 'echo %s | bluez-simple-agent hci0 %s' % (VDEV_BT_PIN, name)
-        ret, output = commands.getstatusoutput(cmd)
-        if ret or (re.search('Creating device failed', output) and not re.search('Already Exists$', output)):
-            raise Exception(log_get(self, 'failed to create'))
+    def _prepare(self, name):
+        os.system('bluez-test-device remove %s' % name)
+        os.system('echo %s | bluez-simple-agent hci0 %s' % (VDEV_BT_PIN, name))
     
     def connect(self, name):
-        self._create(name)
+        self._prepare(name)
         return self._connect(name)
     
     def _check_device_list(self):
