@@ -183,18 +183,10 @@ class VDevSynchronizer(object):
             self._lock_release(name)
     
     def get_mode(self, name):
-        self._lock_acquire(name)
-        try:
-            return self._mode.get(name)
-        finally:
-            self._lock_release(name)
+        return self._mode.get(name)
     
     def get_freq(self, name):
-        self._lock_acquire(name)
-        try:
-            return self._freq.get(name)
-        finally:
-            self._lock_release(name)
+        return self._freq.get(name)
     
     def _remove(self, name):
         if not self._members.has_key(name):
