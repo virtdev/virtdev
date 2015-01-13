@@ -70,8 +70,6 @@ class VDevFS(Operations):
             os.mkdir(VDEV_FS_MOUNTPOINT)
     
     def __init__(self, query=None):
-        self._bt = None
-        self._fsd = None
         self._events = {}
         self._results = {}
         self._query = query
@@ -181,18 +179,23 @@ class VDevFS(Operations):
         if not self._shadow:
             if obj.can_invalidate():
                 if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
-                    log_err(self, 'failed to link, cannot create')
+                    log_err(self, 'failed to link, cannot create, op=OP_INVALIDATE')
                     raise FuseOSError(EINVAL)
             elif obj.can_touch():
                 if not self._link.put(name=obj.parent(name), op=OP_TOUCH, path=obj.real(name)):
-                    log_err(self, 'failed to link, cannot create')
+                    log_err(self, 'failed to link, cannot create, op=OP_TOUCH')
                     raise FuseOSError(EINVAL)
     
     def _link_open(self, obj, uid, name, flags):
         if not self._shadow:
-            if obj.can_invalidate() and obj.may_update(flags):
-                if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
-                    log_err(self, 'failed to link, cannot open')
+            if obj.can_invalidate():
+                if obj.may_update(flags):
+                    if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
+                        log_err(self, 'failed to link, cannot open, op=INVALIDATE')
+                        raise FuseOSError(EINVAL)
+            elif obj.can_touch():
+                if not self._link.put(name=obj.parent(name), op=OP_TOUCH, path=obj.real(name)):
+                    log_err(self, 'failed to link, cannot create, op=OP_TOUCH')
                     raise FuseOSError(EINVAL)
         elif obj.is_expired(uid, name):
             buf = self._link.put(name=obj.parent(name), op=OP_DIFF, label=obj.label, item=obj.child(name), buf=obj.signature(uid, name))

@@ -21,6 +21,7 @@ import os
 import req
 import imp
 import time
+import copy
 from lib import stream
 from drivers.SU import SU
 from lib.util import get_name
@@ -37,16 +38,6 @@ VDEV_DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
 import sys
 sys.path.append(os.getcwd())
 
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        self._lock.acquire()
-        try:
-            return func(*args, **kwargs)
-        finally:
-            self._lock.release()
-    return _excl
-
 class VDevInterface(Thread):
     def __init__(self, manager):
         self.manager = manager
@@ -55,8 +46,6 @@ class VDevInterface(Thread):
         self._lock = Lock()
         self._anon = False
         self._devices = {}
-        self._unknown = {}
-        self._orig = {}
     
     def scan(self):
         pass
@@ -152,19 +141,15 @@ class VDevInterface(Thread):
             else:
                 return True
     
-    @excl
     def find(self, name):
-        for i in self._devices:
-            if self._devices[i].exists(name):
-                return self._devices[i]
+        devices = copy.deepcopy(self._devices)
+        for i in devices:
+            if devices[i].exists(name):
+                return devices[i]
     
-    @excl
     def _check(self, names):
         for name in names:
-            if name in self._unknown:
-                continue
-            if not self._register(name):
-                self._unknown.update({name:None})
+            self._register(name)
     
     def run(self):
         while True:

@@ -92,6 +92,7 @@ class VDevAnon(Thread):
         Thread(target=self._proc).start()
         while True:
             try:
+                res = ''
                 _, flags, buf = parse(stream.get(self._sock, anon=True))
                 if flags & VDEV_REQ_PAIR:
                     self._pair(buf)
@@ -102,10 +103,18 @@ class VDevAnon(Thread):
                     ret = self._dev.close()
                     self._push(ret)
                 elif flags & VDEV_REQ_GET:
-                    ret = self._dev.get()
-                    self._reply(ret)
+                    try:
+                        ret = self._dev.get()
+                        if ret:
+                            res = ret
+                    finally:
+                        self._reply(res)
                 elif flags & VDEV_REQ_PUT:
-                    ret = self._dev.put(buf)
-                    self._reply(ret)
+                    try:
+                        ret = self._dev.put(buf)
+                        if ret:
+                            res = ret
+                    finally:
+                        self._reply(ret)
             except:
-                log_err(self, 'invalid operation')
+                log_err(self, 'failed to handle')

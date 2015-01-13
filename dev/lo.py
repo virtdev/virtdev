@@ -47,13 +47,13 @@ class VDevLo(VDevInterface):
                 try:
                     if d_type == 'CAM':
                         device = VDevAnon(Camera(d_index), sock)
-                    if d_type == 'REC':
+                    elif d_type == 'REC':
                         device = VDevAnon(Recognizer(d_index), sock)
                 except:
                     log_err(self, 'failed to listen, invalid device')
                     continue
                 if device:
-                    self._orig.update({str(device):device})
+                    self._lo.update({str(device):device})
             except:
                 if sock:
                     log_err(self, 'failed to listen')
@@ -71,6 +71,7 @@ class VDevLo(VDevInterface):
         self._listener = Thread(target=self._listen)
         self._listener.start()
         self._anon = True
+        self._lo = {}
     
     def _list_devices(self):
         devices = []
@@ -84,11 +85,11 @@ class VDevLo(VDevInterface):
         devices = self._list_devices()
         if not devices:
             return
-        dev_list = []
+        nu = []
         for item in devices:
-            if not self._orig.has_key(item):
-                dev_list.append(item)
-        return dev_list
+            if not self._lo.has_key(item):
+                nu.append(item)
+        return nu
     
     def connect(self, name):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
