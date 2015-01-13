@@ -142,7 +142,7 @@ class VDevInterface(Thread):
                 return True
     
     def find(self, name):
-        devices = copy.deepcopy(self._devices)
+        devices = copy.copy(self._devices)
         for i in devices:
             if devices[i].exists(name):
                 return devices[i]

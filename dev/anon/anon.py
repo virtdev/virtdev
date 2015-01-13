@@ -115,6 +115,6 @@ class VDevAnon(Thread):
                         if ret:
                             res = ret
                     finally:
-                        self._reply(ret)
+                        self._reply(res)
             except:
                 log_err(self, 'failed to handle')
