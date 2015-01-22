@@ -26,6 +26,8 @@ PATH_IL = '/opt/images'
 class ImageLoader(VDevAnonOper):
     def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
+        if not os.path.exists(PATH_IL):
+            os.makedirs(PATH_IL, 0o755)
         self._images = None
         self._active = False
     
