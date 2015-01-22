@@ -28,9 +28,6 @@ from base64 import encodestring
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 
-SLEEP_TIME = 6 # seconds
-RETRY_TIMES = 2
-
 _camera_init = False
 if not _camera_init:
     pygame.init()
@@ -44,13 +41,7 @@ class Camera(VDevAnonOper):
         if index >= len(cameras):
             raise Exception('no camera')
         self._cam = camera.Camera(cameras[index], (CAMERA_WIDTH, CAMERA_HEIGHT))
-        self._start()
-    
-    def _start(self):
         self._cam.start()
-        time.sleep(SLEEP_TIME)
-        for _ in range(RETRY_TIMES):    
-            self.get()
     
     def get(self):
         res = StringIO()
