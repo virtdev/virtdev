@@ -23,7 +23,7 @@ from lib.log import log_err
 from threading import Thread
 from anon.timer import Timer
 from anon.camera import Camera
-from anon.facerec import Facerec
+from anon.facerec import FaceRec
 from anon.qrdecoder import QRDecoder
 from anon.downloader import Downloader
 from interface import VDevInterface
@@ -59,7 +59,7 @@ class VDevLo(VDevInterface):
                     if d_type == 'CAMERA':
                         device = VDevAnon(Camera(d_index), sock)
                     elif d_type == 'FACEREC':
-                        device = VDevAnon(Facerec(d_index), sock)
+                        device = VDevAnon(FaceRec(d_index), sock)
                     elif d_type == 'DOWNLOADER':
                         device = VDevAnon(Downloader(d_index), sock)
                     elif d_type == 'QRDECODER':

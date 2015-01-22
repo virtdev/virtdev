@@ -21,6 +21,7 @@ apt-get install -y python-gi-dev
 apt-get install -y python-all-dev
 apt-get install -y python-imaging
 apt-get install -y python-pygame
+apt-get install -y libopencv-dev
 apt-get install -y python-opencv
 pip install hash_ring
 pip install isodate
