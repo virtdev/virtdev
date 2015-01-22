@@ -25,7 +25,7 @@ from aop import VDevAnonOper
 class Downloader(VDevAnonOper):    
     def _do_download(self, url):
         filename = wget.download(url)
-        print 'Downloader: filename=%s' % str(filename)
+        print('Downloader: filename=%s' % str(filename))
         
     def download(self, url):
         Thread(target=self._do_download, args=(url,)).start()
@@ -34,10 +34,15 @@ class Downloader(VDevAnonOper):
     def put(self, buf):
         args = self._get_args(buf)
         if args and type(args) == dict:
-            url = args.get('String')
+            url = args.get('URL')
+            name = args.get('Name')
             if url:
                 if self.download(url):
-                    return {'String':md5.new(url).hexdigest()}
+                    if name:
+                        return {'Name':name}
+                    else:
+                        return {'Enable':True}
+                    
         else:
-            print 'Downloader: invalid args'
+            print('Downloader: invalid args')
     

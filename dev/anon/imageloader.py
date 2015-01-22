@@ -36,7 +36,7 @@ class Imageloader(VDevAnonOper):
             with open(path) as f:
                 buf = f.read()
             if buf:
-                yield {'Image':encodestring(buf)}
+                yield {'Name':name, 'Image':encodestring(buf)}
         self._start = False
     
     def open(self):

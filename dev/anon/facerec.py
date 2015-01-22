@@ -47,20 +47,24 @@ class FaceRec(VDevAnonOper):
     def put(self, buf):
         args = self._get_args(buf)
         if args and type(args) == dict:
+            name = args.get('Name')
             image = args.get('Image')
             if self.recognize(image):
-                return {'Enable':'True'}
+                if name:
+                    return {'Name':name}
+                else:
+                    return {'Enable':'True'}
     
 if __name__ == '__main__':
     from base64 import encodestring
     path = '/opt/images/test.jpg'
     if not os.path.exists(path):
-        print 'FaceRec: no image, path=%s' % path
+        print('FaceRec: no image, path=%s' % path)
         exit(1)
     with open(path) as f:
         buf = f.read()
     image = encodestring(buf)
     rec = FaceRec(0)
     ret = rec.recognize(image)
-    print 'FaceRec: ret=%s' % str(ret)
+    print('FaceRec: ret=%s' % str(ret))
     

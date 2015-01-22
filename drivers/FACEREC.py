@@ -21,4 +21,4 @@ from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_IN, VDEV_MODE_ANON
 
 class FACEREC(VDev):
     def __init__(self):
-        VDev.__init__(self, VDEV_MODE_IN | VDEV_MODE_VISI | VDEV_MODE_ANON, Enable='bool')
+        VDev.__init__(self, VDEV_MODE_IN | VDEV_MODE_VISI | VDEV_MODE_ANON, Name='str', Enable='bool')

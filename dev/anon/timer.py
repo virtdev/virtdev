@@ -50,8 +50,8 @@ class Timer(VDevAnonOper):
     def put(self, buf):
         args = self._get_args(buf)
         if args and type(args) == dict:
-            name = args.get('String')
+            name = args.get('Name')
             if name:
                 if self._create(name):
-                    return {'String':name}
+                    return args
     
