@@ -21,16 +21,27 @@ import socket
 from lib import stream
 from lib.log import log_err
 from threading import Thread
+from anon.timer import Timer
 from anon.camera import Camera
+from anon.facerec import Facerec
+from anon.qrdecoder import QRDecoder
+from anon.downloader import Downloader
 from interface import VDevInterface
-from drivers.CAM import VDEV_CAM_LIST
-from drivers.REC import VDEV_REC_LIST
 from conf.virtdev import VDEV_LO_PORT
-from anon.recognizer import Recognizer
 from anon.anon import VDevAnon, anon_index
 
-VDEV_HAS_CAM = True
-VDEV_HAS_REC = False
+VDEV_HAS_TIMER = True
+VDEV_HAS_CAMERA = True
+VDEV_HAS_FACEREC = True
+VDEV_HAS_QRDECODER = True
+VDEV_HAS_DOWNLOADER = True
+
+VDEV_TIMER_LIST = ['TIMER_0']
+VDEV_CAMERA_LIST = ['CAMERA_0']
+VDEV_FACEREC_LIST = ['FACEREC_0']
+VDEV_QRDECODER_LIST = ['QRDECODER_0']
+VDEV_DOWNLOADER_LIST = ['DOWNLOADER_0']
+
 VDEV_LO_ADDR = '127.0.0.1'
 
 class VDevLo(VDevInterface):
@@ -45,10 +56,16 @@ class VDevLo(VDevInterface):
                 item = stream.get(sock, anon=True)
                 d_type, d_index = anon_index(item)
                 try:
-                    if d_type == 'CAM':
+                    if d_type == 'CAMERA':
                         device = VDevAnon(Camera(d_index), sock)
-                    elif d_type == 'REC':
-                        device = VDevAnon(Recognizer(d_index), sock)
+                    elif d_type == 'FACEREC':
+                        device = VDevAnon(Facerec(d_index), sock)
+                    elif d_type == 'DOWNLOADER':
+                        device = VDevAnon(Downloader(d_index), sock)
+                    elif d_type == 'QRDECODER':
+                        device = VDevAnon(QRDecoder(d_index), sock)
+                    elif d_type == 'TIMER':
+                        device = VDevAnon(Timer(d_index), sock)
                 except:
                     log_err(self, 'failed to listen, invalid device')
                     continue
@@ -75,10 +92,16 @@ class VDevLo(VDevInterface):
     
     def _list_devices(self):
         devices = []
-        if VDEV_HAS_CAM:
-            devices += VDEV_CAM_LIST
-        if VDEV_HAS_REC:
-            devices += VDEV_REC_LIST
+        if VDEV_HAS_TIMER:
+            devices += VDEV_TIMER_LIST
+        if VDEV_HAS_CAMERA:
+            devices += VDEV_CAMERA_LIST
+        if VDEV_HAS_FACEREC:
+            devices += VDEV_FACEREC_LIST
+        if VDEV_HAS_QRDECODER:
+            devices += VDEV_QRDECODER_LIST
+        if VDEV_HAS_DOWNLOADER:
+            devices += VDEV_DOWNLOADER_LIST
         return devices
     
     def scan(self):

@@ -22,7 +22,7 @@ from io import BytesIO
 from base64 import decodestring
 from log import log_get, log_err
 
-class Jpg(object):
+class JPG(object):
     def _verify(self, buf):
         try:
             im = Image.open(BytesIO(decodestring(buf)))

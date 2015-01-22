@@ -28,28 +28,23 @@ from base64 import encodestring
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
 
-_camera_init = False
-
 SLEEP_TIME = 6 # seconds
 RETRY_TIMES = 2
 
+_camera_init = False
 if not _camera_init:
-    _camera_init = True
     pygame.init()
     pygame.camera.init()
+    _camera_init = True
 
 class Camera(VDevAnonOper):
     def __init__(self, index):
-        self._cam = None
-        self._index = index
+        VDevAnonOper.__init__(self, index)
         cameras = camera.list_cameras()
         if index >= len(cameras):
             raise Exception('no camera')
         self._cam = camera.Camera(cameras[index], (CAMERA_WIDTH, CAMERA_HEIGHT))
         self._start()
-    
-    def __str__(self):
-        return 'CAM_%d' % self._index
     
     def _start(self):
         self._cam.start()
@@ -58,8 +53,6 @@ class Camera(VDevAnonOper):
             self.get()
     
     def get(self):
-        if not self._cam:
-            return
         res = StringIO()
         surf = self._cam.get_image()
         buf = pygame.image.tostring(surf, 'RGBA')

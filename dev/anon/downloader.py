@@ -1,4 +1,4 @@
-#      aop.py
+#      downloader.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,33 +17,27 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import ast 
+import md5
+import wget
+from threading import Thread
+from aop import VDevAnonOper
 
-class VDevAnonOper(object):
-    def __init__(self, index):
-        self._index = index
-    
-    def __str__(self):
-        return self.__class__.__name__.upper() + str(self._index)
-    
-    def open(self):
-        pass
-    
-    def close(self):
-        pass
+class Downloader(VDevAnonOper):    
+    def _do_download(self, url):
+        filename = wget.download(url)
+        print 'Downloader: filename=%s' % str(filename)
+        
+    def download(self, url):
+        Thread(target=self._do_download, args=(url,)).start()
+        return True
     
     def put(self, buf):
-        pass
-    
-    def get(self):
-        pass
-    
-    def _get_args(self, buf):
-        try:
-            args = ast.literal_eval(buf)
-            if type(args) != dict:
-                return
-            return args
-        except:
-            pass
+        args = self._get_args(buf)
+        if args and type(args) == dict:
+            url = args.get('String')
+            if url:
+                if self.download(url):
+                    return {'String':md5.new(url).hexdigest()}
+        else:
+            print 'Downloader: invalid args'
     

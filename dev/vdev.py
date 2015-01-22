@@ -23,7 +23,7 @@ import req
 import time
 import xattr
 from lib import stream
-from lib.jpg import Jpg
+from lib.jpg import JPG
 from fs.oper import OP_MOUNT
 from datetime import datetime
 from lib.lock import VDevLock
@@ -282,7 +282,7 @@ class VDev(object):
                         log_err(self, 'invalid output')
                         return
                 elif field == 'jpg':
-                    Jpg(val)
+                    JPG(val)
             except:
                 log_err(self, 'invalid output')
                 return

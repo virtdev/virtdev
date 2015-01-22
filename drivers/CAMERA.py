@@ -1,4 +1,4 @@
-#      aop.py
+#      CAMERA.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,33 +17,9 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import ast 
+from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_OUT, VDEV_MODE_POLL, VDEV_MODE_SYNC, VDEV_MODE_ANON
 
-class VDevAnonOper(object):
-    def __init__(self, index):
-        self._index = index
-    
-    def __str__(self):
-        return self.__class__.__name__.upper() + str(self._index)
-    
-    def open(self):
-        pass
-    
-    def close(self):
-        pass
-    
-    def put(self, buf):
-        pass
-    
-    def get(self):
-        pass
-    
-    def _get_args(self, buf):
-        try:
-            args = ast.literal_eval(buf)
-            if type(args) != dict:
-                return
-            return args
-        except:
-            pass
-    
+class CAMERA(VDev):
+    def __init__(self):
+        VDev.__init__(self, VDEV_MODE_OUT | VDEV_MODE_VISI | VDEV_MODE_POLL | VDEV_MODE_SYNC | VDEV_MODE_ANON, Image='jpg')
+        self.set_freq(0.01)
