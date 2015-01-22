@@ -22,7 +22,6 @@ import time
 import crypto
 import socket
 import psutil
-import signal
 from log import log
 from subprocess import Popen
 from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt
@@ -32,8 +31,8 @@ NETSIZE = 30
 NETMASK = '255.255.255.224'
 PATH = '/etc/dhcp/dhcpd.conf'
 DEVNULL = open(os.devnull, 'wb')
-RETRY_MAX = 4
-SLEEP_TIME = 0.3 # seconds
+RETRY_MAX = 50
+SLEEP_TIME = 0.1 # seconds
 
 def _split(addr):
     return addr.split(':')
@@ -66,8 +65,8 @@ def _chkiface(addr):
             time.sleep(SLEEP_TIME)
         except:
             time.sleep(SLEEP_TIME)
-    log('tunnel: failed to check')      
-    raise Exception('tunnel: failed to check')
+    log('tunnel: failed to check iface')      
+    raise Exception('tunnel: failed to check iface')
 
 def _check_pid(pid):
     for _ in range(RETRY_MAX):
@@ -75,10 +74,9 @@ def _check_pid(pid):
             if psutil.Process(pid).status() == psutil.STATUS_ZOMBIE:
                 return False
             else:
-                time.sleep(SLEEP_TIME)
                 return True
         except:
-            pass
+            time.sleep(SLEEP_TIME)
     return False
 
 def _run_path(addr):
@@ -142,7 +140,7 @@ def create(addr, key):
     pid = Popen(['edge', '-r', '-d', _iface(addr), '-a', address, '-s', NETMASK, '-c', _tunnel(addr), '-k', key, '-l', _supernode(addr)], stdout=DEVNULL, stderr=DEVNULL).pid
     with open(_run_path(addr), 'w') as f:
         f.write(str(pid))
-    os.system('killall -q dhcpd')
+    os.system('killall -q -9 dhcpd')
     os.system('dhcpd -q')
     return _chkiface(addr)
 
@@ -168,14 +166,7 @@ def release(addr, force=False):
     path = _run_path(addr)
     with open(path, 'r') as f:
         pid = int(f.readlines()[0].strip())
-    try:
-        if psutil.Process(pid).status() == psutil.STATUS_ZOMBIE:
-            log('tunnel: failed to release')
-            return
-    except:
-        log('tunnel: failed to release')
-        return
-    os.kill(pid, signal.SIGKILL)
+    os.system('kill -9 %d 2>/dev/null' % pid)
     os.remove(path)
 
 def disconnect(addr, force=False):
