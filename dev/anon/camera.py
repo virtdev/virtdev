@@ -35,7 +35,7 @@ if not _camera_init:
     _camera_init = True
 
 class Camera(VDevAnonOper):
-    def __init__(self, index):
+    def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
         cameras = camera.list_cameras()
         if index >= len(cameras):
@@ -52,7 +52,7 @@ class Camera(VDevAnonOper):
         return {'Image':encodestring(res.getvalue())}
 
 if __name__ == '__main__':
-    cam = Camera(0)
+    cam = Camera()
     res = cam.get()
     if res and res.get('Image'):
         print('Camera: success, len=%d' % len(res['Image']))

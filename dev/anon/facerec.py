@@ -17,7 +17,6 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
 import cv2
 import numpy
 from PIL import Image
@@ -28,7 +27,7 @@ from base64 import decodestring
 PATH_CASCADE = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml'
 
 class FaceRec(VDevAnonOper):
-    def __init__(self, index):
+    def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
         self._cascade = cv2.CascadeClassifier(PATH_CASCADE)
     
@@ -56,15 +55,17 @@ class FaceRec(VDevAnonOper):
                     return {'Enable':'True'}
     
 if __name__ == '__main__':
+    import os
+    import sys
     from base64 import encodestring
-    path = '/opt/images/test.jpg'
+    path = '/opt/images/face.jpg'
     if not os.path.exists(path):
-        print('FaceRec: no image, path=%s' % path)
-        exit(1)
+        print('FaceRec: cannot find %s' % path)
+        sys.exit()
     with open(path) as f:
         buf = f.read()
     image = encodestring(buf)
-    rec = FaceRec(0)
+    rec = FaceRec()
     ret = rec.recognize(image)
     print('FaceRec: ret=%s' % str(ret))
     

@@ -17,15 +17,24 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import md5
+import os
 import wget
 from threading import Thread
 from aop import VDevAnonOper
 
-class Downloader(VDevAnonOper):    
+DEBUG_DOWNLOADER = True
+PATH_DOWNLOADER = "/opt/downloads"
+
+class Downloader(VDevAnonOper):
+    def __init__(self, index=0):
+        VDevAnonOper.__init__(self, index)
+        if not os.path.exists(PATH_DOWNLOADER):
+            os.makedirs(PATH_DOWNLOADER, 0o755)
+    
     def _do_download(self, url):
-        filename = wget.download(url)
-        print('Downloader: filename=%s' % str(filename))
+        filename = wget.download(url, out=PATH_DOWNLOADER, bar=None)
+        if DEBUG_DOWNLOADER:
+            print('Downloader: filename=%s' % str(filename))
         
     def download(self, url):
         Thread(target=self._do_download, args=(url,)).start()
@@ -44,5 +53,14 @@ class Downloader(VDevAnonOper):
                         return {'Enable':True}
                     
         else:
-            print('Downloader: invalid args')
-    
+            if DEBUG_DOWNLOADER:
+                print('Downloader: invalid args')
+
+if __name__ == '__main__':
+    name = 'test'
+    url = 'http://upload.wikimedia.org/wikipedia/en/4/43/Better_than_a_hallelujah.jpg'
+    args = str({'Name':name, 'URL':url})
+    downloader = Downloader()
+    ret = downloader.put(args)
+    print('Downloader: ret=%s' % str(ret))
+

@@ -17,8 +17,8 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import PIL
 import zbar
+import Image
 from aop import VDevAnonOper
 from StringIO import StringIO
 from base64 import decodestring
@@ -28,7 +28,7 @@ class QRDecoder(VDevAnonOper):
         buf = decodestring(image)
         if buf:
             f = StringIO(buf)
-            src = PIL.Image.open(f)
+            src = Image.open(f)
             w, h = src.size
             raw = src.tostring()
             scanner = zbar.ImageScanner()
@@ -37,7 +37,7 @@ class QRDecoder(VDevAnonOper):
             scanner.scan(img)
             for symbol in img:
                 if str(symbol.type) == 'QRCODE':
-                    return symbol.data
+                    return str(symbol.data).lower()
     
     def put(self, buf):
         args = self._get_args(buf)
@@ -52,4 +52,20 @@ class QRDecoder(VDevAnonOper):
                         return {'Name':name, 'URL':url}
                     else:
                         return {'URL':url}
+    
+if __name__ == '__main__':
+    import pyqrcode
+    from base64 import encodestring
+    path_png = '/tmp/qr.png'
+    path_jpg = '/tmp/qr.jpg'
+    qr = pyqrcode.create('hello')
+    qr.png(path_png, scale=6)
+    image = Image.open(path_png)
+    image.save(path_jpg)
+    dec = QRDecoder()
+    with open(path_jpg) as f:
+        buf = f.read()
+    image = encodestring(buf)
+    ret = dec.decode(image)
+    print('QRDecoder: ret=%s' % str(ret))
     

@@ -20,7 +20,7 @@
 import ast 
 
 class VDevAnonOper(object):
-    def __init__(self, index):
+    def __init__(self, index=0):
         self._index = index
     
     def __str__(self):

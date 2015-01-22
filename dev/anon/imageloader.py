@@ -23,22 +23,39 @@ from base64 import encodestring
 
 PATH_IL = '/opt/images'
 
-class Imageloader(VDevAnonOper):
-    def __init__(self, index):
+class ImageLoader(VDevAnonOper):
+    def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
+        self._images = self._load()
         self._start = False
     
-    def get(self):
-        if not self._start:
-            return
+    def _load(self):
         for name in os.listdir(PATH_IL):
             path = os.path.join(PATH_IL, name)
             with open(path) as f:
                 buf = f.read()
             if buf:
                 yield {'Name':name, 'Image':encodestring(buf)}
-        self._start = False
+        
+    def get(self):
+        if not self._start:
+            return
+        try:
+            return self._images.next()
+        except StopIteration:
+            self._start = False
+            self._images = self._load()
     
     def open(self):
         self._start = True
+
+if __name__ == '__main__':
+    loader = ImageLoader()
+    loader.open()
+    while True:
+        res = loader.get()
+        if not res:
+            break
+        print('ImageLoader: name=%s' % res['Name'])
+
     

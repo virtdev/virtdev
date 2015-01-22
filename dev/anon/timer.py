@@ -22,12 +22,13 @@ import shelve
 from aop import VDevAnonOper
 from datetime import datetime
 
+DEBUG_TIMER = False
 PATH_TIMER = '/tmp/timer'
 
 class Timer(VDevAnonOper):
-    def __init__(self, index):
+    def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
-        if os.path.exists(PATH_TIMER):
+        if not os.path.exists(PATH_TIMER):
             os.makedirs(PATH_TIMER, 0o755)
     
     def _create(self, name):
@@ -43,7 +44,10 @@ class Timer(VDevAnonOper):
             else:
                 t_end = datetime.utcnow()
                 t_start = datetime.strptime(d['start'], "%Y-%m-%d %H:%M:%S.%f")
-                d['time'] = (t_end - t_start).total_seconds()
+                t = (t_end - t_start).total_seconds()
+                d['time'] = t 
+                if DEBUG_TIMER:
+                    print('Timer: name=%s, time=%f' % (name, t))
         finally:
             d.close()
     
@@ -54,4 +58,14 @@ class Timer(VDevAnonOper):
             if name:
                 if self._create(name):
                     return args
+    
+if __name__ == '__main__':
+    import md5
+    import time
+    timer = Timer()
+    name = md5.new('test').hexdigest()
+    args = str({'Name':name})
+    timer.put(args)
+    time.sleep(1)
+    timer.put(args)
     
