@@ -26,8 +26,8 @@ PATH_IL = '/opt/images'
 class ImageLoader(VDevAnonOper):
     def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
-        self._images = self._load()
-        self._start = False
+        self._images = None
+        self._active = False
     
     def _load(self):
         for name in os.listdir(PATH_IL):
@@ -38,16 +38,16 @@ class ImageLoader(VDevAnonOper):
                 yield {'Name':name, 'Image':encodestring(buf)}
         
     def get(self):
-        if not self._start:
+        if not self._active:
             return
         try:
             return self._images.next()
         except StopIteration:
-            self._start = False
-            self._images = self._load()
+            self._active = False
     
     def open(self):
-        self._start = True
+        self._images = self._load()
+        self._active = True
 
 if __name__ == '__main__':
     loader = ImageLoader()
@@ -57,5 +57,3 @@ if __name__ == '__main__':
         if not res:
             break
         print('ImageLoader: name=%s' % res['Name'])
-
-    
