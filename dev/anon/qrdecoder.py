@@ -44,12 +44,12 @@ class QRDecoder(VDevAnonOper):
         if args and type(args) == dict:
             name = args.get('Name')
             image = args.get('Image')
-            if name and image:
+            if image:
                 url = self.decode(image)
                 if url:
                     print('QRDecoder: url=%s' % url)
                     if name:
-                        return {'Name':name, 'URL': url}
+                        return {'Name':name, 'URL':url}
                     else:
-                        return {'URL': url}
+                        return {'URL':url}
     
