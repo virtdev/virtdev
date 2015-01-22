@@ -12,6 +12,7 @@ apt-get install -y isc-dhcp-server
 apt-get install -y librsync-dev
 apt-get install -y libzmq-dev
 apt-get install -y python-pip
+apt-get install -y python-pil
 apt-get install -y python-dbus
 apt-get install -y python-cffi
 apt-get install -y python-numpy
@@ -20,6 +21,7 @@ apt-get install -y python-gi-dev
 apt-get install -y python-all-dev
 apt-get install -y python-imaging
 apt-get install -y python-pygame
+apt-get install -y python-opencv
 pip install hash_ring
 pip install isodate
 pip install netifaces
