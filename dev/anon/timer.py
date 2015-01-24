@@ -23,17 +23,21 @@ from aop import VDevAnonOper
 from datetime import datetime
 
 DEBUG_TIMER = False
-PATH_TIMER = '/tmp/timer'
+PATH_TIMER = '/tmp'
 
 class Timer(VDevAnonOper):
     def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
-        if not os.path.exists(PATH_TIMER):
-            os.makedirs(PATH_TIMER, 0o755)
+        path = self._get_path()
+        if not os.path.exists(path):
+            os.makedirs(path, 0o755)
+    
+    def _get_path(self):
+        return os.path.join(PATH_TIMER, str(self))
     
     def _create(self, name):
         start = False
-        path = os.path.join(PATH_TIMER, name)
+        path = os.path.join(self._get_path(), name)
         if not os.path.exists(path):
             start = True
         d = shelve.open(path)

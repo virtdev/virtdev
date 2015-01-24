@@ -21,24 +21,29 @@ import os
 from aop import VDevAnonOper
 from base64 import encodestring
 
-PATH_IL = '/opt/images'
+PATH_IL = '/opt'
 
 class ImageLoader(VDevAnonOper):
     def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
-        if not os.path.exists(PATH_IL):
-            os.makedirs(PATH_IL, 0o755)
+        path = self._get_path()
+        if not os.path.exists(path):
+            os.makedirs(path, 0o755)
         self._images = None
         self._active = False
     
+    def _get_path(self):
+        return os.path.join(PATH_IL, str(self))
+    
     def _load(self):
-        for name in os.listdir(PATH_IL):
-            path = os.path.join(PATH_IL, name)
-            with open(path) as f:
+        path = self._get_path()
+        for name in os.listdir(path):
+            path_image = os.path.join(path, name)
+            with open(path_image) as f:
                 buf = f.read()
             if buf:
                 yield {'Name':name, 'Image':encodestring(buf)}
-        
+    
     def get(self):
         if not self._active:
             return
