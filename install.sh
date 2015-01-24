@@ -6,10 +6,12 @@ apt-get install -y bluetooth
 apt-get install -y bluez-utils
 apt-get install -y bluez-compat
 apt-get install -y python-bluez
-apt-get install -y libbluetooth-dev
 apt-get install -y build-essential
 apt-get install -y isc-dhcp-server
+apt-get install -y libbluetooth-dev
+apt-get install -y libopencv-dev
 apt-get install -y librsync-dev
+apt-get install -y libzbar-dev
 apt-get install -y libzmq-dev
 apt-get install -y python-pip
 apt-get install -y python-pil
@@ -21,9 +23,9 @@ apt-get install -y python-gi-dev
 apt-get install -y python-all-dev
 apt-get install -y python-imaging
 apt-get install -y python-pygame
-apt-get install -y libopencv-dev
 apt-get install -y python-opencv
-pip install zbar
+apt-get install -y python-zbar
+pip install wget
 pip install pyqrcode
 pip install hash_ring
 pip install isodate

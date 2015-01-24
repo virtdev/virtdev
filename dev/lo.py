@@ -26,9 +26,10 @@ from anon.camera import Camera
 from anon.facerec import FaceRec
 from anon.qrdecoder import QRDecoder
 from anon.downloader import Downloader
-from interface import VDevInterface
-from conf.virtdev import VDEV_LO_PORT
+from anon.imageloader import ImageLoader
 from anon.anon import VDevAnon, anon_index
+from conf.virtdev import VDEV_LO_PORT
+from interface import VDevInterface
 
 VDEV_HAS_TIMER = True
 VDEV_HAS_CAMERA = True
@@ -60,14 +61,16 @@ class VDevLo(VDevInterface):
                 try:
                     if d_type == 'CAMERA':
                         device = VDevAnon(Camera(d_index), sock)
+                    elif d_type == 'TIMER':
+                        device = VDevAnon(Timer(d_index), sock)
                     elif d_type == 'FACEREC':
                         device = VDevAnon(FaceRec(d_index), sock)
                     elif d_type == 'DOWNLOADER':
                         device = VDevAnon(Downloader(d_index), sock)
                     elif d_type == 'QRDECODER':
                         device = VDevAnon(QRDecoder(d_index), sock)
-                    elif d_type == 'TIMER':
-                        device = VDevAnon(Timer(d_index), sock)
+                    elif d_type == 'IMAGELOADER':
+                        device = VDevAnon(ImageLoader(d_index), sock)
                 except:
                     log_err(self, 'failed to listen, invalid device')
                     continue

@@ -24,7 +24,7 @@ class VDevAnonOper(object):
         self._index = index
     
     def __str__(self):
-        return self.__class__.__name__.upper() + str(self._index)
+        return self.__class__.__name__.upper() + '_' + str(self._index)
     
     def open(self):
         pass
