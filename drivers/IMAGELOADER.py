@@ -17,9 +17,9 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_OUT, VDEV_MODE_POLL, VDEV_MODE_SYNC, VDEV_MODE_ANON
+from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_OUT, VDEV_MODE_POLL, VDEV_MODE_ANON
 
 class IMAGELOADER(VDev):
     def __init__(self):
-        VDev.__init__(self, VDEV_MODE_OUT | VDEV_MODE_VISI | VDEV_MODE_POLL | VDEV_MODE_SYNC | VDEV_MODE_ANON, Name='str', Image='*')
+        VDev.__init__(self, VDEV_MODE_OUT | VDEV_MODE_VISI | VDEV_MODE_POLL | VDEV_MODE_ANON, Name='str', Image='*')
         self.set_freq(0.01)
