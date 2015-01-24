@@ -30,7 +30,7 @@ if __name__ == '__main__':
     argc = len(sys.argv)
     if argc != 3:
         usage()
-        sys.exit(0)
+        sys.exit()
     router = VDevRouter()
     for i in VDEV_DB_SERVERS:
         router.add_server('event', i)

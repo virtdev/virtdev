@@ -25,6 +25,7 @@ from lib.log import log_err
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 OP_ADD  = 'add'
+OP_LOAD = 'load'
 OP_JOIN = 'join'
 OP_POLL = 'poll'
 OP_SYNC = 'sync'

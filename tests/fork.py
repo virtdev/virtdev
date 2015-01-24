@@ -33,7 +33,7 @@ if __name__ == '__main__':
     argc = len(sys.argv)
     if argc != 3:
         usage()
-        sys.exit(0)
+        sys.exit()
     attr = {}
     uid = sys.argv[1]
     attr['name'] = uuid.uuid4().hex

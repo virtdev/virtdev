@@ -35,10 +35,10 @@ from lib.log import log_err, log
 from manager import VDevFSManager
 from watcher import VDevWatcherPool
 from fuse import FuseOSError, Operations
-from dev.vdev import VDEV_MODE_VIRT, VDEV_MODE_VISI, VDev
 from conf.virtdev import VDEV_DFS_SERVERS, VDEV_FS_MOUNTPOINT
+from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_VISI, VDEV_GET
 from attr import Attr, VDEV_ATTR_MODE, VDEV_ATTR_PROFILE, VDEV_ATTR_HANDLER, VDEV_ATTR_MAPPER, VDEV_ATTR_DISPATCHER, VDEV_ATTR_FREQ
-from oper import OP_POLL, OP_FORK, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
+from oper import OP_LOAD, OP_POLL, OP_FORK, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
 
 _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
@@ -100,7 +100,7 @@ class VDevFS(Operations):
             self._query.set_link(link)
             self._link = link
         
-        self._manager = manager
+        self.manager = manager
         self._check_mountpoint()
         self._lock = VDevLock()
         if manager:
@@ -469,7 +469,7 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to join, no object')
             raise FuseOSError(EINVAL)
-        self._manager.guest.join(name, target)
+        self.manager.guest.join(name, target)
     
     def _accept(self, path, target):
         if not self._shadow:
@@ -478,7 +478,7 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to accept, no object')
             raise FuseOSError(EINVAL)
-        self._manager.guest.accept(name, target)
+        self.manager.guest.accept(name, target)
     
     def setxattr(self, path, name, value, options, position=0):
         if name == OP_INVALIDATE:
@@ -565,8 +565,22 @@ class VDevFS(Operations):
         if re.match('[0-9a-zA-Z]+(_[0-9a-zA-Z]+)+', name):
             return True
     
+    def _load(self, path):
+        obj, _, name = self._parse(path)
+        if not obj or not obj.can_load():
+            log_err(self, 'failed to load')
+            raise FuseOSError(EINVAL)
+        if self.manager:
+            for device in self.manager:
+                d = device.find(name)
+                if d:
+                    return d.proc(name, VDEV_GET)
+        return ''
+        
     def getxattr(self, path, name, position=0):
-        if name == OP_POLL:
+        if name == OP_LOAD:
+            return self._load(path)
+        elif name == OP_POLL:
             return self._poll(path)
         elif self._is_query(name):
             return self._scan(path, name)

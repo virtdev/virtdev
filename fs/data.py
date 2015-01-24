@@ -28,6 +28,9 @@ class Data(VDevPath):
         self._edge = edge
         self._attr = attr
     
+    def can_load(self):
+        return True
+    
     def can_scan(self):
         return True
     

@@ -32,7 +32,7 @@ if __name__ == '__main__':
     argc = len(sys.argv)
     if argc != 2:
         usage()
-        sys.exit(0)
+        sys.exit()
     uid = sys.argv[1]
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
     ret = xattr.getxattr(path, OP_POLL)

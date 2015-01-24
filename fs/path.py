@@ -62,6 +62,9 @@ class VDevPath(object):
     def label(self):
         return self._label
     
+    def can_load(self):
+        return False
+    
     def can_scan(self):
         return False
     

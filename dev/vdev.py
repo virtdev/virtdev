@@ -47,6 +47,7 @@ VDEV_MODE_OUT  = 0x00000800
 VDEV_MODE_REFLECT = 0x00001000
 VDEV_MODE_ANON = 0x00002000
 
+VDEV_ENABLE_POLLING = True
 VDEV_FREQ = 10 # HZ
 VDEV_OUTPUT_MAX = 1 << 20
 
@@ -361,8 +362,9 @@ class VDev(object):
     def _run(self):
         if not self._sock:
             return
-        poll = ThreadPool(processes=1)
-        poll.apply_async(self._poll)
+        if VDEV_ENABLE_POLLING:
+            poll = ThreadPool(processes=1)
+            poll.apply_async(self._poll)
         while True:
             try:
                 device, buf = self._read()

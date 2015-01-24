@@ -31,7 +31,7 @@ if __name__ == '__main__':
     argc = len(sys.argv)
     if argc != 4:
         usage()
-        sys.exit(0)
+        sys.exit()
     uid = sys.argv[1]
     name = sys.argv[2]
     num = sys.argv[3]

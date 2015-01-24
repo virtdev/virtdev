@@ -32,7 +32,7 @@ if __name__ == '__main__':
     argc = len(sys.argv)
     if argc != 3:
         usage()
-        sys.exit(0)
+        sys.exit()
     uid = sys.argv[1]
     name = sys.argv[2]
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)

@@ -1,4 +1,4 @@
-#      create.py
+#      load.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -18,28 +18,22 @@
 #      MA 02110-1301, USA.
 
 import os
-import uuid
 import xattr
 
 import sys
 sys.path.append('..')
-from fs.oper import OP_CREATE
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'create.py [uid] [[member] ...]'
+    print 'load.py [uid] [device id]'
 
 if __name__ == '__main__':
     argc = len(sys.argv)
-    if argc < 2:
+    if argc != 3:
         usage()
         sys.exit()
-    attr = {}
     uid = sys.argv[1]
-    attr['name'] = uuid.uuid4().hex
-    attr['vertex'] = sys.argv[2:] 
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
-    xattr.setxattr(path, OP_CREATE, str(attr))
-    print 'name=' + attr['name']
-    
+    name = sys.argv[2]
+    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
+    print xattr.getxattr(path, 'load')
     
