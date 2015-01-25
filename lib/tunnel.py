@@ -47,7 +47,6 @@ def excl(func):
             lock.release()
     return _excl
 
-
 class Tunnel(object):
     def __init__(self):
         self._tunnels = {}
@@ -56,8 +55,8 @@ class Tunnel(object):
     def _split(self, addr):
         return addr.split(':')
     
-    def _run_path(self, addr):
-        return '/var/run/tunnel-%s.pid' % self._iface(addr)
+    def _get_path(self, addr):
+        return '/var/run/tunnel-%s.pid' % self._get_iface(addr)
     
     def _get_reserved_address(self, addr):
         ip = self.addr2ip(addr)
@@ -65,14 +64,14 @@ class Tunnel(object):
         n = int(fields[3])
         return '%s.%s.%s.%d' % (fields[0], fields[1], fields[2], n + NETSIZE - 1)
 
-    def _iface(self, addr): 
+    def _get_iface(self, addr): 
         name = ''
         fields = self._split(addr)[1].split('.')
         for i in range(1, 4):
             name += '%02x' % int(fields[i])
         return name
     
-    def _tunnel(self, addr):
+    def _get_tunnel(self, addr):
         grp, addr = self._split(addr)
         if int(grp) > 255:
             raise Exception('invalid address')
@@ -82,7 +81,7 @@ class Tunnel(object):
             name += '%02x' % int(fields[i])
         return name
     
-    def _supernode(self, addr):
+    def _get_supernode(self, addr):
         code = 0
         odd = 1
         length = len(VDEV_SUPERNODES)
@@ -99,7 +98,7 @@ class Tunnel(object):
         return '%s:%d' % (VDEV_SUPERNODES[code % length], VDEV_SUPERNODE_PORT)
 
     def _is_gateway(self, addr):
-        address = ifaddr(self._iface(addr))
+        address = ifaddr(self._get_iface(addr))
         fields = address.split('.')
         return int(fields[3]) == 1
     
@@ -122,14 +121,14 @@ class Tunnel(object):
             address = '0.0.0.0'
         else:
             address = self._get_reserved_address(addr)
-        pid = Popen(['edge', '-r', '-d', self._iface(addr), '-a', address, '-s', NETMASK, '-c', self._tunnel(addr), '-k', key, '-l', self._supernode(addr)], stdout=DEVNULL, stderr=DEVNULL).pid
+        pid = Popen(['edge', '-r', '-d', self._get_iface(addr), '-a', address, '-s', NETMASK, '-c', self._get_tunnel(addr), '-k', key, '-l', self._get_supernode(addr)], stdout=DEVNULL, stderr=DEVNULL).pid
         if not self._check_pid(pid):
             log('tunnel: failed to connect')
             raise Exception('tunnel: failed to connect')
-        with open(self._run_path(addr), 'w') as f:
+        with open(self._get_path(addr), 'w') as f:
             f.write(str(pid))
         if not static:
-            os.system('dhclient -q %s' % self._iface(addr))
+            os.system('dhclient -q %s' % self._get_iface(addr))
         return self._chkiface(addr)
     
     @excl
@@ -144,7 +143,7 @@ class Tunnel(object):
         if not force:
             if self._is_gateway(addr):
                 return
-        path = self._run_path(addr)
+        path = self._get_path(addr)
         with open(path, 'r') as f:
             pid = int(f.readlines()[0].strip())
         os.system('kill -9 %d 2>/dev/null' % pid)
@@ -161,13 +160,13 @@ class Tunnel(object):
     
     @excl
     def exists(self, addr):
-        return os.path.exists(self._run_path(addr))
+        return os.path.exists(self._get_path(addr))
     
     def _chkiface(self, addr):
         address = None
         for _ in range(RETRY_MAX):
             try:
-                ifname = self._iface(addr)
+                ifname = self._get_iface(addr)
                 address = ifaddr(ifname)
                 if address:
                     return address
@@ -197,8 +196,8 @@ class Tunnel(object):
         cfg.append('}\n')
         with open(PATH, 'w') as f:
             f.writelines(cfg)
-        pid = Popen(['edge', '-r', '-d', self._iface(addr), '-a', address, '-s', NETMASK, '-c', self._tunnel(addr), '-k', key, '-l', self._supernode(addr)], stdout=DEVNULL, stderr=DEVNULL).pid
-        with open(self._run_path(addr), 'w') as f:
+        pid = Popen(['edge', '-r', '-d', self._get_iface(addr), '-a', address, '-s', NETMASK, '-c', self._get_tunnel(addr), '-k', key, '-l', self._get_supernode(addr)], stdout=DEVNULL, stderr=DEVNULL).pid
+        with open(self._get_path(addr), 'w') as f:
             f.write(str(pid))
         os.system('killall -q -9 dhcpd')
         os.system('dhcpd -q')
