@@ -82,6 +82,8 @@ class VDevFSServer(object):
         return token
     
     def _proc(self, sock):
+        if not sock:
+            return
         try:
             buf = tunnel.recv(sock)
             if len(buf) <= UID_SIZE:
@@ -107,18 +109,18 @@ class VDevFSServer(object):
                     log_err(self, 'failed to process, cannot handle operation %s' % str(op))
                 tunnel.send(sock, crypto.pack(uid, res, token))
         finally:
-            sock.close()
+            try:
+                sock.close()
+            except:
+                pass
     
     def _start(self):
         while True:
             try:
                 sock = self._sock.accept()[0]
-                if sock:
-                    Thread(target=self._proc, args=(sock,)).start()
+                Thread(target=self._proc, args=(sock,)).start()
             except:
-                if sock:
-                    log_err(self, 'failed to process')
-                    sock.close()
+                log_err(self, 'failed to process')
     
     def start(self):
         if not self._srv:

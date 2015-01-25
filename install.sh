@@ -26,6 +26,7 @@ apt-get install -y python-pygame
 apt-get install -y python-opencv
 apt-get install -y python-zbar
 pip install wget
+pip install pypng
 pip install pyqrcode
 pip install hash_ring
 pip install isodate

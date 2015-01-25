@@ -24,9 +24,9 @@ import time
 import copy
 from lib import stream
 from drivers.SU import SU
-from lib.util import get_name
 from threading import Lock, Thread
 from lib.log import log_get, log_err
+from lib.util import get_name, get_node
 from multiprocessing.pool import ThreadPool
 
 VDEV_PAIR_INTERVAL = 7 # sec
@@ -104,7 +104,7 @@ class VDevInterface(Thread):
         if len(types) != 1:
             log_err(self, 'failed to mount')
             raise Exception(log_get(self, 'failed to mount'))
-        anon = get_name(self._uid, name)
+        anon = get_name(self._uid, get_node(), name)
         device = self._load_device(types[types.keys()[0]])
         device.mount(self.manager, anon, sock=sock)
         self._devices.update({anon:device})

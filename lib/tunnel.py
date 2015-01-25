@@ -33,6 +33,7 @@ PATH = '/etc/dhcp/dhcpd.conf'
 DEVNULL = open(os.devnull, 'wb')
 RETRY_MAX = 50
 SLEEP_TIME = 0.1 # seconds
+TIMEOUT = 10
 
 def _split(addr):
     return addr.split(':')
@@ -176,8 +177,7 @@ def exist(addr):
     return os.path.exists(_run_path(addr))
 
 def put(addr, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((addr, VDEV_FS_PORT))
+    sock = socket.create_connection((addr, VDEV_FS_PORT), TIMEOUT)
     try:
         req = {'op':op, 'args':args}
         msg = crypto.pack(uid, req, token)
@@ -185,4 +185,8 @@ def put(addr, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
         ret = recv(sock)
         return crypto.unpack(uid, ret, token)
     finally:
-        sock.close()
+        try:
+            sock.close()
+        except:
+            pass
+    

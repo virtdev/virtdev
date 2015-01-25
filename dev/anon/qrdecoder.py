@@ -23,6 +23,8 @@ from aop import VDevAnonOper
 from StringIO import StringIO
 from base64 import decodestring
 
+DEBUG_QRDECODER = False
+
 class QRDecoder(VDevAnonOper):    
     def decode(self, image):
         buf = decodestring(image)
@@ -47,7 +49,8 @@ class QRDecoder(VDevAnonOper):
             if image:
                 url = self.decode(image)
                 if url:
-                    print('QRDecoder: url=%s' % url)
+                    if DEBUG_QRDECODER:
+                        print('QRDecoder: url=%s' % url)
                     if name:
                         return {'Name':name, 'URL':url}
                     else:
