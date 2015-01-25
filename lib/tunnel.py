@@ -177,7 +177,7 @@ def exist(addr):
     return os.path.exists(_run_path(addr))
 
 def put(addr, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
-    sock = socket.create_connection((addr, VDEV_FS_PORT), TIMEOUT)
+    sock = socket.create_connection((addr, VDEV_FS_PORT), timeout=TIMEOUT)
     try:
         req = {'op':op, 'args':args}
         msg = crypto.pack(uid, req, token)
