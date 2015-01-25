@@ -1,4 +1,4 @@
-#      timer.py
+#      timesaver.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -19,30 +19,26 @@
 
 import os
 import shelve
+from timer import get_path
 from aop import VDevAnonOper
 from datetime import datetime
 
-DEBUG_TIMER = False
-PATH_TIMER = '/var/tmp'
+DEBUG_TIMESAVER = False
 
-def get_path(index):
-    return os.path.join(PATH_TIMER, 'TIMER_%d' % index) 
-
-class Timer(VDevAnonOper):
-    def __init__(self, index=0):
-        VDevAnonOper.__init__(self, index)
-        path = get_path(index)
-        if not os.path.exists(path):
-            os.makedirs(path, 0o755)
-    
-    def _create(self, name):
+class TimeSaver(VDevAnonOper):
+    def _save(self, name):
         path = os.path.join(get_path(self._index), name)
+        if not os.path.exists(path):
+            return
         d = shelve.open(path)
         try:
-            d['start'] =  str(datetime.utcnow())
-            if DEBUG_TIMER:
-                print('Timer: name=%s, time=%s' % (name, d['start']))
-            return True
+            t_end = datetime.utcnow()
+            t_start = datetime.strptime(d['start'], "%Y-%m-%d %H:%M:%S.%f")
+            t = (t_end - t_start).total_seconds()
+            d['time'] = t 
+            if DEBUG_TIMESAVER:
+                print('TimeSaver: name=%s, time=%f' % (name, t))
+            return t
         finally:
             d.close()
     
@@ -51,14 +47,15 @@ class Timer(VDevAnonOper):
         if args and type(args) == dict:
             name = args.get('Name')
             if name:
-                if self._create(name):
-                    return args
-
+                t = self._save(name)
+                if t:
+                    return {'Time':t}
+    
 if __name__ == '__main__':
     import md5
-    timer = Timer()
+    s = TimeSaver()
     name = md5.new('test').hexdigest()
     args = str({'Name':name})
-    ret = timer.put(args)
-    print 'Timer: ret=%s' % str(ret)
+    ret = s.put(args)
+    print 'TimeSaver: ret=%s' % str(ret)
     

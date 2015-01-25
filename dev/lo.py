@@ -24,6 +24,8 @@ from threading import Thread
 from anon.timer import Timer
 from anon.camera import Camera
 from anon.facerec import FaceRec
+from anon.timecalc import TimeCalc
+from anon.timesaver import TimeSaver
 from anon.qrdecoder import QRDecoder
 from anon.downloader import Downloader
 from anon.imageloader import ImageLoader
@@ -34,6 +36,8 @@ from interface import VDevInterface
 VDEV_HAS_TIMER = True
 VDEV_HAS_CAMERA = True
 VDEV_HAS_FACEREC = True
+VDEV_HAS_TIMECALC = True
+VDEV_HAS_TIMESAVER = True
 VDEV_HAS_QRDECODER = True
 VDEV_HAS_DOWNLOADER = True
 VDEV_HAS_IMAGELOADER = True
@@ -41,6 +45,8 @@ VDEV_HAS_IMAGELOADER = True
 VDEV_TIMER_LIST = ['TIMER_0']
 VDEV_CAMERA_LIST = ['CAMERA_0']
 VDEV_FACEREC_LIST = ['FACEREC_0']
+VDEV_TIMECALC_LIST = ['TIMECALC_0']
+VDEV_TIMESAVER_LIST = ['TIMESAVER_0']
 VDEV_QRDECODER_LIST = ['QRDECODER_0']
 VDEV_DOWNLOADER_LIST = ['DOWNLOADER_0']
 VDEV_IMAGELOADER_LIST = ['IMAGELOADER_0']
@@ -65,6 +71,10 @@ class VDevLo(VDevInterface):
                         device = VDevAnon(Timer(d_index), sock)
                     elif d_type == 'FACEREC':
                         device = VDevAnon(FaceRec(d_index), sock)
+                    elif d_type == 'TIMECALC':
+                        device = VDevAnon(TimeCalc(d_index), sock)
+                    elif d_type == 'TIMESAVER':
+                        device = VDevAnon(TimeSaver(d_index), sock)
                     elif d_type == 'DOWNLOADER':
                         device = VDevAnon(Downloader(d_index), sock)
                     elif d_type == 'QRDECODER':
@@ -103,6 +113,10 @@ class VDevLo(VDevInterface):
             devices += VDEV_CAMERA_LIST
         if VDEV_HAS_FACEREC:
             devices += VDEV_FACEREC_LIST
+        if VDEV_HAS_TIMECALC:
+            devices += VDEV_TIMECALC_LIST
+        if VDEV_HAS_TIMESAVER:
+            devices += VDEV_TIMESAVER_LIST
         if VDEV_HAS_QRDECODER:
             devices += VDEV_QRDECODER_LIST
         if VDEV_HAS_DOWNLOADER:

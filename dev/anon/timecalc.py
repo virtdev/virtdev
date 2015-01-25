@@ -1,4 +1,4 @@
-#      timer.py
+#      timecalc.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,48 +17,50 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
-import shelve
+from threading import Lock
 from aop import VDevAnonOper
-from datetime import datetime
 
-DEBUG_TIMER = False
-PATH_TIMER = '/var/tmp'
+DEBUG_TIMECALC = False
+TIMECALC_TOTAL = 1000
 
-def get_path(index):
-    return os.path.join(PATH_TIMER, 'TIMER_%d' % index) 
-
-class Timer(VDevAnonOper):
+class TimeCalc(VDevAnonOper):
     def __init__(self, index=0):
         VDevAnonOper.__init__(self, index)
-        path = get_path(index)
-        if not os.path.exists(path):
-            os.makedirs(path, 0o755)
+        self._lock = Lock()
+        self._time = 0
+        self._cnt = 0
     
-    def _create(self, name):
-        path = os.path.join(get_path(self._index), name)
-        d = shelve.open(path)
+    def _calc(self, time):
+        self._lock.acquire()
         try:
-            d['start'] =  str(datetime.utcnow())
-            if DEBUG_TIMER:
-                print('Timer: name=%s, time=%s' % (name, d['start']))
-            return True
+            if self._cnt < TIMECALC_TOTAL:
+                self._time += time
+                self._cnt += 1
+                if self._cnt == TIMECALC_TOTAL:
+                    t = self._time / TIMECALC_TOTAL
+                    self._time = 0
+                    self._cnt = 0
+                    if DEBUG_TIMECALC:
+                        print('TimeCalc: time=%f' % t)
+                    return t
         finally:
-            d.close()
+            self._lock.release()
     
     def put(self, buf):
         args = self._get_args(buf)
         if args and type(args) == dict:
-            name = args.get('Name')
-            if name:
-                if self._create(name):
-                    return args
-
+            time = args.get('Time')
+            if time:
+                t = self._calc(time)
+                if t:
+                    return {'Time':t}
+    
 if __name__ == '__main__':
-    import md5
-    timer = Timer()
-    name = md5.new('test').hexdigest()
-    args = str({'Name':name})
-    ret = timer.put(args)
-    print 'Timer: ret=%s' % str(ret)
+    import random
+    calc = TimeCalc()
+    for _ in range(TIMECALC_TOTAL):
+        args = str({'Time':random.uniform(0, 1)})
+        ret = calc.put(args)
+        if ret:
+            print 'TimeCalc: ret=%s' % str(ret)
     
