@@ -148,8 +148,7 @@ class VDev(object):
             self._wrlock.release()
     
     def _mount(self):
-        path = self._get_path()
-        if self.d_mode & VDEV_MODE_VIRT or os.path.exists(path):
+        if self.d_mode & VDEV_MODE_VIRT:
             mode = None
             freq = None
             profile = None
