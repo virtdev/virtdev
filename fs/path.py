@@ -35,7 +35,7 @@ def is_local(uid, name):
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
     return os.path.exists(path)
 
-def load(label, uid, name):
+def load(uid, name, label):
     if label not in VDEV_FS_LABELS.keys():
         return
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid, VDEV_FS_LABELS[label], name)

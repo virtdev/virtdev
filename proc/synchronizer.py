@@ -61,13 +61,13 @@ class VDevSynchronizer(object):
     
     def _check_output(self, name):
         if not self._dispatcher.has_output(name):
-            edges = load('edge', self._uid, name)
+            edges = load(self._uid, name, 'edge')
             self._dispatcher.update_output(name, edges)
     
     def _check_members(self, name):
         if not self._members.has_key(name):
             self._members[name] = {}
-            vertices = load('vertex', self._uid, name)
+            vertices = load(self._uid, name, 'vertex')
             for i in vertices:
                 self._members[name][i] = []
     

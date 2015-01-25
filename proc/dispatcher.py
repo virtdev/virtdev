@@ -194,7 +194,7 @@ class VDevDispatcher(object):
             if not temp:
                 continue
             if not dest[i]:
-                self._log('send->tunnel, dest=%s, src=%s' % (i, name))
+                self._log('send->tunnel->put, dest=%s, src=%s' % (i, name))
                 self.manager.tunnel.put(i, dest=i, src=name, buf=temp, flags=flags)
             else:
                 self._send(i, name, temp, flags)
@@ -212,12 +212,15 @@ class VDevDispatcher(object):
         for i in buf:
             self.add((name, i), output=False)
     
-    def update_output(self, name, buf):
-        if not buf:
+    def update_output(self, name, items):
+        if not items:
             self._output[name] = {}
             return
-        for i in buf:
-            self.add((name, i))
+        for dest in items:
+            if not dest.startswith('.'):
+                self.add((name, dest))
+            else:
+                self.add((name, dest[1:]), hidden=True)
     
     def check(self, name):
         if self._dispatchers.has_key(name):
