@@ -107,11 +107,11 @@ def val2pair(val):
         return (res[0], '')
 
 def send_pkt(sock, buf):
-    length = len(buf)
-    head = struct.pack('I', length)
-    sock.sendall(head)
+    head = struct.pack('I', len(buf))
     if buf:
-        sock.sendall(buf)
+        sock.sendall(head + buf)
+    else:
+        sock.sendall(head)
 
 def recv_pkt(sock):
     head = sock.recv(4)

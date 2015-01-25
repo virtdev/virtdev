@@ -185,8 +185,4 @@ def put(addr, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
         ret = recv(sock)
         return crypto.unpack(uid, ret, token)
     finally:
-        try:
-            sock.close()
-        except:
-            pass
-    
+        sock.close()
