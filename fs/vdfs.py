@@ -175,7 +175,7 @@ class VDevFS(Operations):
         
         return (obj, uid, name)
     
-    def _link_create(self, obj, uid, name):
+    def _sync_create(self, obj, uid, name):
         if not self._shadow:
             if obj.can_invalidate():
                 if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
@@ -186,7 +186,7 @@ class VDevFS(Operations):
                     log_err(self, 'failed to link, cannot create, op=OP_TOUCH')
                     raise FuseOSError(EINVAL)
     
-    def _link_open(self, obj, uid, name, flags):
+    def _sync_open(self, obj, uid, name, flags):
         if not self._shadow:
             if obj.can_invalidate():
                 if obj.may_update(flags):
@@ -201,7 +201,7 @@ class VDevFS(Operations):
             buf = self._link.put(name=obj.parent(name), op=OP_DIFF, label=obj.label, item=obj.child(name), buf=obj.signature(uid, name))
             obj.patch(uid, name, buf)
     
-    def _link_release(self, obj, uid, name, flags):
+    def _sync_release(self, obj, uid, name, flags):
         if self._shadow:
             if flags and flags & VDEV_FS_UPDATE:
                 with open(obj.get_path(uid, name), 'r') as f:
@@ -210,21 +210,21 @@ class VDevFS(Operations):
                     log_err(self, 'failed to link, cannot release')
                     raise FuseOSError(EINVAL)
     
-    def _link_unlink(self, obj, uid, name):
+    def _sync_unlink(self, obj, uid, name):
         if not self._shadow:
             if obj.can_invalidate() or obj.can_unlink():
                 if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
                     log_err(self, 'failed to link, cannot unlink')
                     raise FuseOSError(EINVAL)
     
-    def _link_enable(self, obj, uid, name):
+    def _sync_enable(self, obj, uid, name):
         if not self._shadow:
             if obj.can_enable():
                 if not self._link.put(name=name, op=OP_ENABLE, path=name):
                     log_err(self, 'failed to link, cannot enable')
                     raise FuseOSError(EINVAL)
     
-    def _link_disable(self, obj, uid, name):
+    def _sync_disable(self, obj, uid, name):
         if not self._shadow:
             if obj.can_disable():
                 if not self._link.put(name=name, op=OP_DISABLE, path=name):
@@ -243,28 +243,30 @@ class VDevFS(Operations):
     def _mount_device(self, uid, name, mode, vertex, freq=None, profile=None, handler=None, mapper=None, dispatcher=None, parent=None):
         if mode != None:
             self._data.initialize(uid, name)
-            self._attr.initialize(VDEV_ATTR_MODE, uid, name, mode)
-        
+            self._attr.initialize(uid, name, {VDEV_ATTR_MODE:mode})
+            
             if not profile and mode & VDEV_MODE_VIRT:
                 profile = VDev().d_profile
             
             if freq:
-                self._attr.initialize(VDEV_ATTR_FREQ, uid, name, freq)
+                self._attr.initialize(uid, name, {VDEV_ATTR_FREQ:freq})
             
             if profile:
-                self._attr.initialize(VDEV_ATTR_PROFILE, uid, name, profile)
+                self._attr.initialize(uid, name, {VDEV_ATTR_PROFILE:profile})
             
             if mapper:
-                self._attr.initialize(VDEV_ATTR_MAPPER, uid, name, mapper)
+                self._attr.initialize(uid, name, {VDEV_ATTR_MAPPER:mapper})
             
             if handler:
-                self._attr.initialize(VDEV_ATTR_HANDLER, uid, name, handler)
+                self._attr.initialize(uid, name, {VDEV_ATTR_HANDLER:handler})
             
             if dispatcher:
-                self._attr.initialize(VDEV_ATTR_DISPATCHER, uid, name, dispatcher)
+                self._attr.initialize(uid, name, {VDEV_ATTR_DISPATCHER:dispatcher})
             
             if vertex:
                 self._vertex.initialize(uid, name, vertex)
+                for v in vertex:
+                    self._edge.initialize(uid, (v, name), hidden=True)
             
             if not self._shadow and mode & VDEV_MODE_VIRT:
                 if vertex:
@@ -354,7 +356,7 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to create, no object')
             raise FuseOSError(EINVAL)
-        self._link_create(obj, uid, name)
+        self._sync_create(obj, uid, name)
         return obj.create(uid, name)
     
     @excl
@@ -373,7 +375,7 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to open, no object')
             raise FuseOSError(EINVAL)
-        self._link_open(obj, uid, name, flags)
+        self._sync_open(obj, uid, name, flags)
         return obj.open(uid, name, flags)
     
     @excl
@@ -384,7 +386,7 @@ class VDevFS(Operations):
             log_err(self, 'failed to release, no object')
             raise FuseOSError(EINVAL)
         flags = obj.release(uid, name, fh)
-        self._link_release(obj, uid, name, flags)
+        self._sync_release(obj, uid, name, flags)
     
     @excl
     def write(self, path, buf, offset, fh):
@@ -403,7 +405,7 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to unlink, no object')
             raise FuseOSError(EINVAL)
-        self._link_unlink(obj, uid, name)
+        self._sync_unlink(obj, uid, name)
         obj.unlink(uid, name)
     
     def _create(self, path, op, attr):
@@ -453,14 +455,14 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to enable, no object')
             raise FuseOSError(EINVAL)
-        self._link_enable(obj, uid, name)
+        self._sync_enable(obj, uid, name)
     
     def _disable(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
             log_err(self, 'failed to disable, no object')
             raise FuseOSError(EINVAL)
-        self._link_disable(obj, uid, name)
+        self._sync_disable(obj, uid, name)
     
     def _join(self, path, target):
         if not self._shadow:

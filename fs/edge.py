@@ -17,14 +17,29 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import os
+from  errno import EINVAL
 from path import VDevPath
-    
+from lib.log import log_err
+from fuse import FuseOSError
+
 class Edge(VDevPath):
     def can_touch(self):
         return True
     
     def can_unlink(self):
         return True
+    
+    def initialize(self, uid, edge, hidden=False):
+        if type(edge) != tuple:
+            log_err(self, 'failed to initialize')
+            raise FuseOSError(EINVAL)
+        
+        if not hidden:
+            name = os.path.join(edge[0], edge[1])
+        else:
+            name = os.path.join(edge[0], '.' + edge[1])
+        self.create(uid, name)
     
     def _new_edge(self, src, dest):
         if self.manager:

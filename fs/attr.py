@@ -23,6 +23,7 @@ from temp import Temp
 from path import VDevPath
 from fuse import FuseOSError
 from StringIO import StringIO
+from lib.log import log_err, log_get
 from base64 import encodestring, decodestring
 
 VDEV_ATTR_MODE = 'mode'
@@ -121,66 +122,71 @@ class Attr(VDevPath):
     def readdir(self, uid, name):
         return self.lsdir(uid, name)
     
-    def _create_mapper(self, uid, name, buf):
+    def _create_mapper(self, uid, name, val):
         name = os.path.join(name, VDEV_ATTR_MAPPER)
         f = self.create(uid, name)
         try:
-            os.write(f, str(buf))
+            os.write(f, str(val))
         finally:
             self._release(uid, name, f, force=True)
     
-    def _create_mode(self, uid, name, buf):
+    def _create_mode(self, uid, name, val):
         name = os.path.join(name, VDEV_ATTR_MODE)
         f = self.create(uid, name)
         try:
-            os.write(f, str(buf))
+            os.write(f, str(val))
         finally:
             self._release(uid, name, f, force=True)
     
-    def _create_freq(self, uid, name, buf):
+    def _create_freq(self, uid, name, val):
         name = os.path.join(name, VDEV_ATTR_FREQ)
         f = self.create(uid, name)
         try:
-            os.write(f, str(buf))
+            os.write(f, str(val))
         finally:
             self._release(uid, name, f, force=True)
     
-    def _create_handler(self, uid, name, buf):
+    def _create_handler(self, uid, name, val):
         name = os.path.join(name, VDEV_ATTR_HANDLER)
         f = self.create(uid, name)
         try:
-            os.write(f, str(buf))
+            os.write(f, str(val))
         finally:
             self._release(uid, name, f, force=True)
     
-    def _create_profile(self, uid, name, buf):
+    def _create_profile(self, uid, name, val):
         name = os.path.join(name, VDEV_ATTR_PROFILE)
         f = self.create(uid, name)
         try:
-            for i in buf:
-                os.write(f, '%s=%s\n' % (str(i), str(buf[i])))
+            for i in val:
+                os.write(f, '%s=%s\n' % (str(i), str(val[i])))
         finally:
             self._release(uid, name, f, force=True)
     
-    def _create_dispatcher(self, uid, name, buf):
+    def _create_dispatcher(self, uid, name, val):
         name = os.path.join(name, VDEV_ATTR_DISPATCHER)
         f = self.create(uid, name)
         try:
-            os.write(f, str(buf))
+            os.write(f, str(val))
         finally:
             self._release(uid, name, f, force=True)
     
-    def initialize(self, attr, uid, name, buf):
-        if attr == VDEV_ATTR_MAPPER:
-            self._create_mapper(uid, name, buf)
-        elif attr == VDEV_ATTR_MODE:
-            self._create_mode(uid, name, buf)
-        elif attr == VDEV_ATTR_FREQ:
-            self._create_freq(uid, name, buf)
-        elif attr == VDEV_ATTR_HANDLER:
-            self._create_handler(uid, name, buf)
-        elif attr == VDEV_ATTR_PROFILE:
-            self._create_profile(uid, name, buf)
-        elif attr == VDEV_ATTR_DISPATCHER:
-            self._create_dispatcher(uid, name, buf)
+    def initialize(self, uid, name, attr):
+        if type(attr) != dict or len(attr) != 1:
+            log_err(self, 'failed to initialize, invalid attr')
+            raise Exception(log_get(self, 'failed to initialize, invalid attr'))
+        key = attr.keys()[0]
+        val = attr[key]
+        if key == VDEV_ATTR_MAPPER:
+            self._create_mapper(uid, name, val)
+        elif key == VDEV_ATTR_MODE:
+            self._create_mode(uid, name, val)
+        elif key == VDEV_ATTR_FREQ:
+            self._create_freq(uid, name, val)
+        elif key == VDEV_ATTR_HANDLER:
+            self._create_handler(uid, name, val)
+        elif key == VDEV_ATTR_PROFILE:
+            self._create_profile(uid, name, val)
+        elif key == VDEV_ATTR_DISPATCHER:
+            self._create_dispatcher(uid, name, val)
     

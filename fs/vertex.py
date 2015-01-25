@@ -49,6 +49,6 @@ class Vertex(VDevPath):
             raise FuseOSError(EINVAL)
         
         for i in vertex:
-            n = os.path.join(name, i)
-            self.create(uid, n)
+            v = os.path.join(name, i)
+            self.create(uid, v)
     

@@ -145,9 +145,9 @@ class VDevFSUplink(VDevFSLink):
 
 class VDevFSDownlink(VDevFSLink):
     def __init__(self, query):
-        self.query = query
         VDevFSLink.__init__(self)
         self._operations = [OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
+        self.query = query
         self._devices = {}
         self._tokens = {}
     
