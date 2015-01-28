@@ -113,10 +113,8 @@ def send_pkt(sock, buf):
     else:
         sock.sendall(head)
 
-def recv_pkt(sock):
+def _recv(sock, length):
     ret = ''
-    head = sock.recv(4)
-    length = struct.unpack('I', head)[0]
     while length > 0:
         buf = sock.recv(length)
         if not buf:
@@ -124,6 +122,13 @@ def recv_pkt(sock):
         ret += buf
         length -= len(buf) 
     return ret
+
+def recv_pkt(sock):
+    head = _recv(sock, 4)
+    if not head:
+        return ''
+    length = struct.unpack('I', head)[0]
+    return _recv(sock, length)
 
 def close_port(port):
     cmd = 'lsof -i:%d -Fp | cut -c2- | xargs --no-run-if-empty kill -9' % port

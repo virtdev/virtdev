@@ -28,13 +28,13 @@ from subprocess import Popen
 from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt
 from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
 
+TIMEOUT = 10
 NETSIZE = 30
+RETRY_MAX = 50
+SLEEP_TIME = 0.1 # seconds
 NETMASK = '255.255.255.224'
 PATH = '/etc/dhcp/dhcpd.conf'
 DEVNULL = open(os.devnull, 'wb')
-RETRY_MAX = 50
-SLEEP_TIME = 0.1 # seconds
-TIMEOUT = 10
 
 def excl(func):
     def _excl(*args, **kwargs):
@@ -63,7 +63,7 @@ class Tunnel(object):
         fields = ip.split('.')
         n = int(fields[3])
         return '%s.%s.%s.%d' % (fields[0], fields[1], fields[2], n + NETSIZE - 1)
-
+    
     def _get_iface(self, addr): 
         name = ''
         fields = self._split(addr)[1].split('.')
@@ -82,8 +82,8 @@ class Tunnel(object):
         return name
     
     def _get_supernode(self, addr):
-        code = 0
         odd = 1
+        code = 0
         length = len(VDEV_SUPERNODES)
         if length >= (1 << 16):
             log('tunnel: too much supernodes')
@@ -96,7 +96,7 @@ class Tunnel(object):
                 code ^= ord(i) << 8
                 odd = 1
         return '%s:%d' % (VDEV_SUPERNODES[code % length], VDEV_SUPERNODE_PORT)
-
+    
     def _is_gateway(self, addr):
         address = ifaddr(self._get_iface(addr))
         fields = address.split('.')
@@ -175,7 +175,7 @@ class Tunnel(object):
                 time.sleep(SLEEP_TIME)
         log('tunnel: failed to check iface')      
         raise Exception('tunnel: failed to check iface')
-
+    
     @excl
     def create(self, addr, key):
         cfg = []
