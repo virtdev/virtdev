@@ -124,7 +124,7 @@ def send_pkt(sock, buf):
 def _recv(sock, length):
     ret = []
     while length > 0:
-        buf = sock.recv(length)
+        buf = sock.recv(min(length, 2048))
         if not buf:
             raise Exception('failed to receive')
         ret.append(buf)

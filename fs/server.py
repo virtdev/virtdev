@@ -103,11 +103,9 @@ class VDevFSServer(object):
                     return           
                 func = getattr(self._op, op)
                 if func:
-                    res = func(**args)
+                    func(**args)
                 else:
-                    res = ''
-                    log_err(self, 'failed to process, cannot handle operation %s' % str(op))
-                tunnel.send(sock, crypto.pack(uid, res, token))
+                    log_err(self, 'failed to process, invalid operation %s' % str(op))
         finally:
             sock.close()
     

@@ -235,7 +235,5 @@ def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
         req = {'op':op, 'args':args}
         msg = crypto.pack(uid, req, token)
         send(sock, msg)
-        ret = recv(sock)
-        return crypto.unpack(uid, ret, token)
     finally:
         sock.close()

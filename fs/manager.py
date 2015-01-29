@@ -158,7 +158,7 @@ class TunnelManager(object):
     def put(self, name, **args):
         dev = self._server.get_device(name)
         addr = tunnel.addr2ip(dev[1])
-        return tunnel.put(addr, 'put', args, self._server.uid, self._server.token)
+        tunnel.put(addr, 'put', args, self._server.uid, self._server.token)
 
 class MemberManager(object):
     def __init__(self, server):
