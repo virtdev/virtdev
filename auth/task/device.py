@@ -54,7 +54,7 @@ class Device(VDevAuthTask):
         try:
             fields = ast.literal_eval(buf)
             if type(fields) != dict:
-                log_err(self, 'failed to sync')
+                log_err(self, 'failed to sync, invalid type')
                 return
         except:
             log_err(self, 'failed to sync')
