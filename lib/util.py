@@ -106,22 +106,30 @@ def val2pair(val):
     else:
         return (res[0], '')
 
+def _send(sock, buf):
+    cnt = 0
+    length = len(buf)
+    while cnt < length:
+        ret = sock.send(buf[cnt:])
+        if 0 == ret:
+            raise Exception('failed to send')
+        cnt += ret
+    
 def send_pkt(sock, buf):
     head = struct.pack('I', len(buf))
+    _send(sock, head)
     if buf:
-        sock.sendall(head + buf)
-    else:
-        sock.sendall(head)
+        _send(sock, buf)
 
 def _recv(sock, length):
-    ret = ''
+    ret = []
     while length > 0:
         buf = sock.recv(length)
         if not buf:
-            return ''
-        ret += buf
+            raise Exception('failed to receive')
+        ret.append(buf)
         length -= len(buf) 
-    return ret
+    return ''.join(ret)
 
 def recv_pkt(sock):
     head = _recv(sock, 4)

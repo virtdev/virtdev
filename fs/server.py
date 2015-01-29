@@ -26,8 +26,6 @@ from conf.virtdev import VDEV_FS_PORT
 from lib.request import VDevAuthRequest
 from lib.util import DEFAULT_UID, DEFAULT_TOKEN, UID_SIZE
 
-TIMEOUT = 10
-
 class VDevFSServer(object):
     def _init_sock(self, addr):
         addr = tunnel.addr2ip(addr)
@@ -117,7 +115,6 @@ class VDevFSServer(object):
         while True:
             try:
                 conn, _ = self._sock.accept()
-                conn.settimeout(TIMEOUT)
                 Thread(target=self._proc, args=(conn,)).start()
             except:
                 log_err(self, 'failed to process')

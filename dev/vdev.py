@@ -176,7 +176,7 @@ class VDev(object):
                     child = self._children[i]
                     if child.d_mode & VDEV_MODE_POLL:
                         self._check_device(child)
-            else:
+            if self.d_mode & VDEV_MODE_POLL:
                 self._check_device(self)
     
     @property

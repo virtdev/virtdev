@@ -28,7 +28,6 @@ from subprocess import Popen
 from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt
 from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
 
-TIMEOUT = 10
 NETSIZE = 30
 RETRY_MAX = 50
 SLEEP_TIME = 0.1 # seconds
@@ -229,8 +228,9 @@ def disconnect(addr, force=False):
 def exist(addr):
     tunnel.exists(addr)
 
-def put(addr, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
-    sock = socket.create_connection((addr, VDEV_FS_PORT), timeout=TIMEOUT)
+def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((ip, VDEV_FS_PORT))
     try:
         req = {'op':op, 'args':args}
         msg = crypto.pack(uid, req, token)
