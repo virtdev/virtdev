@@ -241,13 +241,7 @@ class VDev(object):
     def set_children(self, children):
         self._children = children
     
-    def exists(self, name):
-        if self.d_name == name:
-            return True
-        elif not self.d_mode & VDEV_MODE_VIRT:
-            return self._children.has_key(name)
-    
-    def _find(self, name):
+    def find(self, name):
         if self.d_name == name:
             return self
         else:
@@ -327,7 +321,7 @@ class VDev(object):
     
     @excl
     def proc(self, name, op, buf=None):
-        dev = self._find(name)
+        dev = self.find(name)
         if not dev:
             log_err(self, 'failed to process, cannot find device')
             return

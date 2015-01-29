@@ -144,8 +144,9 @@ class VDevInterface(Thread):
     def find(self, name):
         devices = copy.copy(self._devices)
         for i in devices:
-            if devices[i].exists(name):
-                return devices[i]
+            d = devices[i].find(name)
+            if d:
+                return d
     
     def _check(self, names):
         for name in names:

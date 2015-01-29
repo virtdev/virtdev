@@ -23,7 +23,6 @@ import time
 import shelve
 from lib import tunnel
 from lib import notifier
-from lib.util import cat
 from lib.lock import VDevLock
 from server import VDevFSServer
 from lib.daemon import VDevDaemon
@@ -33,7 +32,7 @@ from lib.log import log_err, log_get
 from lib.request import VDevAuthRequest
 from proc.synchronizer import VDevSynchronizer
 from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_SYNC, VDEV_OPEN, VDEV_CLOSE
-from lib.util import USERNAME_SIZE, PASSWORD_SIZE, VDEV_FLAG_SPECIAL, netaddresses, get_node, vdev_name
+from lib.util import USERNAME_SIZE, PASSWORD_SIZE, VDEV_FLAG_SPECIAL, netaddresses, get_node, vdev_name, cat
 from conf.virtdev import VDEV_LO, VDEV_BLUETOOTH, VDEV_SANDBOX, VDEV_MAPPER_PORT, VDEV_HANDLER_PORT, VDEV_DISPATCHER_PORT
 from conf.virtdev import VDEV_LIB_PATH, VDEV_RUN_PATH, VDEV_FS_MOUNTPOINT, VDEV_FILE_SERVICE, VDEV_FILE_SHADOW, VDEV_SPECIAL
 
