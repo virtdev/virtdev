@@ -35,13 +35,29 @@ def is_local(uid, name):
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
     return os.path.exists(path)
 
-def load(uid, name, label):
+def sorted_ls(path):
+    mtime = lambda f: os.stat(os.path.join(path, f)).st_mtime
+    return list(sorted(os.listdir(path), key=mtime))
+
+def load(uid, name, label, sort=False):
     if label not in VDEV_FS_LABELS.keys():
         return
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid, VDEV_FS_LABELS[label], name)
     if not os.path.exists(path):
         return
-    return os.listdir(path)
+    if not sort:
+        return os.listdir(path)
+    else:
+        key = lambda f: os.stat(os.path.join(path, f)).st_mtime
+        return sorted(os.listdir(path), key=key)
+
+def get_attr(uid, name, attr):
+    ret = ''
+    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, VDEV_FS_LABELS['attr'], name, attr)
+    if os.path.exists(path):
+        with open(path) as f:
+            ret = f.read()
+    return ret
 
 class VDevPath(object):
     def __init__(self, router=None, manager=None):

@@ -36,5 +36,5 @@ if __name__ == '__main__':
     uid = sys.argv[1]
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
     ret = xattr.getxattr(path, OP_POLL)
-    print '%s' % str(ret)
+    print 'poll:%s' % str(ret)
     

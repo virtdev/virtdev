@@ -18,12 +18,10 @@
 #      MA 02110-1301, USA.
 
 import os
-import uuid
 import xattr
 
 import sys
 sys.path.append('..')
-from fs.oper import OP_COMBINE
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
@@ -36,9 +34,8 @@ if __name__ == '__main__':
         sys.exit()
     attr = {}
     uid = sys.argv[1]
-    attr['name'] = uuid.uuid4().hex
     attr['vertex'] = sys.argv[2:]
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
-    xattr.setxattr(path, OP_COMBINE, str(attr))
-    print 'name=' + attr['name']
+    name = xattr.getxattr(path, 'combine:%s' % str(attr))
+    print 'combine: name=' + name
     

@@ -146,7 +146,7 @@ class VDevFSUplink(VDevFSLink):
 class VDevFSDownlink(VDevFSLink):
     def __init__(self, query):
         VDevFSLink.__init__(self)
-        self._operations = [OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
+        self._operations = [OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
         self.query = query
         self._devices = {}
         self._tokens = {}
@@ -224,39 +224,40 @@ class VDevFSDownlink(VDevFSLink):
             log_err(self, 'failed to process, cannot send request, addr=%s, name=%s, op=%s' % (addr, name, op))
         self._disconnect(addr)
     
-    def clone(self, uid, src, dest, mode, vertex):
+    def mount(self, uid, name, mode, vertex, typ, parent):
         addr = None
-        if src:
-            src_uid, addr = self._get_device(src)
-            if src_uid != uid:
-                log_err(self, 'failed to clone, invalid uid')
-                raise Exception(log_get(self, 'failed to clone'))
-        res = self.query.member_get(uid)
-        if not res:
-            log_err(self, 'failed to clone, cannot get member')
-            raise Exception(log_get(self, 'failed to clone'))
+        if parent:
+            puid, addr = self._get_device(parent)
+            if puid != uid:
+                log_err(self, 'failed to mount, invalid uid')
+                raise Exception(log_get(self, 'failed to mount'))
+        members = self.query.member_get(uid)
+        if not members:
+            log_err(self, 'failed to mount, cannot get members')
+            raise Exception(log_get(self, 'failed to mount'))
         if addr:
-            hit = False
-            for i in res:
-                name, node = val2pair(i)
-                if name == src:
-                    hit = True
+            match = False
+            for i in members:
+                p, node = val2pair(i)
+                if p == parent:
+                    match = True
                     break
-            if not hit:
-                log_err(self, 'failed to clone, cannot find node')
-                raise Exception(log_get(self, 'failed to clone'))
+            if not match:
+                log_err(self, 'failed to mount, cannot get node')
+                raise Exception(log_get(self, 'failed to mount'))
         else:
-            src, node = val2pair(res[randint(0, len(res) - 1)])
-            src_uid, addr = self._get_device(src)
-            if src_uid != uid:
-                log_err(self, 'failed to clone, invalid uid')
-                raise Exception(log_get(self, 'failed to clone'))
+            parent, node = val2pair(members[randint(0, len(members) - 1)])
+            puid, addr = self._get_device(parent)
+            if puid != uid:
+                log_err(self, 'failed to mount, invalid uid')
+                raise Exception(log_get(self, 'failed to mount'))
         attr = {}
-        attr.update({'name':dest})
+        attr.update({'type':typ})
+        attr.update({'name':name})
         attr.update({'mode':mode})
         attr.update({'vertex':vertex})
-        self._add_device(uid, dest, addr)
-        self.put(name=dest, op='mount', attr=str(attr))
-        update_device(self.query, uid, node, addr, dest)
+        self._add_device(uid, name, addr)
+        self.put(name=name, op=OP_MOUNT, attr=str(attr))
+        update_device(self.query, uid, node, addr, name)
         return True
     

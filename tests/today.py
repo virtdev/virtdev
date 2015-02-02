@@ -25,7 +25,7 @@ sys.path.append('..')
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'today.py [uid] [device id] [num]'
+    print 'today.py [uid] [device id] [limit]'
 
 if __name__ == '__main__':
     argc = len(sys.argv)
@@ -34,7 +34,8 @@ if __name__ == '__main__':
         sys.exit()
     uid = sys.argv[1]
     name = sys.argv[2]
-    num = sys.argv[3]
+    limit = sys.argv[3]
+    query = {'today':{'limit':int(limit)}}
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
-    print xattr.getxattr(path, 'today_' + num)
+    print 'today: ' + xattr.getxattr(path, 'query:%s' % str(query))
     

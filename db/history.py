@@ -17,6 +17,7 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA
 
+import ast
 from threading import Lock
 from datetime import datetime
 from happybase import Connection
@@ -107,62 +108,37 @@ class HistoryDB(object):
         rowkey = self._get_rowkey(key)
         db.put(rowkey, val)
     
-    def _parse(self, query):
+    def _parse(self, args):
         try:
-            fields = query.split('_')
-            if len(fields) < 2 or fields[0] not in HISTORY_TAGS:
-                log_err(self, 'invalid query')
-                return
-            tag = fields[0]
-            if tag == HISTORY_TAG_TODAY:
-                if len(fields) != 2:
-                    log_err(self, 'invalid query')
-                    return
-                num = int(fields[1])
-                if num <= 0:
-                    log_err(self, 'invalid query')
-                    return
-                log(log_get(self, 'query, tag=%s, range=%d' % (tag, num)))
-                return (tag, num)
-            else:
-                if len(fields) != 3:
-                    log_err(self, 'invalid query')
-                    return
-                start = fields[1]
-                end = fields[2]
-                log(log_get(self, 'query, tag=%s, range=[%s, %s]' % (tag, start, end)))
-                return (tag, (start, end))
+            res = ast.literal_eval(args)
+            if type(res) == dict and 1 == len(res):
+                return (res.keys()[0], res.values()[0])
         except:
             log_err(self, 'invalid query')
     
-    def _find_today(self, key, num):
-        if num > HISTORY_ITEM_MAX:
-            num = HISTORY_ITEM_MAX
+    def _scan_today(self, key, limit):
+        if limit > HISTORY_ITEM_MAX:
+            limit = HISTORY_ITEM_MAX
         db = self._get_db(key)
         if VDEV_STATISTIC:
-            return self._today.average(db, key, num)
+            return self._today.average(db, key, limit)
         else:
-            return self._today.scan(db, key, num)
+            return self._today.scan(db, key, limit)
     
-    def _find(self, key, tag, start, end):
-        pass
-    
-    def get(self, key, query):
-        if not key or not query:
+    def get(self, key, args):
+        if not key or not args:
             return ''
         
         try:
-            tag, arg = self._parse(query)
+            tag, args = self._parse(args)
         except:
             return ''
         
         if tag == HISTORY_TAG_TODAY:
-            ret = self._find_today(key, arg)
-        else:
-            ret = self._find(key, tag, arg[0], arg[1])
+            ret = self._scan_today(key, **args)
         
         if not ret:
             return ''
-        else:
-            return ret
+        
+        return ret
     

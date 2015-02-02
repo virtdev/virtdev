@@ -52,7 +52,7 @@ def req_get(index):
 def req_put(index, buf):
     return _req_new(index, VDEV_REQ_PUT, buf)
 
-def req_pair():
+def req_pair(buf=''):
     return _req_new(None, VDEV_REQ_PAIR, VDEV_REQ_SECRET)
 
 def req_reset():

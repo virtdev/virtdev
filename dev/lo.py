@@ -17,79 +17,54 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import os
+import imp
 import socket
 from lib import stream
 from lib.log import log_err
 from threading import Thread
-from anon.timer import Timer
-from anon.camera import Camera
-from anon.facerec import FaceRec
-from anon.timecalc import TimeCalc
-from anon.timesaver import TimeSaver
-from anon.qrdecoder import QRDecoder
-from anon.downloader import Downloader
-from anon.imageloader import ImageLoader
-from anon.anon import VDevAnon, anon_index
-from conf.virtdev import VDEV_LO_PORT
+from fs.path import get_attr, load
 from interface import VDevInterface
-
-VDEV_HAS_TIMER = True
-VDEV_HAS_CAMERA = True
-VDEV_HAS_FACEREC = True
-VDEV_HAS_TIMECALC = True
-VDEV_HAS_TIMESAVER = True
-VDEV_HAS_QRDECODER = True
-VDEV_HAS_DOWNLOADER = True
-VDEV_HAS_IMAGELOADER = True
-
-VDEV_TIMER_LIST = ['TIMER_0']
-VDEV_CAMERA_LIST = ['CAMERA_0']
-VDEV_FACEREC_LIST = ['FACEREC_0']
-VDEV_TIMECALC_LIST = ['TIMECALC_0']
-VDEV_TIMESAVER_LIST = ['TIMESAVER_0']
-VDEV_QRDECODER_LIST = ['QRDECODER_0']
-VDEV_DOWNLOADER_LIST = ['DOWNLOADER_0']
-VDEV_IMAGELOADER_LIST = ['IMAGELOADER_0']
+from conf.virtdev import VDEV_LO_PORT
 
 VDEV_LO_ADDR = '127.0.0.1'
+VDEV_ANON_PATH = os.path.join(os.getcwd(), 'anon')
+
+def get_device(typ, name):
+    return '%s_%s' % (typ, name)
 
 class VDevLo(VDevInterface):
+    def _load_anon(self, name, typ, sock):
+        try:
+            module = imp.load_source(typ, os.path.join(VDEV_ANON_PATH, '%s.py' % typ.lower()))
+            device = typ.capitalize()
+            if module and hasattr(module, device):
+                anon = getattr(module, device)
+                if anon:
+                    return anon(name, sock)
+        except:
+            log_err(self, 'failed to load anon device %s' % typ)
+    
+    def _get_name(self, device):
+        res = device.split('_')
+        if len(res) == 2:
+            return (res[0], res[1])
+        else:
+            return (None, None)
+    
     def _listen(self):
         while True:
-            sock = None
+            sock = self._sock.accept()[0]
             try:
-                sock = self._sock.accept()[0]
-                if not sock:
-                    continue
-                device = None
-                item = stream.get(sock, anon=True)
-                d_type, d_index = anon_index(item)
-                try:
-                    if d_type == 'CAMERA':
-                        device = VDevAnon(Camera(d_index), sock)
-                    elif d_type == 'TIMER':
-                        device = VDevAnon(Timer(d_index), sock)
-                    elif d_type == 'FACEREC':
-                        device = VDevAnon(FaceRec(d_index), sock)
-                    elif d_type == 'TIMECALC':
-                        device = VDevAnon(TimeCalc(d_index), sock)
-                    elif d_type == 'TIMESAVER':
-                        device = VDevAnon(TimeSaver(d_index), sock)
-                    elif d_type == 'DOWNLOADER':
-                        device = VDevAnon(Downloader(d_index), sock)
-                    elif d_type == 'QRDECODER':
-                        device = VDevAnon(QRDecoder(d_index), sock)
-                    elif d_type == 'IMAGELOADER':
-                        device = VDevAnon(ImageLoader(d_index), sock)
-                except:
-                    log_err(self, 'failed to listen, invalid device')
-                    continue
-                if device:
-                    self._lo.update({str(device):device})
+                buf = stream.get(sock, anon=True)
+                typ, name = self._get_name(buf)
+                if typ and name:
+                    anon = self._load_anon(name, typ, sock)
+                    if anon:
+                        self._lo.update({str(anon):anon})
             except:
-                if sock:
-                    log_err(self, 'failed to listen')
-                    sock.close()
+                log_err(self, 'failed to listen')
+                sock.close()
     
     def _init_sock(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -97,47 +72,54 @@ class VDevLo(VDevInterface):
         self._sock.bind((VDEV_LO_ADDR, VDEV_LO_PORT))
         self._sock.listen(5)
     
-    def __init__(self, manager):
-        VDevInterface.__init__(self, manager)
-        self._init_sock()
+    def _init_listener(self):
         self._listener = Thread(target=self._listen)
         self._listener.start()
-        self._anon = True
-        self._lo = {}
     
-    def _list_devices(self):
-        devices = []
-        if VDEV_HAS_TIMER:
-            devices += VDEV_TIMER_LIST
-        if VDEV_HAS_CAMERA:
-            devices += VDEV_CAMERA_LIST
-        if VDEV_HAS_FACEREC:
-            devices += VDEV_FACEREC_LIST
-        if VDEV_HAS_TIMECALC:
-            devices += VDEV_TIMECALC_LIST
-        if VDEV_HAS_TIMESAVER:
-            devices += VDEV_TIMESAVER_LIST
-        if VDEV_HAS_QRDECODER:
-            devices += VDEV_QRDECODER_LIST
-        if VDEV_HAS_DOWNLOADER:
-            devices += VDEV_DOWNLOADER_LIST
-        if VDEV_HAS_IMAGELOADER:
-            devices += VDEV_IMAGELOADER_LIST
-        return devices
+    def __init__(self, manager):
+        VDevInterface.__init__(self, manager)
+        self._lo = {}
+        self._anon = True
+        self._active = False
+        self._init_sock()
+        self._init_listener()
+    
+    def _get_device(self, name):
+        typ = None
+        profile = get_attr(self.manager.uid, name, 'profile')
+        if not profile:
+            return
+        try:
+            lines = profile.split('\n')
+            for l in lines:
+                if l.startswith('type='):
+                    typ = l.strip()[len('type='):]
+                    break
+            if typ != None:
+                return get_device(typ, name)
+        except:
+            pass
     
     def scan(self):
-        devices = self._list_devices()
-        if not devices:
+        device_list = []
+        if self._active:
+            return device_list
+        self._active = True
+        uid = self.manager.uid
+        names = load(uid, '', 'data', sort=True)
+        if not names:
             return
-        nu = []
-        for item in devices:
-            if not self._lo.has_key(item):
-                nu.append(item)
-        return nu
+        for name in names:
+            device = self._get_device(name)
+            if not device:
+                continue
+            if device not in self._lo:
+                device_list.append(device)
+        return device_list
     
-    def connect(self, name):
+    def connect(self, device):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((VDEV_LO_ADDR, VDEV_LO_PORT))
-        stream.put(sock, name, anon=True)
+        stream.put(sock, device, anon=True)
         return sock
     

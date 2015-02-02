@@ -18,16 +18,14 @@
 #      MA 02110-1301, USA.
 
 import os
-import uuid
 import xattr
 
 import sys
 sys.path.append('..')
-from fs.oper import OP_CREATE
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'create.py [uid] [[member] ...]'
+    print 'create.py [uid] [typ] [[member] ...]'
 
 if __name__ == '__main__':
     argc = len(sys.argv)
@@ -36,10 +34,12 @@ if __name__ == '__main__':
         sys.exit()
     attr = {}
     uid = sys.argv[1]
-    attr['name'] = uuid.uuid4().hex
-    attr['vertex'] = sys.argv[2:] 
+    if argc == 3:
+        attr['typ'] = sys.argv[2]
+    if argc > 3:
+        attr['vertex'] = sys.argv[3:] 
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
-    xattr.setxattr(path, OP_CREATE, str(attr))
-    print 'name=' + attr['name']
+    name = xattr.getxattr(path, 'create:%s' % str(attr))
+    print 'creat: name=' + name
     
     

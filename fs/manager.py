@@ -275,6 +275,8 @@ class VDevFSManager(object):
         return uid
     
     def _prepare(self):
+        self._bt = None
+        self._lo = None
         self.devices = []
         self.guest = None
         self.device = None
@@ -282,8 +284,6 @@ class VDevFSManager(object):
         self._mapper = None
         self._handler = None
         self._dispatcher = None
-        self._bt = None
-        self._lo = None
         
         if not VDEV_FILE_SERVICE or not VDEV_FILE_SHADOW:
             return
@@ -305,8 +305,8 @@ class VDevFSManager(object):
         
         if VDEV_LO:
             from dev.lo import VDevLo
-            self._lo = VDevLo(self)
-            self.devices.append(self._lo)
+            self.lo = VDevLo(self)
+            self.devices.append(self.lo)
         
         if VDEV_SANDBOX:
             self._init_sandbox()
@@ -355,4 +355,5 @@ class VDevFSManager(object):
             if token:
                 _, addr = self._server.get_device(name)
                 return (addr, token)
+    
     

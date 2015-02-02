@@ -18,15 +18,16 @@
 #      MA 02110-1301, USA.
 
 import os
+import ast
 import req
 import imp
 import time
 import copy
 from lib import stream
 from drivers.SU import SU
+from lib.log import log_err
+from lib.util import get_name
 from threading import Lock, Thread
-from lib.log import log_get, log_err
-from lib.util import get_name, get_node
 from multiprocessing.pool import ThreadPool
 
 VDEV_PAIR_INTERVAL = 7 # sec
@@ -50,78 +51,81 @@ class VDevInterface(Thread):
     def scan(self):
         pass
     
-    def connect(self, name):
+    def connect(self, device):
         pass
     
-    def _load_device(self, name):
-        try:
-            module = imp.load_source(name, os.path.join(VDEV_DRIVER_PATH, '%s.py' % name))
-            if module and hasattr(module, name):
-                device = getattr(module, name)
-                if device:
-                    return device()
-        except:
-            log_err(self, 'failed to load device %s' % name)
+    def _get_name(self, device):
+        pass
     
-    def _device_types(self, buf):
+    def _load_device(self, device):
         try:
-            names = eval(buf)
-            if type(names) != dict:
-                log_err(self, 'invalid device names')
+            module = imp.load_source(device, os.path.join(VDEV_DRIVER_PATH, '%s.py' % device))
+            if module and hasattr(module, device):
+                dev = getattr(module, device)
+                if dev:
+                    return dev()
+        except:
+            log_err(self, 'failed to load device %s' % device)
+    
+    def _get_device_info(self, buf):
+        try:
+            info = ast.literal_eval(buf)
+            if type(info) != dict:
+                log_err(self, 'invalid device info')
                 return
-            return names
+            return info
         except:
-            log_err(self, 'invalid device names')
+            log_err(self, 'invalid device info')
     
-    def _add_devices(self, parent, types):
+    def _add_device(self, name, info):
         index = {}
         devices = {}
         try:
-            for i in types:
-                device = self._load_device(types[i])
+            for i in info:
+                device = self._load_device(info[i])
                 if device:
-                    name = get_name(self._uid, parent, i)
-                    devices.update({name:device})
-                    index.update({name:i})
+                    child = get_name(self._uid, name, i)
+                    devices.update({child:device})
+                    index.update({child:i})
                 else:
                     log_err(self, 'failed to add devices')
                     return
         except:
             log_err(self, 'failed to add devices')
             return
-        for name in devices:
-            devices[name].mount(self.manager, name, int(index[name]))
+        for i in devices:
+            devices[i].mount(self.manager, i, index=int(index[i]))
         return devices
     
-    def _mount_device(self, sock, name, types):
-        parent = get_name(self._uid, name)
-        devices = self._add_devices(parent, types)
-        su = SU(devices)
-        su.mount(self.manager, parent, sock=sock)
-        self._devices.update({parent:su})
-    
-    def _mount_anon(self, sock, name, types):
-        if len(types) != 1:
-            log_err(self, 'failed to mount')
-            raise Exception(log_get(self, 'failed to mount'))
-        anon = get_name(self._uid, get_node(), name)
-        device = self._load_device(types[types.keys()[0]])
-        device.mount(self.manager, anon, sock=sock)
-        self._devices.update({anon:device})
-    
-    def _mount(self, sock, name):
-        stream.put(sock, req.req_reset(), anon=self._anon)
+    def _mount_device(self, sock, device, info):
+        stream.put(sock, req.req_reset())
         time.sleep(VDEV_MOUNT_RESET_INTERVAL)
-        stream.put(sock, req.req_pair(), anon=self._anon)
-        res = stream.get(sock, anon=self._anon)
+        stream.put(sock, req.req_pair())
+        res = stream.get(sock)
         if res:
-            types = self._device_types(res)
-            if types:
-                if not self._anon:
-                    self._mount_device(sock, name, types)
-                else:
-                    self._mount_anon(sock, name, types)
-                return True
+            info = self._get_device_info(res)
+            if not info:
+                log_err(self, 'no device info')
+                return
+        name = get_name(self._uid, device)
+        devices = self._add_device(name, info)
+        su = SU(devices)
+        su.mount(self.manager, name, sock=sock)
+        self._devices.update({name:su})
+        return name
+    
+    def _mount_anon(self, sock, device):
+        typ, name = self._get_name(device)
+        dev = self._load_device(typ)
+        dev.mount(self.manager, name, sock=sock)
+        self._devices.update({name:dev})
+        return name
+    
+    def _mount(self, sock, device):
+        if not self._anon:
+            return self._mount_device(sock, device)
+        else:
+            return self._mount_anon(sock, device)
     
     def _proc(self, target, args, timeout):
         pool = ThreadPool(processes=1)
@@ -132,14 +136,18 @@ class VDevInterface(Thread):
         except:
             pool.terminate()
     
-    def _register(self, name):
-        sock = self._proc(self.connect, (name,), VDEV_PAIR_INTERVAL)
+    def _register(self, device):
+        sock = self._proc(self.connect, (device,), VDEV_PAIR_INTERVAL)
         if sock:
-            if not self._proc(self._mount, (sock, name), VDEV_MOUNT_TIMEOUT):
+            name = self._proc(self._mount, (sock, device), VDEV_MOUNT_TIMEOUT)
+            if not name:
                 log_err(self, 'failed to register')
                 sock.close()
             else:
-                return True
+                return name
+    
+    def register(self, device):
+        return self._register(device)
     
     def find(self, name):
         devices = copy.copy(self._devices)
@@ -148,14 +156,14 @@ class VDevInterface(Thread):
             if d:
                 return d
     
-    def _check(self, names):
-        for name in names:
-            self._register(name)
+    def _check(self, devices):
+        for d in devices:
+            self._register(d)
     
     def run(self):
         while True:
-            names = self.scan()
-            if names:
-                self._check(names)
+            devices = self.scan()
+            if devices:
+                self._check(devices)
             time.sleep(VDEV_SCAN_INTERVAL)
     

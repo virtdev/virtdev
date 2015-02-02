@@ -27,20 +27,20 @@ VDEV_BT_PIN = '1234'
 VDEV_BT_DEVICE_MAX = 32
 
 class VDevBT(VDevInterface):
-    def _connect(self, name):
+    def _connect(self, device):
         sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-        sock.connect((name, VDEV_BT_PORT))
+        sock.connect((device, VDEV_BT_PORT))
         return sock
     
-    def _prepare(self, name):
-        os.system('bluez-test-device remove %s' % name)
-        os.system('echo %s | bluez-simple-agent hci0 %s' % (VDEV_BT_PIN, name))
+    def _prepare(self, device):
+        os.system('bluez-test-device remove %s' % device)
+        os.system('echo %s | bluez-simple-agent hci0 %s' % (VDEV_BT_PIN, device))
     
-    def connect(self, name):
-        self._prepare(name)
-        return self._connect(name)
+    def connect(self, device):
+        self._prepare(device)
+        return self._connect(device)
     
-    def _check_device_list(self):
+    def _get_devices(self):
         cnt = 0
         device_list = []
         path = os.path.join(VDEV_LIB_PATH, 'devices')
@@ -58,14 +58,14 @@ class VDevBT(VDevInterface):
         return device_list
     
     def scan(self):
-        device_list = self._check_device_list()
-        if not device_list:
-            return
-        res = []
-        devices = bluetooth.discover_devices()
-        if devices:
-            for i in devices:
-                if i in device_list:
-                    res.append(i)
-        return res
+        device_list = []
+        devices = self._get_devices()
+        if not devices:
+            return device_list
+        bt_devices = bluetooth.discover_devices()
+        if bt_devices:
+            for i in bt_devices:
+                if i in devices:
+                    device_list.append(i)
+        return device_list
     
