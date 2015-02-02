@@ -97,7 +97,7 @@ class VDevInterface(Thread):
             devices[i].mount(self.manager, i, index=int(index[i]))
         return devices
     
-    def _mount_device(self, sock, device, info):
+    def _mount_device(self, sock, device):
         stream.put(sock, req.req_reset())
         time.sleep(VDEV_MOUNT_RESET_INTERVAL)
         stream.put(sock, req.req_pair())

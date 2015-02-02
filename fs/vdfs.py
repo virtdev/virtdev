@@ -301,7 +301,7 @@ class VDevFS(Operations):
             log_err(self, 'failed to mount')
             raise FuseOSError(EINVAL)
         
-        typ = args.get('typ')
+        typ = args.get('type')
         freq = args.get('freq')
         name = args.get('name')
         vertex = args.get('vertex')
