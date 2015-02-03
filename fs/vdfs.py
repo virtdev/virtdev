@@ -418,7 +418,7 @@ class VDevFS(Operations):
             raise FuseOSError(EINVAL)
         
         args = ast.literal_eval(attr)
-        if type(args) != dict or not args.has_key('name'):
+        if type(args) != dict:
             log_err(self, 'failed to create device, invalid attr')
             raise FuseOSError(EINVAL)
         
@@ -427,23 +427,22 @@ class VDevFS(Operations):
         if not mode:
             if not typ:
                 mode = VDEV_MODE_VIRT
+            else:
+                mode = VDEV_MODE_ANON
         
         if op == OP_CREATE:
             mode |= VDEV_MODE_VISI
-            
-        name = args['name']
+        
         if op != OP_FORK:
-            if not args.has_key('vertex'):
-                log_err(self, 'failed to create device, no vertex')
-                raise FuseOSError(EINVAL)
             vertex = args['vertex']
-            if type(vertex) != list:
-                log_err(self, 'failed to create device, invalid vertex')
-                raise FuseOSError(EINVAL)
-            for i in vertex:
-                if not self._check_uid(i):
+            if vertex:
+                if type(vertex) != list:
                     log_err(self, 'failed to create device, invalid vertex')
                     raise FuseOSError(EINVAL)
+                for i in vertex:
+                    if not self._check_uid(i):
+                        log_err(self, 'failed to create device, invalid vertex')
+                        raise FuseOSError(EINVAL)
         else:
             if not args.has_key('parent'):
                 log_err(self, 'failed to create device, no parent')
@@ -453,7 +452,7 @@ class VDevFS(Operations):
                 log_err(self, 'failed to create device, cannot get parent')
                 raise FuseOSError(EINVAL)
 
-        self._mount_device(uid, name, mode=mode, vertex=vertex, typ=typ, parent=parent)
+        return self._mount_device(uid, None, mode=mode, vertex=vertex, typ=typ, parent=parent)
     
     def _enable(self, path):
         obj, uid, name = self._parse(path)

@@ -25,7 +25,7 @@ from threading import Thread, Lock, Event
 from lib.util import DEFAULT_NAME, val2pair
 from oper import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
-VDEV_FS_LINE_QUEUE_MAX = 64
+VDEV_FS_LINK_QUEUE_MAX = 64
 VDEV_FS_LINK_QUEUE_LEN = 512
 VDEV_FS_LINK_BUF_SIZE = 1 << 20
 
@@ -88,17 +88,10 @@ class VDevFSLink(object):
         self._queues = []
         self._operations = []
         if async:
-            for i in range(VDEV_FS_LINE_QUEUE_MAX):
+            for i in range(VDEV_FS_LINK_QUEUE_MAX):
                 self._queues.append(VDevFSLinkQueue(self.proc))
                 self._queues[i].start()
         self._async = async
-    
-    def _hash(self, name):
-        n = 0
-        length = len(name)
-        for i in range(length):
-            n ^= ord(name[i])
-        return n % VDEV_FS_LINE_QUEUE_MAX
     
     def _chkargs(self, args):
         name = args.get('name')
@@ -117,17 +110,13 @@ class VDevFSLink(object):
             if len(buf) > VDEV_FS_LINK_BUF_SIZE:
                 log_err(self, 'invalid arguments')
                 raise Exception(log_get(self, 'invalid arguments'))
-        return name
     
     def put(self, **args):
-        name = self._chkargs(args)
+        self._chkargs(args)
         if self._async:
-            return self._queues[self._hash(name)].push(args)
+            return self._queues[randint(0, VDEV_FS_LINK_QUEUE_MAX - 1)].push(args)
         else:
             return self.proc(**args)
-    
-    def wait(self, name):
-        return self._queues[self._hash(name)].wait()
 
 class VDevFSUplink(VDevFSLink):
     def __init__(self, manager):

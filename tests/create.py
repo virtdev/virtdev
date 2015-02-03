@@ -25,7 +25,7 @@ sys.path.append('..')
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'create.py [uid] [typ] [[member] ...]'
+    print 'create.py [uid] [type] [[member] ...]'
 
 if __name__ == '__main__':
     argc = len(sys.argv)
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     attr = {}
     uid = sys.argv[1]
     if argc == 3:
-        attr['typ'] = sys.argv[2]
+        attr['type'] = sys.argv[2]
     if argc > 3:
         attr['vertex'] = sys.argv[3:] 
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
