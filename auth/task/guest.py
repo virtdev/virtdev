@@ -24,16 +24,16 @@ from fs.oper import OP_JOIN, OP_ACCEPT
 
 class Guest(VDevAuthTask):
     def join(self, uid, dest, src):
-        device = self.query.device_get(src)
+        device = self.query.device.get(src)
         if not device or device.get('uid') != uid:
             log_err(self, 'failed to join, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return  False
-        user = self.query.user_get({'uid':device['uid']}, 'user')
+        user = self.query.user.get({'uid':device['uid']}, 'user')
         if not user:
             log_err(self, 'failed to join, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return  False
         node = device['node']
-        device = self.query.device_get(dest)
+        device = self.query.device.get(dest)
         if not device or device['uid'] == uid:
             log_err(self, 'failed to join, invalid dest, guest=%s, host=%s' % (str(dest), str(src)))
             return  False
@@ -41,32 +41,32 @@ class Guest(VDevAuthTask):
         return True
     
     def accept(self, uid, dest, src):
-        device = self.query.device_get(src)
+        device = self.query.device.get(src)
         if not device or device.get('uid') != uid:
             log_err(self, 'failed to accept, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return False
-        user = self.query.user_get({'uid':device['uid']}, 'user')
+        user = self.query.user.get({'uid':device['uid']}, 'user')
         if not user:
             log_err(self, 'failed to accept, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return  False
         node = device['node']
-        device = self.query.device_get(dest)
+        device = self.query.device.get(dest)
         if not device or device.get('uid') == uid:
             log_err(self, 'failed to accept, invalid dest, dest=%s, src=%s' % (str(dest), str(src)))
             return False
         self.query.link.put(name=DEFAULT_NAME, op=OP_ACCEPT, addr=device['addr'], uid=device['uid'], dest=dest, src={'uid':uid, 'user':user, 'node':node, 'name':src})
-        self.query.guest_put(device['uid'], src)
+        self.query.guest.put(device['uid'], src)
         return True
     
     def drop(self, uid, dest, src):
-        device = self.query.device_get(src)
+        device = self.query.device.get(src)
         if not device or device.get('uid') != uid:
             log_err(self, 'failed to drop, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return False
-        device = self.query.device_get(dest)
+        device = self.query.device.get(dest)
         if not device or device.get('uid') == uid:
             log_err(self, 'failed to drop, invalid dest, dest=%s, src=%s' % (str(dest), str(src)))
             return False
-        self.query.guest_remove(device['uid'], src)
+        self.query.guest.remove(device['uid'], src)
         return True
     

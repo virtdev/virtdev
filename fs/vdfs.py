@@ -97,7 +97,7 @@ class VDevFS(Operations):
             
             from link import VDevFSDownlink
             link = VDevFSDownlink(query)
-            self._query.set_link(link)
+            self._query.link = link
             self._link = link
         
         self.manager = manager
@@ -523,7 +523,7 @@ class VDevFS(Operations):
         if not obj or not obj.can_scan():
             return result
         if name:
-            result = self._query.history_get(name, args)
+            result = self._query.history.get(name, args)
         return result
     
     def _get_uid(self, path):
@@ -546,7 +546,7 @@ class VDevFS(Operations):
         if uid:
             event = self._get_event(uid)
             if not event:
-                event = self._query.event_get(uid)
+                event = self._query.event.get(uid)
                 self._set_event(uid, event)
         return event
     

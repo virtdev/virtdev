@@ -21,10 +21,10 @@ from task import VDevAuthTask
 
 class Token(VDevAuthTask):
     def get(self, uid, name):
-        device = self.query.device_get(name)
+        device = self.query.device.get(name)
         if device:
             if uid != device['uid']:
-                guests = self.query.guest_get(uid)
+                guests = self.query.guest.get(uid)
                 if not guests or name not in guests:
                     return 
-            return self.query.token_get(device['uid'])
+            return self.query.token.get(device['uid'])

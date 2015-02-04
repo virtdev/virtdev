@@ -147,10 +147,10 @@ class VDevFSDownlink(VDevFSLink):
     
     def _get_token(self, uid, cache=False):
         if not cache:
-            return self.query.token_get(uid)
+            return self.query.token.get(uid)
         token = self._tokens.get(uid)
         if not token:
-            token = self.query.token_get(uid)
+            token = self.query.token.get(uid)
             if token:
                 self._tokens.update({uid:token})
         if not token:
@@ -160,13 +160,13 @@ class VDevFSDownlink(VDevFSLink):
             
     def _get_device(self, name, cache=False):
         if not cache:
-            res = self.query.device_get(name)
+            res = self.query.device.get(name)
             if res:
                 res = (res['uid'], res['addr'])
             return res
         res = self._devices.get(name)
         if not res:
-            res = self.query.device_get(name)
+            res = self.query.device.get(name)
             if res:
                 return self._add_device(res['uid'], name, res['addr'])
         else:
@@ -228,23 +228,23 @@ class VDevFSDownlink(VDevFSLink):
             if puid != uid:
                 log_err(self, 'failed to mount, invalid uid')
                 raise Exception(log_get(self, 'failed to mount'))
-            members = self.query.member_get(uid)
+            members = self.query.member.get(uid)
             if not members:
                 log_err(self, 'failed to mount, cannot get members')
                 raise Exception(log_get(self, 'failed to mount'))
             for i in members:
                 p, node = str2tuple(i)
                 if p == parent:
-                    token = self.query.token_get(uid)
+                    token = self.query.token.get(uid)
                     if self._touch(addr, token):
                         match = True
                     break
         else:
-            nodes = self.query.node_get(uid)
+            nodes = self.query.node.get(uid)
             if not nodes:
                 log_err(self, 'failed to mount, cannot find any node')
                 raise Exception(log_get(self, 'failed to mount'))    
-            token = self.query.token_get(uid)
+            token = self.query.token.get(uid)
             for i in nodes:
                 node, addr, _ = str2tuple(i)
                 if self._touch(addr, token):

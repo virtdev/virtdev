@@ -66,9 +66,9 @@ def mount_device(uid, name, mode, freq, profile):
     xattr.setxattr(path, OP_MOUNT, str(attr))
 
 def update_device(query, uid, node, addr, name):
-    query.device_put(name, {'uid':uid, 'addr':addr, 'node':node})
-    query.member_remove(uid, (name,))
-    query.member_put(uid, (name, node))
+    query.device.put(name, {'uid':uid, 'addr':addr, 'node':node})
+    query.member.remove(uid, (name,))
+    query.member.put(uid, (name, node))
 
 def excl(func):
     def _excl(*args, **kwargs):

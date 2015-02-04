@@ -101,10 +101,10 @@ class VDevAuthWorker(Thread):
         token = None
         if buf[UID_SIZE - 1] == '*':
             user = self._get_user(buf)
-            uid, token = self.query.user_get({'user':user}, 'uid', 'password')
+            uid, token = self.query.user.get({'user':user}, 'uid', 'password')
         else:
             uid = buf[0:UID_SIZE]
-            token = self.query.token_get(uid)
+            token = self.query.token.get(uid)
         if uid and token:
             return (uid, token)
         else:

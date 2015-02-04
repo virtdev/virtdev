@@ -29,10 +29,10 @@ from dev.vdev import mount_device, update_device
 
 class Device(VDevAuthTask):    
     def get(self, uid, name):
-        device = self.query.device_get(name)
+        device = self.query.device.get(name)
         if device:
             if uid != device['uid']:
-                guests = self.query.guest_get(uid)
+                guests = self.query.guest.get(uid)
                 if not guests or name not in guests:
                     return 
             return device
@@ -41,13 +41,13 @@ class Device(VDevAuthTask):
         if mode != None and profile != None:
             mount_device(uid, name, mode, freq, profile)
         update_device(self.query, uid, node, addr, name)
-        self.query.event_put(uid, name)
+        self.query.event.put(uid, name)
         return True
     
     def remove(self, uid, node, name):
-        self.query.device_remove(name)
-        self.query.member_remove(uid, (name, node))
-        self.query.event_put(uid, name)
+        self.query.device.remove(name)
+        self.query.member.remove(uid, (name, node))
+        self.query.event.put(uid, name)
         return True
     
     def sync(self, uid, name, buf):
@@ -62,8 +62,8 @@ class Device(VDevAuthTask):
         path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
         with open(path, 'w') as f:
             f.write(buf)
-        self.query.history_put(name, **fields)
-        self.query.event_put(uid, name)
+        self.query.history.put(name, **fields)
+        self.query.event.put(uid, name)
         return True
     
     def diff(self, uid, name, label, item, buf):
