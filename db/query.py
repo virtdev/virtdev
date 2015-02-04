@@ -17,8 +17,8 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from lib import util
 from history import HistoryDB
+from lib.util import tuple2str
 from event.event import VDevEvent
 from lib.router import VDevRouter
 from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB
@@ -28,7 +28,7 @@ def tuplevalue(func):
     def _tuplevalue(*args, **kwargs):
         if len(args) < 3:
             raise Exception('invalid arguments')
-        return func(args[0], args[1], util.tuple2str(args[2]), *args[3:], **kwargs)
+        return func(args[0], args[1], tuple2str(args[2]), *args[3:], **kwargs)
     return _tuplevalue
 
 class VDevDBQuery(object):

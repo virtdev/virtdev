@@ -216,11 +216,10 @@ class VDevFSDownlink(VDevFSLink):
     def _touch(self, addr, token):
         try:
             tunnel.connect(addr, token, static=True)
-            tunnel.disconnect(addr, force=True)
             return True
         except:
             pass
-        
+    
     def mount(self, uid, name, mode, vertex, typ, parent):
         addr = None
         match = False
@@ -261,8 +260,11 @@ class VDevFSDownlink(VDevFSLink):
         attr.update({'name':name})
         attr.update({'mode':mode})
         attr.update({'vertex':vertex})
-        self._add_device(uid, name, addr)
-        self.put(name=name, op=OP_MOUNT, attr=str(attr))
-        update_device(self.query, uid, node, addr, name)
+        try:
+            self._request(addr, OP_MOUNT, {'attr':str(attr)})
+            update_device(self.query, uid, node, addr, name)
+            self._add_device(uid, name, addr)
+        finally:
+            self._disconnect(addr)
         return True
     
