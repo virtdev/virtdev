@@ -97,8 +97,11 @@ def service_join(*args):
         srv.join()
 
 def str2tuple(s):
-    items = str(s).split(':')
+    items = str(s).split('|')
     return tuple((i for i in items))
+
+def tuple2str(v):
+    return reduce(lambda x, y: x + '|' + y, v)
 
 def send_pkt(sock, buf):
     head = struct.pack('I', len(buf))

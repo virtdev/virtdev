@@ -25,8 +25,8 @@ import psutil
 from log import log
 from lock import VDevLock
 from subprocess import Popen
-from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt
 from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
+from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split
 
 NETSIZE = 30
 RETRY_MAX = 50
@@ -51,9 +51,6 @@ class Tunnel(object):
         self._tunnels = {}
         self._lock = VDevLock()
     
-    def _split(self, addr):
-        return addr.split(':')
-    
     def _get_path(self, addr):
         return '/var/run/tunnel-%s.pid' % self._get_iface(addr)
     
@@ -65,13 +62,13 @@ class Tunnel(object):
     
     def _get_iface(self, addr): 
         name = ''
-        fields = self._split(addr)[1].split('.')
+        fields = split(addr)[1].split('.')
         for i in range(1, 4):
             name += '%02x' % int(fields[i])
         return name
     
     def _get_tunnel(self, addr):
-        grp, addr = self._split(addr)
+        grp, addr = split(addr)
         if int(grp) > 255:
             raise Exception('invalid address')
         name = '%02x' % int(grp)
@@ -113,7 +110,7 @@ class Tunnel(object):
         return False
     
     def addr2ip(self, addr):
-        return self._split(addr)[1]
+        return split(addr)[1]
     
     def _connect(self, addr, key, static):
         if not static:
@@ -178,7 +175,7 @@ class Tunnel(object):
     @excl
     def create(self, addr, key):
         cfg = []
-        address = self._split(addr)[1]
+        address = split(addr)[1]
         fields = address.split('.')
         n = int(fields[3])
         subnet = '%s.%s.%s.%d' % (fields[0], fields[1], fields[2], n - 1)

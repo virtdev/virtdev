@@ -17,19 +17,19 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from lib import util
 from history import HistoryDB
 from event.event import VDevEvent
 from lib.router import VDevRouter
 from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB
 from conf.virtdev import VDEV_DB_SERVERS, VDEV_EVENT_SERVERS, VDEV_DFS_SERVERS
 
-def tuple2str(func):
-    def _tuple2str(*args, **kwargs):
+def tuplevalue(func):
+    def _tuplevalue(*args, **kwargs):
         if len(args) < 3:
             raise Exception('invalid arguments')
-        val = reduce(lambda x, y: x + ':' + y, args[2])
-        return func(args[0], args[1], val, *args[3:], **kwargs)
-    return _tuple2str
+        return func(args[0], args[1], util.tuple2str(args[2]), *args[3:], **kwargs)
+    return _tuplevalue
 
 class VDevDBQuery(object):
     def _init_db(self, router):
@@ -74,22 +74,22 @@ class VDevDBQuery(object):
     def member_get(self, key):
         return self._member.get(key)
     
-    @tuple2str
+    @tuplevalue
     def member_put(self, key, value):
         self._member.put(key, value)
     
-    @tuple2str
+    @tuplevalue
     def member_remove(self, key, value):
         self._member.remove(key, value, regex=True)
     
     def node_get(self, key):
         return self._node.get(key)
     
-    @tuple2str
+    @tuplevalue
     def node_put(self, key, value):
         self._node.put(key, value)
     
-    @tuple2str
+    @tuplevalue
     def node_remove(self, key, value):
         self._node.remove(key, value, regex=True)
     
