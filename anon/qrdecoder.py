@@ -19,8 +19,8 @@
 
 import zbar
 import Image
-from anon import VDevAnon
 from StringIO import StringIO
+from dev.anon import VDevAnon
 from base64 import decodestring
 
 DEBUG_QRDECODER = False

@@ -19,8 +19,8 @@
 
 import os
 import wget
-from anon import VDevAnon
 from threading import Thread
+from dev.anon import VDevAnon
 
 DEBUG_DOWNLOADER = True
 PATH_DOWNLOADER = "/opt/downloads"

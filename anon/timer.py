@@ -19,8 +19,8 @@
 
 import os
 import shelve
-from anon import VDevAnon
 from datetime import datetime
+from dev.anon import VDevAnon
 
 DEBUG_TIMER = False
 PATH_TIMER = '/opt/timer'

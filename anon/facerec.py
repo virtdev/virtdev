@@ -20,8 +20,8 @@
 import cv2
 import numpy
 from PIL import Image
-from anon import VDevAnon
 from StringIO import StringIO
+from dev.anon import VDevAnon
 from base64 import decodestring
 
 PATH_CASCADE = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml'

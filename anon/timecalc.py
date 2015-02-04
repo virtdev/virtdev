@@ -17,8 +17,8 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from anon import VDevAnon
 from threading import Lock
+from dev.anon import VDevAnon
 
 DEBUG_TIMECALC = False
 TIMECALC_TOTAL = 1000

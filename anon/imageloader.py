@@ -18,7 +18,7 @@
 #      MA 02110-1301, USA.
 
 import os
-from anon import VDevAnon
+from dev.anon import VDevAnon
 from base64 import encodestring
 
 PATH_IL = '/opt/imageloader'

@@ -20,7 +20,7 @@
 import pygame
 from PIL import Image
 from pygame import camera
-from anon import VDevAnon
+from dev.anon import VDevAnon
 from StringIO import StringIO
 from base64 import encodestring
 
