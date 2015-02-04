@@ -36,14 +36,14 @@ def get_device(typ, name):
 class VDevLo(VDevInterface):
     def _load_anon(self, name, typ, sock):
         try:
-            module = imp.load_source(typ, os.path.join(VDEV_ANON_PATH, '%s.py' % typ.lower()))
             device = typ.capitalize()
+            module = imp.load_source(device, os.path.join(VDEV_ANON_PATH, '%s.py' % typ.lower()))
             if module and hasattr(module, device):
                 anon = getattr(module, device)
                 if anon:
                     return anon(name, sock)
         except:
-            log_err(self, 'failed to load anon device %s' % typ)
+            log_err(self, 'failed to load anon device, type=%s' % typ)
     
     def _get_name(self, device):
         res = device.split('_')
