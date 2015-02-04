@@ -20,31 +20,16 @@
 from history import HistoryDB
 from event.event import VDevEvent
 from lib.router import VDevRouter
-from lib.log import log_get, log_err
 from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB
 from conf.virtdev import VDEV_DB_SERVERS, VDEV_EVENT_SERVERS, VDEV_DFS_SERVERS
 
-def pairvalue(func):
-    def wrapper(*args, **kwargs):
+def tuple2str(func):
+    def _tuple2str(*args, **kwargs):
         if len(args) < 3:
             raise Exception('invalid arguments')
-        self = args[0]
-        key = args[1]
-        pair = args[2]
-        if len(pair) != 2:
-            log_err(self, 'invalid value')
-            raise Exception(log_get(self, 'invalid value'))        
-        value = ''
-        if pair[0]:
-            value += str(pair[0])
-        value += ':'
-        if pair[1]:
-            value += str(pair[1])
-        elif not pair[0]:
-            log_err(self, 'invalid value')
-            raise Exception(log_get(self, 'invalid value'))
-        return func(self, key, value, *args[3:], **kwargs)
-    return wrapper
+        val = reduce(lambda x, y: x + ':' + y, args[2])
+        return func(args[0], args[1], val, *args[3:], **kwargs)
+    return _tuple2str
 
 class VDevDBQuery(object):
     def _init_db(self, router):
@@ -89,22 +74,22 @@ class VDevDBQuery(object):
     def member_get(self, key):
         return self._member.get(key)
     
-    @pairvalue
+    @tuple2str
     def member_put(self, key, value):
         self._member.put(key, value)
     
-    @pairvalue
+    @tuple2str
     def member_remove(self, key, value):
         self._member.remove(key, value, regex=True)
     
     def node_get(self, key):
         return self._node.get(key)
     
-    @pairvalue
+    @tuple2str
     def node_put(self, key, value):
         self._node.put(key, value)
     
-    @pairvalue
+    @tuple2str
     def node_remove(self, key, value):
         self._node.remove(key, value, regex=True)
     

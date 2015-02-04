@@ -67,7 +67,7 @@ def mount_device(uid, name, mode, freq, profile):
 
 def update_device(query, uid, node, addr, name):
     query.device_put(name, {'uid':uid, 'addr':addr, 'node':node})
-    query.member_remove(uid, (name, None))
+    query.member_remove(uid, (name,))
     query.member_put(uid, (name, node))
 
 def excl(func):

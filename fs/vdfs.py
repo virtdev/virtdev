@@ -254,14 +254,14 @@ class VDevFS(Operations):
             if freq:
                 self._attr.initialize(uid, name, {VDEV_ATTR_FREQ:freq})
             
-            if profile:
-                self._attr.initialize(uid, name, {VDEV_ATTR_PROFILE:profile})
-            
             if mapper:
                 self._attr.initialize(uid, name, {VDEV_ATTR_MAPPER:mapper})
             
             if handler:
                 self._attr.initialize(uid, name, {VDEV_ATTR_HANDLER:handler})
+            
+            if profile:
+                self._attr.initialize(uid, name, {VDEV_ATTR_PROFILE:profile})
             
             if dispatcher:
                 self._attr.initialize(uid, name, {VDEV_ATTR_DISPATCHER:dispatcher})
@@ -285,6 +285,8 @@ class VDevFS(Operations):
             if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, profile=profile):
                 log_err(self, 'failed to mount device, cannot link, op=OP_ADD')
                 raise FuseOSError(EINVAL)
+        
+        return name
     
     def _mount(self, path, value):
         if not value:
@@ -434,7 +436,7 @@ class VDevFS(Operations):
             mode |= VDEV_MODE_VISI
         
         if op != OP_FORK:
-            vertex = args['vertex']
+            vertex = args.get('vertex')
             if vertex:
                 if type(vertex) != list:
                     log_err(self, 'failed to create device, invalid vertex')

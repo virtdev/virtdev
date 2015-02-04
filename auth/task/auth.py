@@ -37,13 +37,13 @@ class Auth(VDevAuthTask):
                 log_err(self, 'no token')
                 raise Exception(log_get(self, 'no token'))
         addr = dhcp.allocate(uid, node, networks)
-        self.query.node_remove(uid, (node, None))
-        self.query.node_put(uid, (node, str(flags)))
+        self.query.node_remove(uid, (node,))
+        self.query.node_put(uid, (node, addr, str(flags)))
         return {'uid':uid, 'token':token, 'addr':addr}
     
     def logout(self, uid, node, addr):
-        self.query.node_remove(uid, (node, None))
-        self.query.member_remove(uid, (None, node))
+        self.query.node_remove(uid, (node,))
+        self.query.member_remove(uid, ('', node))
         dhcp.free(addr)
         return True
     

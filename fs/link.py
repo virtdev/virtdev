@@ -22,7 +22,7 @@ from random import randint
 from dev.vdev import update_device
 from lib.log import log_err, log_get
 from threading import Thread, Lock, Event
-from lib.util import DEFAULT_NAME, val2pair
+from lib.util import DEFAULT_NAME, str2tuple
 from oper import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
 VDEV_FS_LINK_QUEUE_MAX = 64
@@ -135,7 +135,7 @@ class VDevFSUplink(VDevFSLink):
 class VDevFSDownlink(VDevFSLink):
     def __init__(self, query):
         VDevFSLink.__init__(self)
-        self._operations = [OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
+        self._operations = [OP_MOUNT, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
         self.query = query
         self._devices = {}
         self._tokens = {}
@@ -213,33 +213,49 @@ class VDevFSDownlink(VDevFSLink):
             log_err(self, 'failed to process, cannot send request, addr=%s, name=%s, op=%s' % (addr, name, op))
         self._disconnect(addr)
     
+    def _touch(self, addr, token):
+        try:
+            tunnel.connect(addr, token, static=True)
+            tunnel.disconnect(addr, force=True)
+            return True
+        except:
+            pass
+        
     def mount(self, uid, name, mode, vertex, typ, parent):
         addr = None
+        match = False
         if parent:
             puid, addr = self._get_device(parent)
             if puid != uid:
                 log_err(self, 'failed to mount, invalid uid')
                 raise Exception(log_get(self, 'failed to mount'))
-        members = self.query.member_get(uid)
-        if not members:
-            log_err(self, 'failed to mount, cannot get members')
-            raise Exception(log_get(self, 'failed to mount'))
-        if addr:
-            match = False
+            members = self.query.member_get(uid)
+            if not members:
+                log_err(self, 'failed to mount, cannot get members')
+                raise Exception(log_get(self, 'failed to mount'))
             for i in members:
-                p, node = val2pair(i)
+                p, node = str2tuple(i)
                 if p == parent:
+                    token = self.query.token_get(uid)
+                    if self._touch(addr, token):
+                        match = True
+                    break
+        else:
+            nodes = self.query.node_get(uid)
+            if not nodes:
+                log_err(self, 'failed to mount, cannot find any node')
+                raise Exception(log_get(self, 'failed to mount'))    
+            token = self.query.token_get(uid)
+            for i in nodes:
+                node, addr, _ = str2tuple(i)
+                if self._touch(addr, token):
                     match = True
                     break
-            if not match:
-                log_err(self, 'failed to mount, cannot get node')
-                raise Exception(log_get(self, 'failed to mount'))
-        else:
-            parent, node = val2pair(members[randint(0, len(members) - 1)])
-            puid, addr = self._get_device(parent)
-            if puid != uid:
-                log_err(self, 'failed to mount, invalid uid')
-                raise Exception(log_get(self, 'failed to mount'))
+        
+        if not match:
+            log_err(self, 'failed to mount, cannot get node')
+            raise Exception(log_get(self, 'failed to mount'))
+        
         attr = {}
         attr.update({'type':typ})
         attr.update({'name':name})

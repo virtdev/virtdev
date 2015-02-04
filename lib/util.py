@@ -96,15 +96,9 @@ def service_join(*args):
     for srv in args:
         srv.join()
 
-def val2pair(val):
-    res = str(val).split(':')
-    length = len(res)
-    if length > 2:
-        raise Exception('val2pair failed')
-    elif length == 2:
-        return (res[0], res[1])
-    else:
-        return (res[0], '')
+def str2tuple(s):
+    items = str(s).split(':')
+    return tuple((i for i in items))
 
 def send_pkt(sock, buf):
     head = struct.pack('I', len(buf))

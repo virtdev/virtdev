@@ -19,7 +19,7 @@
 
 from random import randint
 from task import VDevAuthTask
-from lib.util import VDEV_FLAG_SPECIAL, val2pair
+from lib.util import VDEV_FLAG_SPECIAL, str2tuple
 
 NODE_MAX = 256
 
@@ -33,8 +33,8 @@ class Node(VDevAuthTask):
             return
         nodes = self.query.node_get(uid)
         for item in nodes:
-            node_name, flags = val2pair(item)
-            if flags and int(flags) & VDEV_FLAG_SPECIAL and node_name == node:
+            n, _, flags = str2tuple(item)
+            if flags and int(flags) & VDEV_FLAG_SPECIAL and n == node:
                 return {'uid':uid}
     
     def search(self, uid, user, random, limit):
@@ -49,7 +49,7 @@ class Node(VDevAuthTask):
         node_list = []
         nodes = self.query.node_get(uid)
         for item in nodes:
-            node, flags = val2pair(item)
+            node, _, flags = str2tuple(item)
             if flags and int(flags) & VDEV_FLAG_SPECIAL:
                 node_list.append(node)
                 if len(node_list) >= limit:
