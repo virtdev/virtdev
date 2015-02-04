@@ -55,12 +55,3 @@ class Downloader(VDevAnon):
         else:
             if DEBUG_DOWNLOADER:
                 print('Downloader: invalid args')
-
-if __name__ == '__main__':
-    name = 'test'
-    url = 'http://upload.wikimedia.org/wikipedia/en/4/43/Better_than_a_hallelujah.jpg'
-    args = str({'Name':name, 'URL':url})
-    downloader = Downloader()
-    ret = downloader.put(args)
-    print('Downloader: ret=%s' % str(ret))
-

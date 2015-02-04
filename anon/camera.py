@@ -49,9 +49,3 @@ class Camera(VDevAnon):
         img = Image.fromstring('RGBA', (CAMERA_WIDTH, CAMERA_HEIGHT), buf)
         img.save(res, 'JPEG')
         return {'Image':encodestring(res.getvalue())}
-
-if __name__ == '__main__':
-    cam = Camera()
-    res = cam.get()
-    if res and res.get('Image'):
-        print('Camera: success, len=%d' % len(res['Image']))

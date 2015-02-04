@@ -53,12 +53,3 @@ class Timer(VDevAnon):
             if name:
                 if self._create(name):
                     args.update({'Timer':self._name})
-
-if __name__ == '__main__':
-    import md5
-    timer = Timer()
-    name = md5.new('test').hexdigest()
-    args = str({'Name':name})
-    ret = timer.put(args)
-    print 'Timer: ret=%s' % str(ret)
-    

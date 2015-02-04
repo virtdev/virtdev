@@ -38,4 +38,3 @@ if __name__ == '__main__':
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
     name = xattr.getxattr(path, 'fork:%s' % str(attr))
     print 'fork: name=' + name
-    

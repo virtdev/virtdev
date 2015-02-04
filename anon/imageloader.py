@@ -55,12 +55,3 @@ class ImageLoader(VDevAnon):
     def open(self):
         self._images = self._load()
         self._active = True
-
-if __name__ == '__main__':
-    loader = ImageLoader()
-    loader.open()
-    while True:
-        res = loader.get()
-        if not res:
-            break
-        print('ImageLoader: name=%s' % res['Name'])

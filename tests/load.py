@@ -36,4 +36,3 @@ if __name__ == '__main__':
     name = sys.argv[2]
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
     print xattr.getxattr(path, 'load')
-    

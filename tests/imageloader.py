@@ -1,4 +1,4 @@
-#      poll.py
+#      imageloader.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,23 +17,15 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
-import xattr
-
 import sys
 sys.path.append('..')
-from fs.oper import OP_POLL
-from conf.virtdev import VDEV_FS_MOUNTPOINT
-
-def usage():
-    print 'poll.py [uid]'
+from anon.imageloader import ImageLoader
 
 if __name__ == '__main__':
-    argc = len(sys.argv)
-    if argc != 2:
-        usage()
-        sys.exit()
-    uid = sys.argv[1]
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
-    ret = xattr.getxattr(path, OP_POLL)
-    print 'poll:%s' % str(ret)
+    loader = ImageLoader()
+    loader.open()
+    while True:
+        res = loader.get()
+        if not res:
+            break
+        print('ImageLoader: name=%s' % res['Name'])

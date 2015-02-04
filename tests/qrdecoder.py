@@ -1,4 +1,4 @@
-#      poll.py
+#      qrdecoder.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,23 +17,22 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
-import xattr
+import Image
+import pyqrcode
+from base64 import encodestring
+from anon.qrdecoder import QRDecoder
 
-import sys
-sys.path.append('..')
-from fs.oper import OP_POLL
-from conf.virtdev import VDEV_FS_MOUNTPOINT
-
-def usage():
-    print 'poll.py [uid]'
+PATH_PNG = '/tmp/qr.png'
+PATH_JPG = '/tmp/qr.jpg'
 
 if __name__ == '__main__':
-    argc = len(sys.argv)
-    if argc != 2:
-        usage()
-        sys.exit()
-    uid = sys.argv[1]
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
-    ret = xattr.getxattr(path, OP_POLL)
-    print 'poll:%s' % str(ret)
+    qr = pyqrcode.create('hello')
+    qr.png(PATH_PNG, scale=6)
+    image = Image.open(PATH_PNG)
+    image.save(PATH_JPG)
+    dec = QRDecoder()
+    with open(PATH_JPG) as f:
+        buf = f.read()
+    image = encodestring(buf)
+    ret = dec.decode(image)
+    print('QRDecoder: ret=%s' % str(ret))

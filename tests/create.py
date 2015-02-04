@@ -42,4 +42,3 @@ if __name__ == '__main__':
     name = xattr.getxattr(path, 'create:%s' % str(attr))
     print 'creat: name=' + name
     
-    

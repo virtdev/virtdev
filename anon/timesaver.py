@@ -51,12 +51,3 @@ class TimeSaver(VDevAnon):
                 t = self._save(timer, name)
                 if t:
                     return {'Time':t}
-    
-if __name__ == '__main__':
-    import md5
-    s = TimeSaver()
-    name = md5.new('test').hexdigest()
-    args = str({'Name':name})
-    ret = s.put(args)
-    print 'TimeSaver: ret=%s' % str(ret)
-    

@@ -54,13 +54,3 @@ class TimeCalc(VDevAnon):
                 t = self._calc(time)
                 if t:
                     return {'Time':t}
-    
-if __name__ == '__main__':
-    import random
-    calc = TimeCalc()
-    for _ in range(TIMECALC_TOTAL):
-        args = str({'Time':random.uniform(0, 1)})
-        ret = calc.put(args)
-        if ret:
-            print 'TimeCalc: ret=%s' % str(ret)
-    

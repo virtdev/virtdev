@@ -1,4 +1,4 @@
-#      poll.py
+#      facerec.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -18,22 +18,19 @@
 #      MA 02110-1301, USA.
 
 import os
-import xattr
-
 import sys
-sys.path.append('..')
-from fs.oper import OP_POLL
-from conf.virtdev import VDEV_FS_MOUNTPOINT
+from base64 import encodestring
+from anon.facerec import FaceRec
 
-def usage():
-    print 'poll.py [uid]'
+PATH = '/opt/images/face.jpg'
 
 if __name__ == '__main__':
-    argc = len(sys.argv)
-    if argc != 2:
-        usage()
+    if not os.path.exists(PATH):
+        print('FaceRec: cannot find %s' % PATH)
         sys.exit()
-    uid = sys.argv[1]
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
-    ret = xattr.getxattr(path, OP_POLL)
-    print 'poll:%s' % str(ret)
+    with open(PATH) as f:
+        buf = f.read()
+    image = encodestring(buf)
+    rec = FaceRec()
+    ret = rec.recognize(image)
+    print('FaceRec: ret=%s' % str(ret))

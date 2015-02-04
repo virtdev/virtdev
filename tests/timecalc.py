@@ -1,4 +1,4 @@
-#      poll.py
+#      timecalc.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,23 +17,13 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
-import xattr
-
-import sys
-sys.path.append('..')
-from fs.oper import OP_POLL
-from conf.virtdev import VDEV_FS_MOUNTPOINT
-
-def usage():
-    print 'poll.py [uid]'
+import random
+from anon.timecalc import TimeCalc, TIMECALC_TOTAL
 
 if __name__ == '__main__':
-    argc = len(sys.argv)
-    if argc != 2:
-        usage()
-        sys.exit()
-    uid = sys.argv[1]
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
-    ret = xattr.getxattr(path, OP_POLL)
-    print 'poll:%s' % str(ret)
+    calc = TimeCalc()
+    for _ in range(TIMECALC_TOTAL):
+        args = str({'Time':random.uniform(0, 1)})
+        ret = calc.put(args)
+        if ret:
+            print 'TimeCalc: ret=%s' % str(ret)

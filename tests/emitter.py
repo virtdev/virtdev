@@ -37,4 +37,3 @@ if __name__ == '__main__':
     uid = sys.argv[1]
     name = sys.argv[2]
     VDevEventEmitter(router).put(uid, name)
-    

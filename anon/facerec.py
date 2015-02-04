@@ -53,19 +53,3 @@ class FaceRec(VDevAnon):
                     return {'Name':name}
                 else:
                     return {'Enable':'True'}
-    
-if __name__ == '__main__':
-    import os
-    import sys
-    from base64 import encodestring
-    path = '/opt/images/face.jpg'
-    if not os.path.exists(path):
-        print('FaceRec: cannot find %s' % path)
-        sys.exit()
-    with open(path) as f:
-        buf = f.read()
-    image = encodestring(buf)
-    rec = FaceRec()
-    ret = rec.recognize(image)
-    print('FaceRec: ret=%s' % str(ret))
-    

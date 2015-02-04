@@ -38,4 +38,3 @@ if __name__ == '__main__':
     query = {'today':{'limit':int(limit)}}
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
     print 'today: ' + xattr.getxattr(path, 'scan:%s' % str(query))
-    

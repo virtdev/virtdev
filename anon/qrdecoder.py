@@ -55,20 +55,3 @@ class QRDecoder(VDevAnon):
                         return {'Name':name, 'URL':url}
                     else:
                         return {'URL':url}
-    
-if __name__ == '__main__':
-    import pyqrcode
-    from base64 import encodestring
-    path_png = '/tmp/qr.png'
-    path_jpg = '/tmp/qr.jpg'
-    qr = pyqrcode.create('hello')
-    qr.png(path_png, scale=6)
-    image = Image.open(path_png)
-    image.save(path_jpg)
-    dec = QRDecoder()
-    with open(path_jpg) as f:
-        buf = f.read()
-    image = encodestring(buf)
-    ret = dec.decode(image)
-    print('QRDecoder: ret=%s' % str(ret))
-    
