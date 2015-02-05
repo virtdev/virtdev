@@ -19,10 +19,10 @@
 
 from lib import tunnel
 from random import randint
-from dev.vdev import update_device
 from lib.log import log_err, log_get
 from threading import Thread, Lock, Event
 from lib.util import DEFAULT_NAME, str2tuple
+from dev.vdev import VDEV_MODE_LINK, update_device
 from oper import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
 VDEV_FS_LINK_QUEUE_MAX = 64
@@ -258,13 +258,15 @@ class VDevFSDownlink(VDevFSLink):
         attr = {}
         attr.update({'type':typ})
         attr.update({'name':name})
-        attr.update({'mode':mode})
         attr.update({'vertex':vertex})
+        attr.update({'mode':mode | VDEV_MODE_LINK})
+        
         try:
             self._request(addr, OP_MOUNT, {'attr':str(attr)})
             update_device(self.query, uid, node, addr, name)
             self._add_device(uid, name, addr)
         finally:
             self._disconnect(addr)
+        
         return True
     

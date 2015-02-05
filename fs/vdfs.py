@@ -36,7 +36,7 @@ from manager import VDevFSManager
 from watcher import VDevWatcherPool
 from fuse import FuseOSError, Operations
 from conf.virtdev import VDEV_DFS_SERVERS, VDEV_FS_MOUNTPOINT
-from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_VISI, VDEV_MODE_ANON, VDEV_GET
+from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_VISI, VDEV_MODE_ANON, VDEV_MODE_LINK, VDEV_GET
 from attr import Attr, VDEV_ATTR_MODE, VDEV_ATTR_PROFILE, VDEV_ATTR_HANDLER, VDEV_ATTR_MAPPER, VDEV_ATTR_DISPATCHER, VDEV_ATTR_FREQ
 from oper import OP_LOAD, OP_POLL, OP_FORK, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
 
@@ -243,45 +243,56 @@ class VDevFS(Operations):
     def _mount_device(self, uid, name, mode, vertex, freq=None, profile=None, handler=None, mapper=None, dispatcher=None, typ=None, parent=None):
         if not name:
             name = uuid.uuid4().hex
-         
-        if mode != None:
-            self._data.initialize(uid, name)
-            self._attr.initialize(uid, name, {VDEV_ATTR_MODE:mode})
-            
-            if not profile and mode & VDEV_MODE_VIRT:
-                profile = VDev().d_profile
-            
-            if freq:
-                self._attr.initialize(uid, name, {VDEV_ATTR_FREQ:freq})
-            
-            if mapper:
-                self._attr.initialize(uid, name, {VDEV_ATTR_MAPPER:mapper})
-            
-            if handler:
-                self._attr.initialize(uid, name, {VDEV_ATTR_HANDLER:handler})
-            
-            if profile:
-                self._attr.initialize(uid, name, {VDEV_ATTR_PROFILE:profile})
-            
-            if dispatcher:
-                self._attr.initialize(uid, name, {VDEV_ATTR_DISPATCHER:dispatcher})
-            
-            if vertex:
-                self._vertex.initialize(uid, name, vertex)
-                for v in vertex:
-                    self._edge.initialize(uid, (v, name), hidden=True)
-            
-            if not self._shadow:
-                if vertex and not parent:
-                    parent = vertex[0]
-                if not self._link.mount(uid, name, mode, vertex, typ, parent):
-                    log_err(self, 'failed to mount device, cannot link')
-                    raise FuseOSError(EINVAL)
-            else:
-                if typ and mode & VDEV_MODE_ANON:
-                    self.manager.lo.register(get_device(typ, name))
         
-        if self._shadow and (mode == None or not (mode & VDEV_MODE_VIRT)):
+        anon = mode & VDEV_MODE_ANON
+        if not typ:
+            log_err(self, 'failed to mount device, invalid device')
+            raise FuseOSError(EINVAL)
+            
+        link = mode & VDEV_MODE_LINK
+        if link:
+            mode &= ~VDEV_MODE_LINK
+            
+        self._data.initialize(uid, name)
+        self._attr.initialize(uid, name, {VDEV_ATTR_MODE:mode})
+            
+        if not profile:
+            if mode & VDEV_MODE_VIRT or anon:
+                profile = VDev().d_profile
+                if anon:
+                    profile['type'] = typ
+            
+        if freq:
+            self._attr.initialize(uid, name, {VDEV_ATTR_FREQ:freq})
+            
+        if mapper:
+            self._attr.initialize(uid, name, {VDEV_ATTR_MAPPER:mapper})
+            
+        if handler:
+            self._attr.initialize(uid, name, {VDEV_ATTR_HANDLER:handler})
+            
+        if profile:
+            self._attr.initialize(uid, name, {VDEV_ATTR_PROFILE:profile})
+            
+        if dispatcher:
+            self._attr.initialize(uid, name, {VDEV_ATTR_DISPATCHER:dispatcher})
+            
+        if vertex:
+            self._vertex.initialize(uid, name, vertex)
+            for v in vertex:
+                self._edge.initialize(uid, (v, name), hidden=True)
+            
+        if not self._shadow:
+            if vertex and not parent:
+                parent = vertex[0]
+            if not self._link.mount(uid, name, mode, vertex, typ, parent):
+                log_err(self, 'failed to mount device, cannot link')
+                raise FuseOSError(EINVAL)
+        else:
+            if anon:
+                self.manager.lo.register(get_device(typ, name))
+        
+        if self._shadow and not link:
             if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, profile=profile):
                 log_err(self, 'failed to mount device, cannot link, op=OP_ADD')
                 raise FuseOSError(EINVAL)
@@ -326,18 +337,6 @@ class VDevFS(Operations):
             raise FuseOSError(EINVAL)
             
         mode = args.get('mode')
-        if mode == None:
-            if not self._shadow:
-                if not profile and vertex:
-                    mode = VDEV_MODE_VIRT
-                else:
-                    log_err(self, 'failed to mount, invalid mode')
-                    raise FuseOSError(EINVAL)
-            else:
-                if profile:
-                    log_err(self, 'failed to mount, invalid mode')
-                    raise FuseOSError(EINVAL)
-        
         self._mount_device(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ=typ)
     
     @excl
@@ -426,7 +425,7 @@ class VDevFS(Operations):
         
         typ = args.get('type')
         mode = args.get('mode')
-        if not mode:
+        if None == mode:
             if not typ:
                 mode = VDEV_MODE_VIRT
             else:
