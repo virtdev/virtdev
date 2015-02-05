@@ -32,17 +32,6 @@ VDEV_ANON_PATH = os.path.join(os.getcwd(), 'anon')
 
 def get_device(typ, name):
     return '%s_%s' % (typ, name)
-
-def load_anon(typ, name=None, sock=None):
-    try:
-        device = typ.capitalize()
-        module = imp.load_source(device, os.path.join(VDEV_ANON_PATH, '%s.py' % typ.lower()))
-        if module and hasattr(module, device):
-            anon = getattr(module, device)
-            if anon:
-                return anon(name, sock)
-    except:
-        pass
             
 class VDevLo(VDevInterface):
     def _get_name(self, device):
@@ -52,6 +41,17 @@ class VDevLo(VDevInterface):
         else:
             return (None, None)
     
+    def _load_anon(self, typ, name, sock):
+        try:
+            device = typ.capitalize()
+            module = imp.load_source(device, os.path.join(VDEV_ANON_PATH, '%s.py' % typ.lower()))
+            if module and hasattr(module, device):
+                anon = getattr(module, device)
+                if anon:
+                    return anon(name, sock)
+        except:
+            pass
+    
     def _listen(self):
         while True:
             sock = self._sock.accept()[0]
@@ -59,7 +59,7 @@ class VDevLo(VDevInterface):
                 buf = stream.get(sock, anon=True)
                 typ, name = self._get_name(buf)
                 if typ and name:
-                    anon = load_anon(typ, name, sock)
+                    anon = self._load_anon(typ, name, sock)
                     if anon:
                         self._lo.update({str(anon):anon})
                     else:

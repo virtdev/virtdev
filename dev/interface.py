@@ -39,6 +39,16 @@ VDEV_DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
 import sys
 sys.path.append(os.getcwd())
 
+def load_device(device):
+    try:
+        module = imp.load_source(device, os.path.join(VDEV_DRIVER_PATH, '%s.py' % device))
+        if module and hasattr(module, device):
+            dev = getattr(module, device)
+            if dev:
+                return dev()
+    except:
+        pass
+            
 class VDevInterface(Thread):
     def __init__(self, manager):
         self.manager = manager
@@ -57,16 +67,6 @@ class VDevInterface(Thread):
     def _get_name(self, device):
         pass
     
-    def _load_device(self, device):
-        try:
-            module = imp.load_source(device, os.path.join(VDEV_DRIVER_PATH, '%s.py' % device))
-            if module and hasattr(module, device):
-                dev = getattr(module, device)
-                if dev:
-                    return dev()
-        except:
-            log_err(self, 'failed to load device %s' % device)
-    
     def _get_device_info(self, buf):
         try:
             info = ast.literal_eval(buf)
@@ -82,7 +82,7 @@ class VDevInterface(Thread):
         devices = {}
         try:
             for i in info:
-                device = self._load_device(info[i])
+                device = load_device(info[i])
                 if device:
                     child = get_name(self._uid, name, i)
                     devices.update({child:device})
@@ -116,7 +116,7 @@ class VDevInterface(Thread):
     
     def _mount_anon(self, sock, device):
         typ, name = self._get_name(device)
-        dev = self._load_device(typ)
+        dev = load_device(typ)
         dev.mount(self.manager, name, sock=sock)
         self._devices.update({name:dev})
         return name
