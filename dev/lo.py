@@ -33,7 +33,7 @@ VDEV_ANON_PATH = os.path.join(os.getcwd(), 'anon')
 def get_device(typ, name):
     return '%s_%s' % (typ, name)
 
-def load_anon(self, typ, name=None, sock=None):
+def load_anon(typ, name=None, sock=None):
     try:
         device = typ.capitalize()
         module = imp.load_source(device, os.path.join(VDEV_ANON_PATH, '%s.py' % typ.lower()))
@@ -42,7 +42,7 @@ def load_anon(self, typ, name=None, sock=None):
             if anon:
                 return anon(name, sock)
     except:
-        log_err(self, 'failed to load anon device, type=%s' % typ)
+        pass
             
 class VDevLo(VDevInterface):
     def _get_name(self, device):
@@ -62,6 +62,8 @@ class VDevLo(VDevInterface):
                     anon = load_anon(typ, name, sock)
                     if anon:
                         self._lo.update({str(anon):anon})
+                    else:
+                        log_err(self, 'failed to load anon device, type=%s' % typ)
             except:
                 log_err(self, 'failed to listen')
                 sock.close()
