@@ -563,17 +563,13 @@ class VDevFS(Operations):
                     return d.proc(name, VDEV_GET)
         return ''
     
+    @excl
     def _flipflop(self, path):
-        lock = self._lock.acquire(path)
-        try:
-            if not self._xattr.has_key(path):
-                self._xattr.update({path:None})
-                return
-            else:
-                del self._xattr[path]
-                return True
-        finally:
-            lock.release()
+        if not self._xattr.has_key(path):
+            self._xattr.update({path:None})
+        else:
+            del self._xattr[path]
+            return True
             
     def getxattr(self, path, name, position=0):
         if not self._flipflop(path):
