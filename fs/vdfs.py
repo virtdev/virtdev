@@ -70,7 +70,6 @@ class VDevFS(Operations):
             os.mkdir(VDEV_FS_MOUNTPOINT)
     
     def __init__(self, query=None):
-        self._xattr = {}
         self._events = {}
         self._results = {}
         self._query = query
@@ -564,30 +563,53 @@ class VDevFS(Operations):
         return ''
     
     @excl
-    def _flipflop(self, path):
-        if not self._xattr.has_key(path):
-            self._xattr.update({path:None})
+    def _get_result(self, path, op):
+        if self._results.has_key(op):
+            ret = self._results[op].get(path)
+            if ret:
+                del self._results[op][path]
+                return ret
+        return ''
+    
+    @excl
+    def _set_result(self, path, op, result):
+        if self._results.has_key(op):
+            self._results[op].update({path:result})
         else:
-            del self._xattr[path]
-            return True
-            
+            self._results.update({op:{path:result}})
+    
     def getxattr(self, path, name, position=0):
-        if not self._flipflop(path):
-            return
         if name == OP_LOAD:
-            return self._load(path)
+            op = 'load'
         elif name == OP_POLL:
-            return self._poll(path)
+            op = 'poll'
         elif name.startswith('scan:'):
-            return self._scan(path, name[len('scan:'):])
+            op = 'scan'
         elif name.startswith('fork:'):
-            return self._create_device(path, OP_FORK, name[len('fork:'):])
+            op = 'fork'
         elif name.startswith('create:'):
-            return self._create_device(path, OP_CREATE, name[len('create:'):])
+            op = 'create'
         elif name.startswith('combine:'):
-            return self._create_device(path, OP_COMBINE, name[len('combine:'):])
+            op = 'combine'
         else:
             return ''
+        res = self._get_result(path, op)
+        if res:
+            return res
+        if op == 'load':
+            res = self._load(path)
+        elif op == 'poll':
+            res = self._poll(path)
+        elif op == 'scan':
+            res = self._scan(path, name[len('scan:'):])
+        elif op == 'fork':
+            res = self._create_device(path, OP_FORK, name[len('fork:'):])
+        elif op == 'create':
+            res = self._create_device(path, OP_CREATE, name[len('create:'):])
+        elif op == 'combine':
+            res = self._create_device(path, OP_COMBINE, name[len('combine:'):])
+        self._set_result(path, op, res)
+        return res
     
     @excl
     @show

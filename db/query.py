@@ -147,6 +147,7 @@ class VDevDBQuery(object):
     def __init__(self):
         self.link = None
         router = VDevRouter()
+        self.router = router
         self.user = VDevDBQueryUser(router)
         self.node = VDevDBQueryNode(router)
         self.token = VDevDBQueryToken(router)
