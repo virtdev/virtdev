@@ -70,6 +70,7 @@ class VDevFS(Operations):
             os.mkdir(VDEV_FS_MOUNTPOINT)
     
     def __init__(self, query=None):
+        self._xattr = {}
         self._events = {}
         self._results = {}
         self._query = query
@@ -561,8 +562,22 @@ class VDevFS(Operations):
                 if d:
                     return d.proc(name, VDEV_GET)
         return ''
-        
+    
+    def _flipflop(self, path):
+        lock = self._lock.acquire(path)
+        try:
+            if not self._xattr.has_key(path):
+                self._xattr.update({path:None})
+                return
+            else:
+                del self._xattr[path]
+                return True
+        finally:
+            lock.release()
+            
     def getxattr(self, path, name, position=0):
+        if not self._flipflop(path):
+            return
         if name == OP_LOAD:
             return self._load(path)
         elif name == OP_POLL:

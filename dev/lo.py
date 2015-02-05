@@ -106,7 +106,7 @@ class VDevLo(VDevInterface):
             return device_list
         self._active = True
         uid = self.manager.uid
-        names = load(uid, '', '', sort=True)
+        names = load(uid, sort=True)
         if not names:
             return
         for name in names:

@@ -43,7 +43,7 @@ class VDevDBQueryMember(object):
     @tuplevalue
     def put(self, key, value):
         self._member.put(key, value)
-        
+    
     @tuplevalue
     def remove(self, key, value):
         self._member.remove(key, value, regex=True)
@@ -79,7 +79,7 @@ class VDevDBQueryToken(object):
         self._token = TokenDB(router)
         for i in VDEV_DB_SERVERS:
             router.add_server(str(self._token), i)
-            
+    
     def get(self, key):
         return self._token.get(key, first=True)
     
@@ -102,7 +102,7 @@ class VDevDBQueryDevice(object):
         self._device.put(key, value)
     
     def remove(self, key):
-        self._device.remove(key)  
+        self._device.remove(key)
 
 class VDevDBQueryGuest(object):
     def __init__(self, router):
@@ -145,9 +145,8 @@ class VDevDBQueryEvent(object):
 
 class VDevDBQuery(object):
     def __init__(self):
-        self.link = None 
+        self.link = None
         router = VDevRouter()
-        self.router = router
         self.user = VDevDBQueryUser(router)
         self.node = VDevDBQueryNode(router)
         self.token = VDevDBQueryToken(router)
@@ -155,4 +154,3 @@ class VDevDBQuery(object):
         self.member = VDevDBQueryMember(router)
         self.device = VDevDBQueryDevice(router)
         self.history = VDevDBQueryHistory(router)
-    
