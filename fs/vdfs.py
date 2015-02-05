@@ -27,7 +27,6 @@ from data import Data
 from fuse import FUSE
 from errno import EINVAL
 from vertex import Vertex
-from dev.lo import get_device
 from lib.util import DIR_MODE
 from lib.lock import VDevLock
 from path import VDEV_FS_UPDATE
@@ -35,6 +34,7 @@ from lib.log import log_err, log
 from manager import VDevFSManager
 from watcher import VDevWatcherPool
 from fuse import FuseOSError, Operations
+from dev.lo import get_device, load_anon
 from conf.virtdev import VDEV_DFS_SERVERS, VDEV_FS_MOUNTPOINT
 from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_VISI, VDEV_MODE_ANON, VDEV_MODE_LINK, VDEV_GET
 from attr import Attr, VDEV_ATTR_MODE, VDEV_ATTR_PROFILE, VDEV_ATTR_HANDLER, VDEV_ATTR_MAPPER, VDEV_ATTR_DISPATCHER, VDEV_ATTR_FREQ
@@ -248,40 +248,40 @@ class VDevFS(Operations):
         if not typ:
             log_err(self, 'failed to mount device, invalid device')
             raise FuseOSError(EINVAL)
-            
+        
         link = mode & VDEV_MODE_LINK
         if link:
             mode &= ~VDEV_MODE_LINK
-            
+        
+        if not profile:
+            if anon:
+                profile = load_anon(typ).d_profile
+            elif mode & VDEV_MODE_VIRT:
+                profile = VDev().d_profile
+        
         self._data.initialize(uid, name)
         self._attr.initialize(uid, name, {VDEV_ATTR_MODE:mode})
-            
-        if not profile:
-            if mode & VDEV_MODE_VIRT or anon:
-                profile = VDev().d_profile
-                if anon:
-                    profile['type'] = typ
-            
+        
         if freq:
             self._attr.initialize(uid, name, {VDEV_ATTR_FREQ:freq})
-            
+        
         if mapper:
             self._attr.initialize(uid, name, {VDEV_ATTR_MAPPER:mapper})
-            
+        
         if handler:
             self._attr.initialize(uid, name, {VDEV_ATTR_HANDLER:handler})
-            
+        
         if profile:
             self._attr.initialize(uid, name, {VDEV_ATTR_PROFILE:profile})
-            
+        
         if dispatcher:
             self._attr.initialize(uid, name, {VDEV_ATTR_DISPATCHER:dispatcher})
-            
+        
         if vertex:
             self._vertex.initialize(uid, name, vertex)
             for v in vertex:
                 self._edge.initialize(uid, (v, name), hidden=True)
-            
+        
         if not self._shadow:
             if vertex and not parent:
                 parent = vertex[0]
