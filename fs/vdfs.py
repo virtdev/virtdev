@@ -296,10 +296,11 @@ class VDevFS(Operations):
         if not name:
             name = uuid.uuid4().hex
         
+        link = None
         if mode != None:
-            finished = self._initialize(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ, parent)
+            link = self._initialize(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ, parent)
         
-        if self._shadow and not finished:
+        if self._shadow and not link:
             if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, profile=profile):
                 log_err(self, 'failed to mount device, cannot link, op=OP_ADD')
                 raise FuseOSError(EINVAL)

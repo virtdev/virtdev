@@ -150,6 +150,7 @@ class VDevDBQuery(object):
         self.router = router
         self.user = VDevDBQueryUser(router)
         self.node = VDevDBQueryNode(router)
+        self.event = VDevDBQueryEvent(router)
         self.token = VDevDBQueryToken(router)
         self.guest = VDevDBQueryGuest(router)
         self.member = VDevDBQueryMember(router)
