@@ -23,7 +23,7 @@ from dev.anon import VDevAnon
 DEBUG_TIMECALC = False
 TIMECALC_TOTAL = 1000
 
-class TimeCalc(VDevAnon):
+class Timecalc(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
         self._lock = Lock()

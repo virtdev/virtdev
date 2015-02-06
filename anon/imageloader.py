@@ -23,7 +23,7 @@ from base64 import encodestring
 
 PATH_IL = '/opt/imageloader'
 
-class ImageLoader(VDevAnon):
+class Imageloader(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
         path = self._get_path()

@@ -26,7 +26,7 @@ from base64 import decodestring
 
 PATH_CASCADE = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml'
 
-class FaceRec(VDevAnon):
+class Facerec(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
         self._cascade = cv2.CascadeClassifier(PATH_CASCADE)

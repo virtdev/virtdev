@@ -25,7 +25,7 @@ from base64 import decodestring
 
 DEBUG_QRDECODER = False
 
-class QRDecoder(VDevAnon):    
+class Qrdecoder(VDevAnon):    
     def decode(self, image):
         buf = decodestring(image)
         if buf:

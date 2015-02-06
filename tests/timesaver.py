@@ -18,10 +18,10 @@
 #      MA 02110-1301, USA.
 
 import md5
-from anon.timesaver import TimeSaver
+from anon.timesaver import Timesaver
 
 if __name__ == '__main__':
-    s = TimeSaver()
+    s = Timesaver()
     name = md5.new('test').hexdigest()
     args = str({'Name':name})
     ret = s.put(args)

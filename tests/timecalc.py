@@ -18,10 +18,10 @@
 #      MA 02110-1301, USA.
 
 import random
-from anon.timecalc import TimeCalc, TIMECALC_TOTAL
+from anon.timecalc import Timecalc, TIMECALC_TOTAL
 
 if __name__ == '__main__':
-    calc = TimeCalc()
+    calc = Timecalc()
     for _ in range(TIMECALC_TOTAL):
         args = str({'Time':random.uniform(0, 1)})
         ret = calc.put(args)
