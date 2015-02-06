@@ -18,6 +18,8 @@
 #      MA 02110-1301, USA.
 
 import md5
+import sys
+sys.path.append('..')
 from anon.timer import Timer
 
 if __name__ == '__main__':

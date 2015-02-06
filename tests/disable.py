@@ -26,7 +26,7 @@ from fs.oper import OP_DISABLE
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'disable.py [uid] [name]'
+    print 'disable.py uid name'
 
 if __name__ == '__main__':
     argc = len(sys.argv)

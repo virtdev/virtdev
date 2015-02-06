@@ -25,7 +25,7 @@ sys.path.append('..')
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'fork.py [uid] [parent]'
+    print 'fork.py uid parent'
 
 if __name__ == '__main__':
     argc = len(sys.argv)

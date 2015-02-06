@@ -25,7 +25,7 @@ sys.path.append('..')
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'combine.py [uid] [[member] ...]'
+    print 'combine.py uid [vertex]...'
 
 if __name__ == '__main__':
     argc = len(sys.argv)

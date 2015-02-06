@@ -24,7 +24,7 @@ from event.event import VDevEventEmitter
 from conf.virtdev import VDEV_DB_SERVERS
 
 def usage():
-    print 'emitter.py [uid] [device id]'
+    print 'emitter.py uid name'
 
 if __name__ == '__main__':
     argc = len(sys.argv)

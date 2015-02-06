@@ -18,6 +18,9 @@
 #      MA 02110-1301, USA.
 
 import random
+
+import sys
+sys.path.append('..')
 from anon.timecalc import Timecalc, TIMECALC_TOTAL
 
 if __name__ == '__main__':

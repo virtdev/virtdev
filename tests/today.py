@@ -25,7 +25,7 @@ sys.path.append('..')
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'today.py [uid] [device id] [limit]'
+    print 'today.py uid name limit'
 
 if __name__ == '__main__':
     argc = len(sys.argv)

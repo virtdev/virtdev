@@ -20,6 +20,9 @@
 import Image
 import pyqrcode
 from base64 import encodestring
+
+import sys
+sys.path.append('..')
 from anon.qrdecoder import Qrdecoder
 
 PATH_PNG = '/tmp/qr.png'

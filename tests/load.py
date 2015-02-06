@@ -25,7 +25,7 @@ sys.path.append('..')
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'load.py [uid] [device id]'
+    print 'load.py uid name'
 
 if __name__ == '__main__':
     argc = len(sys.argv)

@@ -18,11 +18,16 @@
 #      MA 02110-1301, USA.
 
 import md5
+import uuid
+
+import sys
+sys.path.append('..')
 from anon.timesaver import Timesaver
 
 if __name__ == '__main__':
     s = Timesaver()
     name = md5.new('test').hexdigest()
-    args = str({'Name':name})
+    timer = uuid.uuid4().hex
+    args = str({'Timer':timer, 'Name':name})
     ret = s.put(args)
     print 'Timesaver: ret=%s' % str(ret)

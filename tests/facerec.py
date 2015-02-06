@@ -18,8 +18,10 @@
 #      MA 02110-1301, USA.
 
 import os
-import sys
 from base64 import encodestring
+
+import sys
+sys.path.append('..')
 from anon.facerec import Facerec
 
 PATH = '/opt/images/face.jpg'

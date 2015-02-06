@@ -19,9 +19,9 @@
 
 import os
 import shelve
-from timer import get_path
 from datetime import datetime
 from dev.anon import VDevAnon
+from anon.timer import get_path
 
 DEBUG_TIMESAVER = False
 
@@ -47,7 +47,7 @@ class Timesaver(VDevAnon):
         if args and type(args) == dict:
             name = args.get('Name')
             timer = args.get('Timer')
-            if name:
+            if name and timer:
                 t = self._save(timer, name)
                 if t:
                     return {'Time':t}
