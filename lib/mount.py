@@ -100,7 +100,7 @@ def mount():
         
         os.system('umount %s 2>/dev/null' % VDEV_FS_MOUNTPOINT)
         if not os.path.exists(VDEV_FS_MOUNTPOINT):
-            os.mkdir(VDEV_FS_MOUNTPOINT)
+            os.makedirs(VDEV_FS_MOUNTPOINT, 0o755)
         FUSE(VDevFS(query), VDEV_FS_MOUNTPOINT, foreground=True)
     elif services:
         service_join(*services)

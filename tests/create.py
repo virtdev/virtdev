@@ -34,11 +34,10 @@ if __name__ == '__main__':
         sys.exit()
     attr = {}
     uid = sys.argv[1]
-    if argc == 3:
+    if argc >= 3:
         attr['type'] = sys.argv[2]
     if argc > 3:
         attr['vertex'] = sys.argv[3:] 
     path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
     name = xattr.getxattr(path, 'create:%s' % str(attr))
-    print 'creat: name=' + name
-    
+    print 'create: name=' + name

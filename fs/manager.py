@@ -275,8 +275,8 @@ class VDevFSManager(object):
         return uid
     
     def _prepare(self):
+        self.lo = None
         self._bt = None
-        self._lo = None
         self.devices = []
         self.guest = None
         self.device = None

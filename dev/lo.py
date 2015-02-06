@@ -110,7 +110,7 @@ class VDevLo(VDevInterface):
         uid = self.manager.uid
         names = load(uid, sort=True)
         if not names:
-            return
+            return device_list
         for name in names:
             device = self._get_device(name)
             if not device:
