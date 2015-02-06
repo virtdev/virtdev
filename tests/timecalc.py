@@ -26,4 +26,4 @@ if __name__ == '__main__':
         args = str({'Time':random.uniform(0, 1)})
         ret = calc.put(args)
         if ret:
-            print 'TimeCalc: ret=%s' % str(ret)
+            print 'Timecalc: ret=%s' % str(ret)

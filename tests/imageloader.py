@@ -28,4 +28,4 @@ if __name__ == '__main__':
         res = loader.get()
         if not res:
             break
-        print('ImageLoader: name=%s' % res['Name'])
+        print('Imageloader: name=%s' % res['Name'])

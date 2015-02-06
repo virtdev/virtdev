@@ -247,10 +247,6 @@ class VDevFS(Operations):
             log_err(self, 'failed to mount device, invalid device')
             raise FuseOSError(EINVAL)
         
-        link = mode & VDEV_MODE_LINK
-        if link:
-            mode &= ~VDEV_MODE_LINK
-        
         if not profile:
             if anon:
                 profile = load_device(typ).d_profile
@@ -288,17 +284,18 @@ class VDevFS(Operations):
                 raise FuseOSError(EINVAL)
         else:
             if anon:
-                self.manager.lo.register(get_device(typ, name))
-        
-        return link
-        
+                self.manager.lo.register(get_device(typ, name), init=False)
+    
     def _mount_device(self, uid, name, mode, vertex, freq=None, profile=None, handler=None, mapper=None, dispatcher=None, typ=None, parent=None):
         if not name:
             name = uuid.uuid4().hex
         
         link = None
         if mode != None:
-            link = self._initialize(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ, parent)
+            link = mode & VDEV_MODE_LINK
+            if link:
+                mode &= ~VDEV_MODE_LINK
+            self._initialize(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ, parent)
         
         if self._shadow and not link:
             if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, profile=profile):

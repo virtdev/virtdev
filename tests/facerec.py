@@ -26,11 +26,11 @@ PATH = '/opt/images/face.jpg'
 
 if __name__ == '__main__':
     if not os.path.exists(PATH):
-        print('FaceRec: cannot find %s' % PATH)
+        print('Facerec: cannot find %s' % PATH)
         sys.exit()
     with open(PATH) as f:
         buf = f.read()
     image = encodestring(buf)
     rec = Facerec()
     ret = rec.recognize(image)
-    print('FaceRec: ret=%s' % str(ret))
+    print('Facerec: ret=%s' % str(ret))

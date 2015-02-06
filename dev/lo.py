@@ -32,7 +32,7 @@ VDEV_ANON_PATH = os.path.join(os.getcwd(), 'anon')
 
 def get_device(typ, name):
     return '%s_%s' % (typ, name)
-            
+
 class VDevLo(VDevInterface):
     def _get_name(self, device):
         res = device.split('_')

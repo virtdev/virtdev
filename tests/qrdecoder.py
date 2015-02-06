@@ -35,4 +35,4 @@ if __name__ == '__main__':
         buf = f.read()
     image = encodestring(buf)
     ret = dec.decode(image)
-    print('QRDecoder: ret=%s' % str(ret))
+    print('Qrdecoder: ret=%s' % str(ret))

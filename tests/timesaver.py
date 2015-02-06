@@ -25,4 +25,4 @@ if __name__ == '__main__':
     name = md5.new('test').hexdigest()
     args = str({'Name':name})
     ret = s.put(args)
-    print 'TimeSaver: ret=%s' % str(ret)
+    print 'Timesaver: ret=%s' % str(ret)

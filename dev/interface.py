@@ -114,18 +114,18 @@ class VDevInterface(Thread):
         self._devices.update({name:su})
         return name
     
-    def _mount_anon(self, sock, device):
+    def _mount_anon(self, sock, device, init):
         typ, name = self._get_name(device)
         dev = load_device(typ)
-        dev.mount(self.manager, name, sock=sock)
+        dev.mount(self.manager, name, sock=sock, init=init)
         self._devices.update({name:dev})
         return name
     
-    def _mount(self, sock, device):
+    def _mount(self, sock, device, init):
         if not self._anon:
             return self._mount_device(sock, device)
         else:
-            return self._mount_anon(sock, device)
+            return self._mount_anon(sock, device, init)
     
     def _proc(self, target, args, timeout):
         pool = ThreadPool(processes=1)
@@ -136,18 +136,18 @@ class VDevInterface(Thread):
         except:
             pool.terminate()
     
-    def _register(self, device):
+    def _register(self, device, init=True):
         sock = self._proc(self.connect, (device,), VDEV_PAIR_INTERVAL)
         if sock:
-            name = self._proc(self._mount, (sock, device), VDEV_MOUNT_TIMEOUT)
+            name = self._proc(self._mount, (sock, device, init), VDEV_MOUNT_TIMEOUT)
             if not name:
                 log_err(self, 'failed to register')
                 sock.close()
             else:
                 return name
     
-    def register(self, device):
-        return self._register(device)
+    def register(self, device, init=True):
+        return self._register(device, init)
     
     def find(self, name):
         devices = copy.copy(self._devices)

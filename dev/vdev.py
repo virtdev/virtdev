@@ -344,13 +344,14 @@ class VDev(object):
         else:
             log_err(self, 'failed to process, invalid operation')
     
-    def mount(self, manager, name, index=None, sock=None):
+    def mount(self, manager, name, index=None, sock=None, init=True):
         self.manager = manager
         self._uid = manager.uid
         self._index = index
         self._name = name
         self._sock = sock
-        self._mount()
+        if init:
+            self._mount()
         self._thread.start()
         log('mount: type=%s, index=%s [%s*]' % (self.d_type, self.d_index, self.d_name[:8]))
     

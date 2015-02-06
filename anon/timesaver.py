@@ -25,7 +25,7 @@ from dev.anon import VDevAnon
 
 DEBUG_TIMESAVER = False
 
-class TimeSaver(VDevAnon):
+class Timesaver(VDevAnon):
     def _save(self, timer, name):
         path = os.path.join(get_path(timer), name)
         if not os.path.exists(path):
