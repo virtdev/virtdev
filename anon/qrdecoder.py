@@ -52,6 +52,10 @@ class Qrdecoder(VDevAnon):
                     if DEBUG_QRDECODER:
                         print('QRDecoder: url=%s' % url)
                     if name:
-                        return {'Name':name, 'URL':url}
+                        ret = {'Name':name, 'URL':url}
                     else:
-                        return {'URL':url}
+                        ret = {'URL':url}
+                    timer = args.get('Timer')
+                    if timer:
+                        ret.update({'Timer':timer})
+                    return ret

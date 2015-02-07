@@ -53,3 +53,5 @@ class Timer(VDevAnon):
             if name:
                 if self._create(name):
                     args.update({'Timer':self._name})
+                    return args
+    
