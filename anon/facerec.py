@@ -50,9 +50,9 @@ class Facerec(VDevAnon):
             image = args.get('Image')
             if self.recognize(image):
                 if name:
-                    ret = {'Name':name, 'Enable':True}
+                    ret = {'Name':name, 'Enable':'True'}
                 else:
-                    ret = {'Enable':True}
+                    ret = {'Enable':'True'}
                 timer = args.get('Timer')
                 if timer:
                     ret.update({'Timer':timer})
