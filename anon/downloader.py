@@ -48,9 +48,13 @@ class Downloader(VDevAnon):
             if url:
                 if self.download(url):
                     if name:
-                        return {'Name':name}
+                        ret = {'Name':name, 'Enable':True}
                     else:
-                        return {'Enable':True}
+                        ret = {'Enable':True}
+                    timer = args.get('Timer')
+                    if timer:
+                        ret.update({'Timer':timer})
+                    return ret
                     
         else:
             if DEBUG_DOWNLOADER:
