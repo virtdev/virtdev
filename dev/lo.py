@@ -25,6 +25,7 @@ from fs.path import load
 from lib.log import log_err
 from threading import Thread
 from fs.attr import get_attr
+from vdev import VDEV_MODE_ANON
 from interface import VDevInterface
 from conf.virtdev import VDEV_LO_PORT
 
@@ -87,20 +88,17 @@ class VDevLo(VDevInterface):
         self._init_listener()
     
     def _get_device(self, name):
-        typ = None
+        mode = self.manager.synchronizer.get_mode(name)
+        if not (mode & VDEV_MODE_ANON):
+            return
         profile = get_attr(self.manager.uid, name, 'profile')
         if not profile:
             return
-        try:
-            lines = profile.split('\n')
-            for l in lines:
-                if l.startswith('type='):
-                    typ = l.strip()[len('type='):]
-                    break
-            if typ != None:
+        lines = profile.split('\n')
+        for l in lines:
+            if l.startswith('type='):
+                typ = l.strip()[len('type='):]
                 return get_device(typ, name)
-        except:
-            pass
     
     def scan(self):
         device_list = []
