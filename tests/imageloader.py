@@ -19,13 +19,13 @@
 
 import sys
 sys.path.append('..')
-from anon.imageloader import Imageloader
+from anon.imageloader import ImageLoader
 
 if __name__ == '__main__':
-    loader = Imageloader()
+    loader = ImageLoader()
     loader.open()
     while True:
         res = loader.get()
         if not res:
             break
-        print('Imageloader: name=%s' % res['Name'])
+        print('ImageLoader: name=%s' % res['Name'])

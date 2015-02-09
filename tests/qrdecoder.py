@@ -23,7 +23,7 @@ from base64 import encodestring
 
 import sys
 sys.path.append('..')
-from anon.qrdecoder import Qrdecoder
+from anon.qrdecoder import QRDecoder
 
 PATH_PNG = '/tmp/qr.png'
 PATH_JPG = '/tmp/qr.jpg'
@@ -33,9 +33,9 @@ if __name__ == '__main__':
     qr.png(PATH_PNG, scale=6)
     image = Image.open(PATH_PNG)
     image.save(PATH_JPG)
-    dec = Qrdecoder()
+    dec = QRDecoder()
     with open(PATH_JPG) as f:
         buf = f.read()
     image = encodestring(buf)
     ret = dec.decode(image)
-    print('Qrdecoder: ret=%s' % str(ret))
+    print('QRDecoder: ret=%s' % str(ret))

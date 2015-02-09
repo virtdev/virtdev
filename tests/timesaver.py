@@ -22,12 +22,12 @@ import uuid
 
 import sys
 sys.path.append('..')
-from anon.timesaver import Timesaver
+from anon.timesaver import TimeSaver
 
 if __name__ == '__main__':
-    s = Timesaver()
+    s = TimeSaver()
     name = md5.new('test').hexdigest()
     timer = uuid.uuid4().hex
     args = str({'Timer':timer, 'Name':name})
     ret = s.put(args)
-    print 'Timesaver: ret=%s' % str(ret)
+    print 'TimeSaver: ret=%s' % str(ret)

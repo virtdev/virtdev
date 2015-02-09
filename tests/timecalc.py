@@ -21,12 +21,12 @@ import random
 
 import sys
 sys.path.append('..')
-from anon.timecalc import Timecalc, TIMECALC_TOTAL
+from anon.timecalc import TimeCalc, TIMECALC_TOTAL
 
 if __name__ == '__main__':
-    calc = Timecalc()
+    calc = TimeCalc()
     for _ in range(TIMECALC_TOTAL):
         args = str({'Time':random.uniform(0, 1)})
         ret = calc.put(args)
         if ret:
-            print 'Timecalc: ret=%s' % str(ret)
+            print 'TimeCalc: ret=%s' % str(ret)

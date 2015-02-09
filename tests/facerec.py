@@ -22,7 +22,7 @@ from base64 import encodestring
 
 import sys
 sys.path.append('..')
-from anon.facerec import Facerec
+from anon.facerec import FaceRec
 
 PATH = '/opt/images/face.jpg'
 
@@ -33,6 +33,6 @@ if __name__ == '__main__':
     with open(PATH) as f:
         buf = f.read()
     image = encodestring(buf)
-    rec = Facerec()
+    rec = FaceRec()
     ret = rec.recognize(image)
-    print('Facerec: ret=%s' % str(ret))
+    print('FaceRec: ret=%s' % str(ret))
