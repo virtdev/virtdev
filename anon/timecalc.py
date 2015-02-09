@@ -17,19 +17,35 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import os
+import shelve
 from threading import Lock
 from dev.anon import VDevAnon
 
 DEBUG_TIMECALC = False
 TIMECALC_TOTAL = 1000
+PATH_TIMECALC = '/opt/timecalc'
 
 class TimeCalc(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
+        if not os.path.exists(PATH_TIMECALC):
+            os.makedirs(PATH_TIMECALC, 0o755)
         self._lock = Lock()
         self._time = 0
         self._cnt = 0
     
+    def _get_path(self):
+        return os.path.join(PATH_TIMECALC, self._name)
+    
+    def _save_time(self, time):
+        path = self._get_path()
+        d = shelve.open(path)
+        try:
+            d['time'] = time
+        finally:
+            d.close()
+            
     def _calc(self, time):
         self._lock.acquire()
         try:
@@ -40,6 +56,7 @@ class TimeCalc(VDevAnon):
                     t = self._time / TIMECALC_TOTAL
                     self._time = 0
                     self._cnt = 0
+                    self._save_time(t)
                     if DEBUG_TIMECALC:
                         print('TimeCalc: time=%f' % t)
                     return t
