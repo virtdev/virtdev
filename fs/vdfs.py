@@ -29,12 +29,12 @@ from errno import EINVAL
 from vertex import Vertex
 from lib.util import DIR_MODE
 from lib.lock import VDevLock
-from dev.lo import get_device
 from path import VDEV_FS_UPDATE
 from lib.log import log_err, log
 from manager import VDevFSManager
 from watcher import VDevWatcherPool
 from dev.interface import load_device
+from dev.lo import load_anon, get_device
 from fuse import FuseOSError, Operations
 from conf.virtdev import VDEV_DFS_SERVERS, VDEV_FS_MOUNTPOINT
 from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_VISI, VDEV_MODE_ANON, VDEV_MODE_LINK, VDEV_GET
@@ -249,6 +249,7 @@ class VDevFS(Operations):
         
         if not profile:
             if anon:
+                load_anon(typ)
                 dev = load_device(typ)
                 mode = dev.d_mode
                 profile = dev.d_profile
