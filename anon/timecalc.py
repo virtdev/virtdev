@@ -23,7 +23,7 @@ from dev.anon import VDevAnon
 DEBUG_TIMECALC = False
 TIMECALC_TOTAL = 1000
 
-class Timecalc(VDevAnon):
+class TimeCalc(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
         self._lock = Lock()
@@ -41,7 +41,7 @@ class Timecalc(VDevAnon):
                     self._time = 0
                     self._cnt = 0
                     if DEBUG_TIMECALC:
-                        print('Timecalc: time=%f' % t)
+                        print('TimeCalc: time=%f' % t)
                     return t
         finally:
             self._lock.release()

@@ -25,7 +25,7 @@ from anon.timer import get_path
 
 DEBUG_TIMESAVER = False
 
-class Timesaver(VDevAnon):
+class TimeSaver(VDevAnon):
     def _save(self, timer, name):
         path = os.path.join(get_path(timer), name)
         if not os.path.exists(path):
@@ -37,7 +37,7 @@ class Timesaver(VDevAnon):
             t = (t_end - t_start).total_seconds()
             d['time'] = t 
             if DEBUG_TIMESAVER:
-                print('Timesaver: name=%s, time=%f' % (name, t))
+                print('TimeSaver: name=%s, time=%f' % (name, t))
             return t
         finally:
             d.close()

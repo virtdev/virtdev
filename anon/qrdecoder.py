@@ -25,7 +25,7 @@ from base64 import decodestring
 
 DEBUG_QRDECODER = False
 
-class Qrdecoder(VDevAnon):    
+class QRDecoder(VDevAnon):    
     def decode(self, image):
         buf = decodestring(image)
         if buf:
@@ -50,7 +50,7 @@ class Qrdecoder(VDevAnon):
                 url = self.decode(image)
                 if url:
                     if DEBUG_QRDECODER:
-                        print('Qrdecoder: url=%s' % url)
+                        print('QRDecoder: url=%s' % url)
                     if name:
                         ret = {'Name':name, 'URL':url}
                     else:

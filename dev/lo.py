@@ -44,10 +44,9 @@ class VDevLo(VDevInterface):
     
     def _load_anon(self, typ, name, sock):
         try:
-            device = typ.capitalize()
-            module = imp.load_source(device, os.path.join(VDEV_ANON_PATH, '%s.py' % typ.lower()))
-            if module and hasattr(module, device):
-                anon = getattr(module, device)
+            module = imp.load_source(typ, os.path.join(VDEV_ANON_PATH, '%s.py' % typ.lower()))
+            if module and hasattr(module, typ):
+                anon = getattr(module, typ)
                 if anon:
                     return anon(name, sock)
         except:

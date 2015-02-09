@@ -46,7 +46,7 @@ class VDevAnon(Thread):
         self.start()
     
     def __str__(self):
-        return self.__class__.__name__.upper()
+        return self.__class__.__name__
     
     def open(self):
         pass
