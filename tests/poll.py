@@ -26,7 +26,7 @@ from fs.oper import OP_POLL
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'poll.py [uid]'
+    print 'poll.py uid'
 
 if __name__ == '__main__':
     argc = len(sys.argv)

@@ -50,7 +50,7 @@ class Qrdecoder(VDevAnon):
                 url = self.decode(image)
                 if url:
                     if DEBUG_QRDECODER:
-                        print('QRDecoder: url=%s' % url)
+                        print('Qrdecoder: url=%s' % url)
                     if name:
                         ret = {'Name':name, 'URL':url}
                     else:

@@ -21,9 +21,10 @@ import os
 import imp
 import socket
 from lib import stream
+from fs.path import load
 from lib.log import log_err
 from threading import Thread
-from fs.path import get_attr, load
+from fs.attr import get_attr
 from interface import VDevInterface
 from conf.virtdev import VDEV_LO_PORT
 

@@ -37,7 +37,7 @@ class Timesaver(VDevAnon):
             t = (t_end - t_start).total_seconds()
             d['time'] = t 
             if DEBUG_TIMESAVER:
-                print('TimeSaver: name=%s, time=%f' % (name, t))
+                print('Timesaver: name=%s, time=%f' % (name, t))
             return t
         finally:
             d.close()

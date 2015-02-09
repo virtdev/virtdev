@@ -20,10 +20,11 @@
 import os
 import librsync
 from temp import Temp
-from path import VDevPath
 from fuse import FuseOSError
 from StringIO import StringIO
 from lib.log import log_err, log_get
+from path import VDEV_FS_LABELS, VDevPath
+from conf.virtdev import VDEV_FS_MOUNTPOINT
 from base64 import encodestring, decodestring
 
 VDEV_ATTR_MODE = 'mode'
@@ -32,6 +33,17 @@ VDEV_ATTR_MAPPER = 'mapper'
 VDEV_ATTR_HANDLER = 'handler'
 VDEV_ATTR_PROFILE = 'profile'
 VDEV_ATTR_DISPATCHER = 'dispatcher'
+VDEV_ATTR = [VDEV_ATTR_MODE, VDEV_ATTR_FREQ, VDEV_ATTR_MAPPER, VDEV_ATTR_HANDLER, VDEV_ATTR_PROFILE, VDEV_ATTR_DISPATCHER]
+
+def get_attr(uid, name, attr):
+    ret = ''
+    if attr not in VDEV_ATTR:
+        return ret
+    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, VDEV_FS_LABELS['attr'], name, attr)
+    if os.path.exists(path):
+        with open(path) as f:
+            ret = f.read()
+    return ret
 
 class Attr(VDevPath):
     def __init__(self, watcher=None, router=None, manager=None):

@@ -26,7 +26,7 @@ from fs.oper import OP_ENABLE
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 def usage():
-    print 'enable.py [uid] [name]'
+    print 'enable.py uid name'
 
 if __name__ == '__main__':
     argc = len(sys.argv)

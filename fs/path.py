@@ -50,14 +50,6 @@ def load(uid, name='', label='', sort=False):
         key = lambda f: os.stat(os.path.join(path, f)).st_mtime
         return sorted(os.listdir(path), key=key)
 
-def get_attr(uid, name, attr):
-    ret = ''
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, VDEV_FS_LABELS['attr'], name, attr)
-    if os.path.exists(path):
-        with open(path) as f:
-            ret = f.read()
-    return ret
-
 class VDevPath(object):
     def __init__(self, router=None, manager=None):
         if not os.path.exists(VDEV_FS_PATH):
