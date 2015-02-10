@@ -19,6 +19,7 @@
 
 import os
 import wget
+from lib.log import log_err
 from threading import Thread
 from dev.anon import VDevAnon
 
@@ -37,7 +38,7 @@ class Downloader(VDevAnon):
             if DEBUG_DOWNLOADER:
                 print('Downloader: filename=%s' % str(filename))
         except:
-            pass
+            log_err(self, 'failed to download')
     
     def download(self, url):
         Thread(target=self._do_download, args=(url,)).start()

@@ -243,9 +243,10 @@ class VDevFS(Operations):
     
     def _initialize(self, uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ, parent):
         anon = mode & VDEV_MODE_ANON
-        if anon and not typ:
-            log_err(self, 'failed to mount device, invalid device')
-            raise FuseOSError(EINVAL)
+        if anon:
+            if not typ or (self._shadow and not self.manager.lo):
+                log_err(self, 'failed to mount device')
+                raise FuseOSError(EINVAL)
         
         if not profile:
             if anon:
