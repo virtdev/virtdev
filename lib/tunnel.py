@@ -134,7 +134,6 @@ class Tunnel(object):
         sock.settimeout(TOUCH_TIMEOUT)
         try:
             sock.connect((ip, VDEV_FS_PORT))
-            sock.settimeout(None)
             sock.close()
             return True
         except:
