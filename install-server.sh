@@ -31,4 +31,3 @@ pip install hdfs
 pip install snakebite
 pip install pycrypto
 pip install python-inotify==0.6-test
-pip install ping

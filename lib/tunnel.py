@@ -25,15 +25,13 @@ import psutil
 from log import log
 from lock import VDevLock
 from subprocess import Popen
-from ping import do_one as ping
 from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
 from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split
 
 NETSIZE = 30
 RETRY_MAX = 50
 SLEEP_TIME = 0.1 # seconds
-PING_TIMEOUT = 1 # seconds
-PING_SIZE = 1 # bytes
+TOUCH_TIMEOUT = 1 # seconds
 NETMASK = '255.255.255.224'
 PATH = '/etc/dhcp/dhcpd.conf'
 DEVNULL = open(os.devnull, 'wb')
@@ -130,23 +128,29 @@ class Tunnel(object):
             os.system('dhclient -q %s' % self._get_iface(addr))
         return self._chkiface(addr)
     
-    def _ping(self, addr):
+    def _touch(self, addr):
         ip = self.addr2ip(addr)
-        if ping(ip, PING_TIMEOUT, PING_SIZE):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(TOUCH_TIMEOUT)
+        try:
+            sock.connect((ip, VDEV_FS_PORT))
+            sock.close()
             return True
-        else:
-            return False
+        except:
+            pass
+    
     @excl
     def connect(self, addr, key, static, touch):
         if self._tunnels.has_key(addr):
             if touch:
-                if not self._ping(addr):
+                if not self._touch(addr):
                     raise Exception('failed to connect')
             self._tunnels[addr] += 1
         else:
             self._connect(addr, key, static)
             if touch:
-                if not self._ping(addr):
+                if not self._touch(addr):
+                    self._disconnect(addr, True)
                     raise Exception('failed to connect')
             self._tunnels[addr] = 1
     
