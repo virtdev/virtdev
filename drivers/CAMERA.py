@@ -21,5 +21,5 @@ from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_OUT, VDEV_MODE_POLL, VDEV_M
 
 class CAMERA(VDev):
     def __init__(self):
-        VDev.__init__(self, VDEV_MODE_OUT | VDEV_MODE_VISI | VDEV_MODE_POLL | VDEV_MODE_SYNC | VDEV_MODE_ANON, Image='jpg')
+        VDev.__init__(self, VDEV_MODE_OUT | VDEV_MODE_VISI | VDEV_MODE_POLL | VDEV_MODE_SYNC | VDEV_MODE_ANON, File='jpg')
         self.set_freq(0.01)

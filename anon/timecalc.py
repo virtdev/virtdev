@@ -64,7 +64,7 @@ class TimeCalc(VDevAnon):
             self._lock.release()
     
     def put(self, buf):
-        args = self._get_args(buf)
+        args = self.get_args(buf)
         if args and type(args) == dict:
             time = args.get('Time')
             if time:

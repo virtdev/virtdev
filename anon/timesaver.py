@@ -23,7 +23,7 @@ from datetime import datetime
 from dev.anon import VDevAnon
 from anon.timer import get_path
 
-DEBUG_TIMESAVER = False
+DEBUG_TIMESAVER = True
 
 class TimeSaver(VDevAnon):
     def _save(self, timer, name):
@@ -43,7 +43,7 @@ class TimeSaver(VDevAnon):
             d.close()
     
     def put(self, buf):
-        args = self._get_args(buf)
+        args = self.get_args(buf)
         if args and type(args) == dict:
             name = args.get('Name')
             timer = args.get('Timer')

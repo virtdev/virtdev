@@ -1,4 +1,4 @@
-#      downloader.py
+#      blob.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,45 +17,36 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
-import wget
-from threading import Thread
 from dev.anon import VDevAnon
+from textblob import TextBlob
+from base64 import decodestring
 
-DEBUG_DOWNLOADER = True
-PATH_DOWNLOADER = "/opt/downloads"
+DEBUG_BLOB = False
 
-class Downloader(VDevAnon):
-    def __init__(self, name=None, sock=None):
-        VDevAnon.__init__(self, name, sock)
-        if not os.path.exists(PATH_DOWNLOADER):
-            os.makedirs(PATH_DOWNLOADER, 0o755)
-    
-    def _do_download(self, url):
-        filename = wget.download(url, out=PATH_DOWNLOADER, bar=None)
-        if DEBUG_DOWNLOADER:
-            print('Downloader: filename=%s' % str(filename))
-        
-    def download(self, url):
-        Thread(target=self._do_download, args=(url,)).start()
-        return True
+class Blob(VDevAnon):    
+    def get_sentiment(self, text):
+        buf = decodestring(text)
+        if buf:
+            blob = TextBlob(buf)
+            return (blob.sentiment.polarity,  blob.sentiment.subjectivity)
+        else:
+            return (None, None)
     
     def put(self, buf):
         args = self.get_args(buf)
         if args and type(args) == dict:
-            url = args.get('URL')
-            name = args.get('Name')
-            if url:
-                if self.download(url):
+            text = args.get('File')
+            if text:
+                polarity, subjectivity = self.get_sentiment(text)
+                if polarity != None and subjectivity != None:
+                    if DEBUG_BLOB:
+                        print('Blob: polarity=%f, subjectivity=%f' % (polarity, subjectivity))
+                    ret = {'Polarity':polarity, 'Subjectivity':subjectivity}
+                    name = args.get('Name')
                     if name:
-                        ret = {'Name':name, 'Enable':'True'}
-                    else:
-                        ret = {'Enable':'True'}
+                        ret.update({'Name':name})
                     timer = args.get('Timer')
                     if timer:
                         ret.update({'Timer':timer})
                     return ret
-                    
-        else:
-            if DEBUG_DOWNLOADER:
-                print('Downloader: invalid args')
+    

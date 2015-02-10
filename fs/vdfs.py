@@ -249,8 +249,13 @@ class VDevFS(Operations):
         
         if not profile:
             if anon:
-                load_anon(typ)
+                if not load_anon(typ): 
+                    log_err(self, 'failed to mount device, invalid device')
+                    raise FuseOSError(EINVAL)
                 dev = load_device(typ)
+                if not dev:
+                    log_err(self, 'failed to mount device, invalid device')
+                    raise FuseOSError(EINVAL)
                 mode = dev.d_mode
                 profile = dev.d_profile
             elif mode & VDEV_MODE_VIRT:

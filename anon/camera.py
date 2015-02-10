@@ -48,4 +48,4 @@ class Camera(VDevAnon):
         buf = pygame.image.tostring(surf, 'RGBA')
         img = Image.fromstring('RGBA', (CAMERA_WIDTH, CAMERA_HEIGHT), buf)
         img.save(res, 'JPEG')
-        return {'Image':encodestring(res.getvalue())}
+        return {'File':encodestring(res.getvalue())}

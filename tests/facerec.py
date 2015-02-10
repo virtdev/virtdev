@@ -28,7 +28,7 @@ PATH = '/opt/images/face.jpg'
 
 if __name__ == '__main__':
     if not os.path.exists(PATH):
-        print('Facerec: cannot find %s' % PATH)
+        print('FaceRec: cannot find %s' % PATH)
         sys.exit()
     with open(PATH) as f:
         buf = f.read()

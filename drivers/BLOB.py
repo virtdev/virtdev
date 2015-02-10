@@ -1,4 +1,4 @@
-#      qrdecoder.py
+#      BLOB.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,26 +17,8 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import Image
-import pyqrcode
-from base64 import encodestring
+from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_IN, VDEV_MODE_ANON
 
-import sys
-sys.path.append('..')
-from anon.qrdecoder import QRDecoder
-
-PATH_PNG = '/tmp/qr.png'
-PATH_JPG = '/tmp/qr.jpg'
-URL = 'http://upload.wikimedia.org/wikipedia/en/4/43/Better_than_a_hallelujah.jpg'
-
-if __name__ == '__main__':
-    qr = pyqrcode.create(URL)
-    qr.png(PATH_PNG, scale=6)
-    image = Image.open(PATH_PNG)
-    image.save(PATH_JPG)
-    dec = QRDecoder()
-    with open(PATH_JPG) as f:
-        buf = f.read()
-    image = encodestring(buf)
-    ret = dec.decode(image)
-    print('QRDecoder: ret=%s' % str(ret))
+class BLOB(VDev):
+    def __init__(self):
+        VDev.__init__(self, VDEV_MODE_IN | VDEV_MODE_VISI | VDEV_MODE_ANON, Timer='str', Name='str', Polarity='float', Subjectivity='float')

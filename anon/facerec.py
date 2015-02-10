@@ -44,15 +44,14 @@ class FaceRec(VDevAnon):
                 return True
     
     def put(self, buf):
-        args = self._get_args(buf)
+        args = self.get_args(buf)
         if args and type(args) == dict:
-            name = args.get('Name')
-            image = args.get('Image')
+            image = args.get('File')
             if self.recognize(image):
+                ret = {'Enable':'True'}
+                name = args.get('Name')
                 if name:
-                    ret = {'Name':name, 'Enable':'True'}
-                else:
-                    ret = {'Enable':'True'}
+                    name.update({'Name':name})
                 timer = args.get('Timer')
                 if timer:
                     ret.update({'Timer':timer})

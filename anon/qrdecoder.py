@@ -42,19 +42,18 @@ class QRDecoder(VDevAnon):
                     return str(symbol.data).lower()
     
     def put(self, buf):
-        args = self._get_args(buf)
+        args = self.get_args(buf)
         if args and type(args) == dict:
-            name = args.get('Name')
-            image = args.get('Image')
+            image = args.get('File')
             if image:
                 url = self.decode(image)
                 if url:
                     if DEBUG_QRDECODER:
                         print('QRDecoder: url=%s' % url)
+                    ret = {'URL':url}
+                    name = args.get('Name')
                     if name:
-                        ret = {'Name':name, 'URL':url}
-                    else:
-                        ret = {'URL':url}
+                        ret.update({'Name':name})
                     timer = args.get('Timer')
                     if timer:
                         ret.update({'Timer':timer})

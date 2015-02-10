@@ -31,9 +31,10 @@ def get_path(name):
 class Timer(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
-        path = get_path(name)
-        if not os.path.exists(path):
-            os.makedirs(path, 0o755)
+        if name:
+            path = get_path(name)
+            if not os.path.exists(path):
+                os.makedirs(path, 0o755)
     
     def _create(self, name):
         path = os.path.join(get_path(self._name), name)
@@ -47,7 +48,7 @@ class Timer(VDevAnon):
             d.close()
     
     def put(self, buf):
-        args = self._get_args(buf)
+        args = self.get_args(buf)
         if args and type(args) == dict:
             name = args.get('Name')
             if name:

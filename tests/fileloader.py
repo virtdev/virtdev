@@ -1,4 +1,4 @@
-#      imageloader.py
+#      fileloader.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -19,13 +19,13 @@
 
 import sys
 sys.path.append('..')
-from anon.imageloader import ImageLoader
+from anon.fileloader import FileLoader
 
 if __name__ == '__main__':
-    loader = ImageLoader()
+    loader = FileLoader()
     loader.open()
     while True:
         res = loader.get()
         if not res:
             break
-        print('ImageLoader: name=%s' % res['Name'])
+        print('FileLoader: name=%s' % res['Name'])

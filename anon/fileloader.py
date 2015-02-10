@@ -1,4 +1,4 @@
-#      imageloader.py
+#      fileloader.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -21,37 +21,37 @@ import os
 from dev.anon import VDevAnon
 from base64 import encodestring
 
-PATH_IL = '/opt/imageloader'
+PATH_FL = '/opt/fileloader'
 
-class ImageLoader(VDevAnon):
+class FileLoader(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
         path = self._get_path()
         if not os.path.exists(path):
             os.makedirs(path, 0o755)
-        self._images = None
+        self._files = None
         self._active = False
     
     def _get_path(self):
-        return os.path.join(PATH_IL, self._name)
+        return os.path.join(PATH_FL, self._name)
     
     def _load(self):
         path = self._get_path()
         for name in os.listdir(path):
-            path_image = os.path.join(path, name)
-            with open(path_image) as f:
+            file_path = os.path.join(path, name)
+            with open(file_path) as f:
                 buf = f.read()
             if buf:
-                yield {'Name':name, 'Image':encodestring(buf)}
+                yield {'Name':name, 'File':encodestring(buf)}
     
     def get(self):
         if not self._active:
             return
         try:
-            return self._images.next()
+            return self._files.next()
         except StopIteration:
             self._active = False
     
     def open(self):
-        self._images = self._load()
+        self._files = self._load()
         self._active = True

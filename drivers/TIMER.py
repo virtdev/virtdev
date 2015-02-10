@@ -21,4 +21,4 @@ from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_IN, VDEV_MODE_ANON
 
 class TIMER(VDev):
     def __init__(self):
-        VDev.__init__(self, VDEV_MODE_IN | VDEV_MODE_VISI | VDEV_MODE_ANON, Timer='str', Name='str', Image='*')
+        VDev.__init__(self, VDEV_MODE_IN | VDEV_MODE_VISI | VDEV_MODE_ANON, Timer='str', Name='str', File='*')

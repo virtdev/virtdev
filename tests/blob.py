@@ -1,4 +1,4 @@
-#      IMAGELOADER.py
+#      blob.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,9 +17,26 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from dev.vdev import VDev, VDEV_MODE_VISI, VDEV_MODE_OUT, VDEV_MODE_POLL, VDEV_MODE_ANON, VDEV_MODE_SWITCH
+import html2text
+from urllib import urlopen
+from base64 import encodestring
 
-class IMAGELOADER(VDev):
-    def __init__(self):
-        VDev.__init__(self, VDEV_MODE_OUT | VDEV_MODE_VISI | VDEV_MODE_POLL | VDEV_MODE_ANON | VDEV_MODE_SWITCH, Name='str', Image='*')
-        self.set_freq(1)
+import sys
+sys.path.append('..')
+from anon.blob import Blob
+
+PATH_TEXT = '/tmp/blob'
+URL = 'http://en.wikipedia.org/wiki/User:West.andrew.g/Popular_pages'
+
+if __name__ == '__main__':
+    blob = Blob()
+    h = html2text.HTML2Text()
+    h.ignore_links = True
+    html = urlopen(URL).read()
+    result = h.handle(html.decode('utf8'))
+    buf = result.encode('utf8')
+    with open(PATH_TEXT, 'w') as f:
+        f.write(buf)
+    text = encodestring(buf)
+    ret = blob.get_sentiment(text)
+    print('Blob: ret=%s' % str(ret))
