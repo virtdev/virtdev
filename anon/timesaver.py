@@ -23,7 +23,7 @@ from datetime import datetime
 from dev.anon import VDevAnon
 from anon.timer import get_path
 
-DEBUG_TIMESAVER = True
+DEBUG_TIMESAVER = False
 
 class TimeSaver(VDevAnon):
     def _save(self, timer, name):

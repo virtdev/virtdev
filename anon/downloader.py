@@ -22,7 +22,7 @@ import wget
 from threading import Thread
 from dev.anon import VDevAnon
 
-DEBUG_DOWNLOADER = True
+DEBUG_DOWNLOADER = False
 PATH_DOWNLOADER = "/opt/downloads"
 
 class Downloader(VDevAnon):
