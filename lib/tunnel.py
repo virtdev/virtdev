@@ -138,10 +138,10 @@ class Tunnel(object):
             return False
     @excl
     def connect(self, addr, key, static, touch):
+        if touch:
+            if not self._ping(addr):
+                raise Exception('failed to connect')
         if self._tunnels.has_key(addr):
-            if touch:
-                if not self._ping(addr):
-                    raise Exception('failed to connect')
             self._tunnels[addr] += 1
         else:
             self._connect(addr, key, static)
