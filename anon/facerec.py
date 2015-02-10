@@ -20,6 +20,7 @@
 import cv2
 import numpy
 from PIL import Image
+from lib.log import log_err
 from StringIO import StringIO
 from dev.anon import VDevAnon
 from base64 import decodestring
@@ -32,16 +33,19 @@ class FaceRec(VDevAnon):
         self._cascade = cv2.CascadeClassifier(PATH_CASCADE)
     
     def recognize(self, image):
-        buf = decodestring(image)
-        if buf:
-            f = StringIO(buf)
-            src = Image.open(f).convert('RGB')
-            image = numpy.array(src)
-            image = image[:, :, ::-1].copy()
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            faces = self._cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.cv.CV_HAAR_SCALE_IMAGE)
-            if len(faces) > 0:
-                return True
+        try:
+            buf = decodestring(image)
+            if buf:
+                f = StringIO(buf)
+                src = Image.open(f).convert('RGB')
+                image = numpy.array(src)
+                image = image[:, :, ::-1].copy()
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                faces = self._cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30), flags=cv2.cv.CV_HAAR_SCALE_IMAGE)
+                if len(faces) > 0:
+                    return True
+        except:
+            log_err(self, 'failed to recognize')
     
     def put(self, buf):
         args = self.get_args(buf)
@@ -49,10 +53,12 @@ class FaceRec(VDevAnon):
             image = args.get('File')
             if self.recognize(image):
                 ret = {'Enable':'True'}
-                name = args.get('Name')
-                if name:
-                    name.update({'Name':name})
-                timer = args.get('Timer')
-                if timer:
-                    ret.update({'Timer':timer})
-                return ret
+            else:
+                ret = {'Enable': 'False'}
+            name = args.get('Name')
+            if name:
+                ret.update({'Name':name})
+            timer = args.get('Timer')
+            if timer:
+                ret.update({'Timer':timer})
+            return ret

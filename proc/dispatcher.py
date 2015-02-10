@@ -75,7 +75,7 @@ class VDevDispatcherQueue(Thread):
                     self.manager.synchronizer.put(*args)
                 except:
                     log_err(self, 'failed to put')
-        
+
 class VDevDispatcher(object):
     def __init__(self, manager):
         self._queue = []
