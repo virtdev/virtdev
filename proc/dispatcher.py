@@ -85,8 +85,7 @@ class VDevDispatcher(object):
         self.manager = manager
         self._uid = manager.uid
         self._loader = VDevLoader(self._uid)
-        for _ in range(VDEV_DISPATCHER_QUEUE_MAX):
-            self._queues.append(VDevDispatcherQueue(manager))
+        self._queues = [VDevDispatcherQueue(manager) for _ in range(VDEV_DISPATCHER_QUEUE_MAX)]
     
     def _log(self, s):
         if VDEV_DISPATCHER_LOG:
@@ -100,11 +99,24 @@ class VDevDispatcher(object):
         return buf
     
     def _get_queue(self):
+        n = None
+        pos = 0
+        length = VDEV_DISPATCHER_QUEUE_LEN
         self._lock.acquire()
-        n = self._cnt
-        self._cnt += 1
-        if self._cnt == VDEV_DISPATCHER_QUEUE_MAX:
-            self._cnt = 0
+        i = randint(0, VDEV_DISPATCHER_QUEUE_MAX - 1)
+        for _ in range(VDEV_DISPATCHER_QUEUE_MAX):
+            l = self._queues[i].get_length()
+            if l == 0:
+                n = i
+                break
+            elif l < length:
+                length = l
+                pos = i
+            i += 1
+            if i == VDEV_DISPATCHER_QUEUE_MAX:
+                i = 0
+        if n == None:
+            n = pos
         self._lock.release()
         return self._queues[n]
     
