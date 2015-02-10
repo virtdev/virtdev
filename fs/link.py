@@ -215,7 +215,7 @@ class VDevFSDownlink(VDevFSLink):
     
     def _touch(self, addr, token):
         try:
-            tunnel.connect(addr, token, static=True)
+            tunnel.connect(addr, token, static=True, touch=True)
             return True
         except:
             pass

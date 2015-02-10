@@ -25,12 +25,15 @@ import psutil
 from log import log
 from lock import VDevLock
 from subprocess import Popen
+from ping import do_one as ping
 from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
 from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split
 
 NETSIZE = 30
 RETRY_MAX = 50
 SLEEP_TIME = 0.1 # seconds
+PING_TIMEOUT = 1 # seconds
+PING_SIZE = 1 # bytes
 NETMASK = '255.255.255.224'
 PATH = '/etc/dhcp/dhcpd.conf'
 DEVNULL = open(os.devnull, 'wb')
@@ -127,9 +130,18 @@ class Tunnel(object):
             os.system('dhclient -q %s' % self._get_iface(addr))
         return self._chkiface(addr)
     
+    def _ping(self, addr):
+        ip = self.addr2ip(addr)
+        if ping(ip, PING_TIMEOUT, PING_SIZE):
+            return True
+        else:
+            return False
     @excl
-    def connect(self, addr, key, static):
+    def connect(self, addr, key, static, touch):
         if self._tunnels.has_key(addr):
+            if touch:
+                if not self._ping(addr):
+                    raise Exception('failed to connect')
             self._tunnels[addr] += 1
         else:
             self._connect(addr, key, static)
@@ -213,8 +225,8 @@ def addr2ip(addr):
 def create(addr, key):
     tunnel.create(addr, key)
 
-def connect(addr, key, static=False):
-    tunnel.connect(addr, key, static)
+def connect(addr, key, static=False, touch=False):
+    tunnel.connect(addr, key, static, touch)
 
 def release(addr, force=False):
     tunnel.disconnect(addr, force)
