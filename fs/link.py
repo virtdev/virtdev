@@ -192,9 +192,9 @@ class VDevFSDownlink(VDevFSLink):
     def _disconnect(self, addr):
         tunnel.disconnect(addr, force=True)
     
-    def _request(self, addr, op, args, sock=None):
+    def _request(self, addr, op, args):
         try:
-            tunnel.put(tunnel.addr2ip(addr), op, args, sock)
+            tunnel.put(tunnel.addr2ip(addr), op, args)
             return True
         except:
             pass
@@ -215,13 +215,14 @@ class VDevFSDownlink(VDevFSLink):
     
     def _touch(self, addr, token):
         try:
-            return tunnel.connect(addr, token, static=True, touch=True)
+            tunnel.connect(addr, token, static=True, touch=True)
+            return True
         except:
             pass
     
     def mount(self, uid, name, mode, vertex, typ, parent):
         addr = None
-        sock = None
+        exist = None
         if parent:
             puid, addr = self._get_device(parent)
             if puid != uid:
@@ -235,7 +236,7 @@ class VDevFSDownlink(VDevFSLink):
                 p, node = str2tuple(i)
                 if p == parent:
                     token = self.query.token.get(uid)
-                    sock = self._touch(addr, token)
+                    exist = self._touch(addr, token)
                     break
         else:
             nodes = self.query.node.get(uid)
@@ -245,11 +246,11 @@ class VDevFSDownlink(VDevFSLink):
             token = self.query.token.get(uid)
             for i in nodes:
                 node, addr, _ = str2tuple(i)
-                sock = self._touch(addr, token)
-                if sock:
+                exist = self._touch(addr, token)
+                if exist:
                     break
         
-        if not sock:
+        if not exist:
             log_err(self, 'failed to mount, cannot get node')
             raise Exception(log_get(self, 'failed to mount'))
         
@@ -260,7 +261,7 @@ class VDevFSDownlink(VDevFSLink):
         attr.update({'mode':mode | VDEV_MODE_LINK})
         
         try:
-            self._request(addr, OP_MOUNT, {'attr':str(attr)}, sock=sock)
+            self._request(addr, OP_MOUNT, {'attr':str(attr)})
             update_device(self.query, uid, node, addr, name)
             self._add_device(uid, name, addr)
         finally:

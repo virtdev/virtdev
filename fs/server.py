@@ -107,7 +107,7 @@ class VDevFSServer(object):
                 else:
                     log_err(self, 'failed to process, invalid operation %s' % str(op))
         except:
-            log_err(self, 'failed to process')
+            pass
         finally:
             sock.close()
     
