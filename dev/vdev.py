@@ -229,7 +229,7 @@ class VDev(object):
     def d_intv(self):
         freq = self.d_freq
         if freq != 0:
-            return 1.0 / self.d_freq
+            return 1.0 / freq
         else:
             return float('inf')
     

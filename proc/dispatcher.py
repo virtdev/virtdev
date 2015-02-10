@@ -17,32 +17,76 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import random
 import sandbox
 from math import ceil
+from random import randint
 from fs.path import is_local
 from loader import VDevLoader
 from base64 import encodestring
-from threading import Thread, Lock
 from sandbox import VDEV_SANDBOX_PUT
 from lib.log import log, log_get, log_err
+from threading import Thread, Lock, Event
 from conf.virtdev import VDEV_DISPATCHER_PORT
 from dev.vdev import VDEV_MODE_FI, VDEV_MODE_FO, VDEV_MODE_PI, VDEV_MODE_PO, VDEV_MODE_REFLECT
 
 VDEV_DISPATCHER_LOG = True
 VDEV_DISPATCHER_TIMEOUT = 30000
+VDEV_DISPATCHER_QUEUE_MAX = 32
+VDEV_DISPATCHER_QUEUE_LEN = 10000
 
+class VDevDispatcherQueue(Thread):
+    def __init__(self, manager):
+        Thread.__init__(self)
+        self.manager = manager
+        self._event = Event()
+        self._lock = Lock()
+        self._queue = []
+        self.start()
+    
+    def push(self, buf):
+        self._lock.acquire()
+        try:
+            if len(self._queue) < VDEV_DISPATCHER_QUEUE_LEN:
+                self._queue.append(buf)
+                self._event.set()
+            else:
+                log_err(self, 'failed to push')
+                raise Exception(log_get(self, 'failed to push'))
+        finally:
+            self._lock.release()
+    
+    def run(self):
+        while True:
+            args = None
+            self._event.wait()
+            self._lock.acquire()
+            try:
+                if len(self._queue) > 0:
+                    args = self._queue.pop(0)
+                    if len(self._queue) == 0:
+                        self._event.clear()
+            finally:
+                self._lock.release()
+            if args:
+                try:
+                    self.manager.synchronizer.put(*args)
+                except:
+                    log_err(self, 'failed to process')
+        
 class VDevDispatcher(object):
     def __init__(self, manager):
+        self._queue = []
         self._input = {}
         self._paths = {}
         self._output = {}
         self._hidden = {}
-        self._lock = Lock()
+        self._queues = []
         self._dispatchers = {}
         self.manager = manager
         self._uid = manager.uid
         self._loader = VDevLoader(self._uid)
+        for _ in range(VDEV_DISPATCHER_QUEUE_MAX):
+            self._queues.append(VDevDispatcherQueue(manager))
     
     def _log(self, s):
         if VDEV_DISPATCHER_LOG:
@@ -55,9 +99,14 @@ class VDevDispatcher(object):
             self._dispatchers.update({name:buf})
         return buf
     
+    def _get_queue(self):
+        n = randint(0, VDEV_DISPATCHER_QUEUE_MAX - 1)
+        return self._queues[n]
+    
     def _send(self, dest, src, buf, flags):
         self._log('send, dest=%s, src=%s' % (dest, src))
-        Thread(target=self.manager.synchronizer.put, args=(dest, src, buf, flags)).start()
+        q = self._get_queue()
+        q.push((dest, src, buf, flags))
     
     def add(self, edge, output=True, hidden=False):
         src = edge[0]
@@ -160,7 +209,7 @@ class VDevDispatcher(object):
                 return res
     
     def _gen_path(self, paths):
-        i = random.randint(0, len(paths) - 1)
+        i = randint(0, len(paths) - 1)
         n = paths.keys()[i]
         return {n:paths[n]}
     

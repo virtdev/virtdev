@@ -32,10 +32,13 @@ class Downloader(VDevAnon):
             os.makedirs(PATH_DOWNLOADER, 0o755)
     
     def _do_download(self, url):
-        filename = wget.download(url, out=PATH_DOWNLOADER, bar=None)
-        if DEBUG_DOWNLOADER:
-            print('Downloader: filename=%s' % str(filename))
-        
+        try:
+            filename = wget.download(url, out=PATH_DOWNLOADER, bar=None)
+            if DEBUG_DOWNLOADER:
+                print('Downloader: filename=%s' % str(filename))
+        except:
+            pass
+    
     def download(self, url):
         Thread(target=self._do_download, args=(url,)).start()
         return True
