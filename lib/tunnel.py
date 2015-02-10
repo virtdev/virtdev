@@ -233,10 +233,10 @@ def addr2ip(addr):
     return tunnel.addr2ip(addr)
 
 def create(addr, key):
-    tunnel.create(addr, key)
+    return tunnel.create(addr, key)
 
 def connect(addr, key, static=False, touch=False):
-    tunnel.connect(addr, key, static, touch)
+    return tunnel.connect(addr, key, static, touch)
 
 def release(addr, force=False):
     tunnel.disconnect(addr, force)
