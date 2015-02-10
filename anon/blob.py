@@ -27,7 +27,7 @@ class Blob(VDevAnon):
     def get_sentiment(self, text):
         buf = decodestring(text)
         if buf:
-            blob = TextBlob(buf)
+            blob = TextBlob(buf.decode('utf8'))
             return (blob.sentiment.polarity,  blob.sentiment.subjectivity)
         else:
             return (None, None)
