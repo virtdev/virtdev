@@ -26,9 +26,10 @@ PATH_FL = '/opt/fileloader'
 class FileLoader(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
-        path = self._get_path()
-        if not os.path.exists(path):
-            os.makedirs(path, 0o755)
+        if name:
+            path = self._get_path()
+            if not os.path.exists(path):
+                os.makedirs(path, 0o755)
         self._files = None
         self._active = False
     
