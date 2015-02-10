@@ -55,6 +55,9 @@ class VDevDispatcherQueue(Thread):
         finally:
             self._lock.release()
     
+    def get_length(self):
+        return len(self._queue)
+    
     def run(self):
         while True:
             args = None
@@ -81,6 +84,7 @@ class VDevDispatcher(object):
         self._output = {}
         self._hidden = {}
         self._queues = []
+        self._lock = Lock()
         self._dispatchers = {}
         self.manager = manager
         self._uid = manager.uid
