@@ -31,7 +31,7 @@ from dev.vdev import VDEV_MODE_FI, VDEV_MODE_FO, VDEV_MODE_PI, VDEV_MODE_PO, VDE
 
 VDEV_DISPATCHER_LOG = True
 VDEV_DISPATCHER_TIMEOUT = 30000
-VDEV_DISPATCHER_QUEUE_MAX = 32
+VDEV_DISPATCHER_QUEUE_MAX = 128
 VDEV_DISPATCHER_QUEUE_LEN = 10000
 
 class VDevDispatcherQueue(Thread):
@@ -71,7 +71,7 @@ class VDevDispatcherQueue(Thread):
                 try:
                     self.manager.synchronizer.put(*args)
                 except:
-                    log_err(self, 'failed to process')
+                    log_err(self, 'failed to put')
         
 class VDevDispatcher(object):
     def __init__(self, manager):
@@ -100,7 +100,12 @@ class VDevDispatcher(object):
         return buf
     
     def _get_queue(self):
-        n = randint(0, VDEV_DISPATCHER_QUEUE_MAX - 1)
+        self._lock.acquire()
+        n = self._cnt
+        self._cnt += 1
+        if self._cnt == VDEV_DISPATCHER_QUEUE_MAX:
+            self._cnt = 0
+        self._lock.release()
         return self._queues[n]
     
     def _send(self, dest, src, buf, flags):
