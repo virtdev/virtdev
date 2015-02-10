@@ -134,25 +134,28 @@ class Tunnel(object):
         sock.settimeout(TOUCH_TIMEOUT)
         try:
             sock.connect((ip, VDEV_FS_PORT))
-            sock.close()
-            return True
+            return sock
         except:
             pass
     
     @excl
     def connect(self, addr, key, static, touch):
+        sock = None
         if self._tunnels.has_key(addr):
             if touch:
-                if not self._touch(addr):
+                sock = self._touch(addr)
+                if not sock:
                     raise Exception('failed to connect')
             self._tunnels[addr] += 1
         else:
             self._connect(addr, key, static)
             if touch:
-                if not self._touch(addr):
+                sock = self._touch(addr)
+                if not sock:
                     self._disconnect(addr, True)
                     raise Exception('failed to connect')
             self._tunnels[addr] = 1
+        return sock
     
     def _disconnect(self, addr, force):
         if not force:
@@ -244,9 +247,10 @@ def disconnect(addr, force=False):
 def exist(addr):
     tunnel.exists(addr)
 
-def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((ip, VDEV_FS_PORT))
+def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN, sock=None):
+    if not sock:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((ip, VDEV_FS_PORT))
     try:
         req = {'op':op, 'args':args}
         msg = crypto.pack(uid, req, token)

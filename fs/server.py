@@ -106,6 +106,8 @@ class VDevFSServer(object):
                     func(**args)
                 else:
                     log_err(self, 'failed to process, invalid operation %s' % str(op))
+        except:
+            log_err(self, 'failed to process')
         finally:
             sock.close()
     
@@ -115,7 +117,7 @@ class VDevFSServer(object):
                 conn, _ = self._sock.accept()
                 Thread(target=self._proc, args=(conn,)).start()
             except:
-                log_err(self, 'failed to process')
+                log_err(self, 'failed to start')
     
     def start(self):
         if not self._srv:
