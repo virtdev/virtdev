@@ -29,7 +29,6 @@ from datetime import datetime
 from lib.lock import VDevLock
 from lib.log import log, log_err
 from threading import Thread, Event, Lock
-from multiprocessing.pool import ThreadPool
 from conf.virtdev import VDEV_FS_MOUNTPOINT
 
 VDEV_MODE_FI = 0x000000001  # Full Input
@@ -101,8 +100,9 @@ class VDev(object):
         self._fields = fields
         self._freq = VDEV_FREQ
         self._lock = VDevLock()
+        self._thread_poll = None
+        self._thread_listen = None
         self._anon = mode & VDEV_MODE_ANON
-        self._thread = Thread(target=self._run)
     
     def _get_path(self):
         return os.path.join(VDEV_FS_MOUNTPOINT, self._uid, self._name)
@@ -169,17 +169,22 @@ class VDev(object):
             self._write(req.req_get(index))
     
     def _poll(self):
-        if not self.d_mode & VDEV_MODE_POLL:
+        if not VDEV_ENABLE_POLLING or not self.d_mode & VDEV_MODE_POLL or not self._sock:
             return
+        
         while True:
-            time.sleep(self.d_intv)
-            if self._children:
-                for i in self._children:
-                    child = self._children[i]
-                    if child.d_mode & VDEV_MODE_POLL:
-                        self._check_device(child)
-            if self.d_mode & VDEV_MODE_POLL:
-                self._check_device(self)
+            try:
+                time.sleep(self.d_intv)
+                if self._children:
+                    for i in self._children:
+                        child = self._children[i]
+                        if child.d_mode & VDEV_MODE_POLL:
+                            self._check_device(child)
+                if self.d_mode & VDEV_MODE_POLL:
+                    self._check_device(self)
+            except:
+                log_err(self, 'failed to poll')
+                break
     
     @property
     def d_name(self):
@@ -222,7 +227,11 @@ class VDev(object):
     
     @property
     def d_intv(self):
-        return 1.0 / self.d_freq
+        freq = self.d_freq
+        if freq != 0:
+            return 1.0 / self.d_freq
+        else:
+            return float('inf')
     
     @property
     def d_fields(self):
@@ -359,15 +368,16 @@ class VDev(object):
         self._sock = sock
         if init:
             self._mount()
-        self._thread.start()
+        self._thread_poll = Thread(target=self._poll)
+        self._thread_poll.start()
+        self._thread_listen = Thread(target=self._listen)
+        self._thread_listen.start()
         log('mount: type=%s, index=%s [%s*]' % (self.d_type, self.d_index, self.d_name[:8]))
     
-    def _run(self):
+    def _listen(self):
         if not self._sock:
             return
-        if VDEV_ENABLE_POLLING:
-            poll = ThreadPool(processes=1)
-            poll.apply_async(self._poll)
+        
         while True:
             try:
                 device, buf = self._read()
@@ -379,10 +389,12 @@ class VDev(object):
                     output = self.manager.synchronizer.callback(name, {name:buf})
                     if not output:
                         continue
+                    
                     buf = ast.literal_eval(output)
                     if type(buf) != dict:
                         log_err(self, 'invalid result of callback function')
                         continue
+                    
                     if buf:
                         mode = device.d_mode
                         if mode & VDEV_MODE_REFLECT:
@@ -398,7 +410,9 @@ class VDev(object):
                         self.manager.synchronizer.dispatch(name, buf)
             except:
                 log_err(self, 'device=%s, restarting' % self.d_name)
-                poll.terminate()
-                self._sock.close()
+                try:
+                    self._sock.close()
+                except:
+                    pass
                 break
     
