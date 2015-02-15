@@ -49,3 +49,4 @@ class Camera(VDevAnon):
         img = Image.fromstring('RGBA', (CAMERA_WIDTH, CAMERA_HEIGHT), buf)
         img.save(res, 'JPEG')
         return {'File':encodestring(res.getvalue())}
+    
