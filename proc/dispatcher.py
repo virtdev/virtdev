@@ -23,6 +23,7 @@ from math import ceil
 from random import randint
 from fs.path import is_local
 from loader import VDevLoader
+from lib.util import hash_name
 from base64 import encodestring
 from sandbox import VDEV_SANDBOX_PUT
 from lib.log import log, log_get, log_err
@@ -33,48 +34,59 @@ from dev.vdev import VDEV_MODE_FI, VDEV_MODE_FO, VDEV_MODE_PI, VDEV_MODE_PO, VDE
 VDEV_DISPATCHER_LOG = True
 VDEV_DISPATCHER_WAIT_TIME = 0.01
 VDEV_DISPATCHER_TIMEOUT = 30000
-VDEV_DISPATCHER_QUEUE_MAX = 128
-VDEV_DISPATCHER_QUEUE_LEN = 2048
+VDEV_DISPATCHER_QUEUE_MAX = 64
+VDEV_DISPATCHER_QUEUE_LEN = 2
+
+def excl(func):
+    def _excl(*args, **kwargs):
+        self = args[0]
+        self._lock.acquire()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            self._lock.release()
+    return _excl
 
 class VDevDispatcherQueue(Thread):
-    def __init__(self, manager):
+    def __init__(self, dispatcher, manager):
         Thread.__init__(self)
+        self._dispatcher = dispatcher
         self.manager = manager
         self._event = Event()
         self._lock = Lock()
         self._queue = []
         self.start()
     
-    def push(self, buf):
-        self._lock.acquire()
-        try:
-            if len(self._queue) < VDEV_DISPATCHER_QUEUE_LEN:
-                self._queue.append(buf)
-                self._event.set()
-                return True
-        finally:
-            self._lock.release()
+    @excl
+    def push(self, buf, force=False):
+        if len(self._queue) < VDEV_DISPATCHER_QUEUE_LEN or force:
+            self._dispatcher.add_source(buf[0])
+            self._queue.append(buf)
+            self._event.set()
+            return True
     
     def get_length(self):
         return len(self._queue)
     
+    @excl
+    def pop(self):
+        buf = None
+        if len(self._queue) > 0:
+            buf = self._queue.pop(0)
+            if len(self._queue) == 0:
+                self._event.clear()
+        return buf
+    
     def run(self):
         while True:
-            args = None
             self._event.wait()
-            self._lock.acquire()
-            try:
-                if len(self._queue) > 0:
-                    args = self._queue.pop(0)
-                    if len(self._queue) == 0:
-                        self._event.clear()
-            finally:
-                self._lock.release()
-            if args:
+            buf = self.pop()
+            if buf:
                 try:
-                    self.manager.synchronizer.put(*args)
+                    self._dispatcher.remove_source(buf[0])
+                    self.manager.synchronizer.put(*buf)
                 except:
-                    log_err(self, 'failed to put')
+                    log_err(self, 'failed')
 
 class VDevDispatcher(object):
     def __init__(self, manager):
@@ -84,12 +96,13 @@ class VDevDispatcher(object):
         self._output = {}
         self._hidden = {}
         self._queues = []
+        self._source = {}
         self._lock = Lock()
         self._dispatchers = {}
         self.manager = manager
         self._uid = manager.uid
         self._loader = VDevLoader(self._uid)
-        self._queues = [VDevDispatcherQueue(manager) for _ in range(VDEV_DISPATCHER_QUEUE_MAX)]
+        self._queues = [VDevDispatcherQueue(self, manager) for _ in range(VDEV_DISPATCHER_QUEUE_MAX)]
     
     def _log(self, s):
         if VDEV_DISPATCHER_LOG:
@@ -105,7 +118,6 @@ class VDevDispatcher(object):
     def _get_queue(self):
         n = 0
         length = VDEV_DISPATCHER_QUEUE_LEN
-        self._lock.acquire()
         i = randint(0, VDEV_DISPATCHER_QUEUE_MAX - 1)
         for _ in range(VDEV_DISPATCHER_QUEUE_MAX):
             l = self._queues[i].get_length()
@@ -119,19 +131,45 @@ class VDevDispatcher(object):
             i += 1
             if i == VDEV_DISPATCHER_QUEUE_MAX:
                 i = 0
-        self._lock.release()
         if length < VDEV_DISPATCHER_QUEUE_LEN:
             return self._queues[n]
     
+    @excl
+    def _check_source(self, name):
+        if self._source.has_key(name):
+            return True
+    
+    @excl
+    def add_source(self, name):
+        if not self._source.has_key(name):
+            self._source.update({name:1})
+        else:
+            self._source[name] += 1
+    
+    @excl
+    def remove_source(self, name):
+        if self._source.has_key(name):
+            self._source[name] -= 1
+            if self._source[name] <= 0:
+                del self._source[name]
+    
+    def _hash(self, name):
+        n = hash_name(name)
+        return self._queues[n]
+    
     def _send(self, dest, src, buf, flags):
         self._log('send, dest=%s, src=%s' % (dest, src))
-        while True:
-            q = self._get_queue()
-            if not q:
-                time.sleep(VDEV_DISPATCHER_WAIT_TIME)
-            else:
-                if q.push((dest, src, buf, flags)):
-                    return
+        if self._check_source(src):
+            q = self._hash(src)
+            q.push((dest, src, buf, flags), force=True)
+        else:
+            while True:
+                q = self._get_queue()
+                if not q:
+                    time.sleep(VDEV_DISPATCHER_WAIT_TIME)
+                else:
+                    if q.push((dest, src, buf, flags)):
+                        return
     
     def add(self, edge, output=True, hidden=False):
         src = edge[0]

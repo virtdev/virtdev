@@ -43,7 +43,7 @@ class FaceRec(VDevAnon):
                 image = array[:, :, ::-1].copy()
                 nu = cv2.resize(image, (img.size[0] / 2, img.size[1] / 2))
                 gray = cv2.cvtColor(nu, cv2.COLOR_BGR2GRAY)
-                #gray = cv2.equalizeHist(gray)
+                gray = cv2.equalizeHist(gray)
                 faces = self._cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=2, minSize=(100, 100), flags=cv2.cv.CV_HAAR_DO_ROUGH_SEARCH)
                 if len(faces) > 0:
                     return True
