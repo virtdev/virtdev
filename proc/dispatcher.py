@@ -58,8 +58,14 @@ class VDevDispatcherQueue(Thread):
         self.start()
     
     @excl
-    def push(self, buf, force=False):
-        if len(self._queue) < VDEV_DISPATCHER_QUEUE_LEN or force:
+    def insert(self, buf):
+        self._dispatcher.add_source(buf[0])
+        self._queue.insert(0, buf)
+        self._event.set()
+    
+    @excl
+    def push(self, buf):
+        if len(self._queue) < VDEV_DISPATCHER_QUEUE_LEN:
             self._dispatcher.add_source(buf[0])
             self._queue.append(buf)
             self._event.set()
@@ -161,7 +167,7 @@ class VDevDispatcher(object):
         self._log('send, dest=%s, src=%s' % (dest, src))
         if self._check_source(src):
             q = self._hash(src)
-            q.push((dest, src, buf, flags), force=True)
+            q.insert((dest, src, buf, flags))
         else:
             while True:
                 q = self._get_queue()
