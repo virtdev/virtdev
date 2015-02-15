@@ -37,11 +37,14 @@ class FaceRec(VDevAnon):
             buf = decodestring(image)
             if buf:
                 f = StringIO(buf)
-                src = Image.open(f).convert('RGB')
+                img = Image.open(f)
+                src = img.convert('RGB')
                 array = numpy.array(src)
                 image = array[:, :, ::-1].copy()
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                faces = self._cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=2, minSize=(100, 100), flags=cv2.cv.CV_HAAR_DO_CANNY_PRUNING)
+                nu = cv2.resize(image, (img.size[0] / 2, img.size[1] / 2))
+                gray = cv2.cvtColor(nu, cv2.COLOR_BGR2GRAY)
+                gray = cv2.equalizeHist(gray)
+                faces = self._cascade.detectMultiScale(gray)
                 if len(faces) > 0:
                     return True
         except:
