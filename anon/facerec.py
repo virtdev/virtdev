@@ -19,8 +19,9 @@
 
 import cv2
 import numpy
-from cv2 import cv
+from PIL import Image
 from lib.log import log_err
+from StringIO import StringIO
 from dev.anon import VDevAnon
 from base64 import decodestring
 
@@ -29,22 +30,18 @@ PATH_CASCADE = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.x
 class FaceRec(VDevAnon):
     def __init__(self, name=None, sock=None):
         VDevAnon.__init__(self, name, sock)
-        self._cascade = cv.Load(PATH_CASCADE)
+        self._cascade = cv2.CascadeClassifier(PATH_CASCADE)
     
     def recognize(self, image):
         try:
             buf = decodestring(image)
             if buf:
-                array = numpy.fromstring(buf, numpy.uint8)
-                source = cv2.imdecode(array, cv2.CV_LOAD_IMAGE_COLOR)
-                size = (source.shape[1], source.shape[0])
-                bitmap = cv.CreateImageHeader(size, cv.IPL_DEPTH_8U, 3)
-                cv.SetData(bitmap, source.tostring(), source.dtype.itemsize * 3 * source.shape[1])
-                gray = cv.CreateImage(size, 8, 1)
-                cv.CvtColor(bitmap, gray, cv.CV_BGR2GRAY)
-                cv.EqualizeHist(gray, gray)
-                storage = cv.CreateMemStorage(0)
-                faces = cv.HaarDetectObjects(image=gray, cascade=self._cascade, storage=storage, scale_factor=1.2, min_neighbors=2, flags=cv.CV_HAAR_DO_CANNY_PRUNING)
+                f = StringIO(buf)
+                src = Image.open(f).convert('RGB')
+                array = numpy.array(src)
+                image = array[:, :, ::-1].copy()
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                faces = self._cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=2, minSize=(100, 100), flags=cv2.cv.CV_HAAR_DO_CANNY_PRUNING)
                 if len(faces) > 0:
                     return True
         except:
