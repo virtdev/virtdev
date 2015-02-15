@@ -154,7 +154,7 @@ class VDevDispatcher(object):
                 del self._source[name]
     
     def _hash(self, name):
-        n = hash_name(name)
+        n = hash_name(name) % VDEV_DISPATCHER_QUEUE_MAX
         return self._queues[n]
     
     def _send(self, dest, src, buf, flags):
