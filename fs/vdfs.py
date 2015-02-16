@@ -36,7 +36,7 @@ from watcher import VDevWatcherPool
 from dev.interface import load_device
 from dev.lo import load_anon, get_device
 from fuse import FuseOSError, Operations
-from conf.virtdev import VDEV_DFS_SERVERS, VDEV_FS_MOUNTPOINT
+from conf.virtdev import VDEV_DFS_SERVERS
 from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_VISI, VDEV_MODE_ANON, VDEV_MODE_LINK, VDEV_GET
 from attr import Attr, VDEV_ATTR_MODE, VDEV_ATTR_PROFILE, VDEV_ATTR_HANDLER, VDEV_ATTR_MAPPER, VDEV_ATTR_DISPATCHER, VDEV_ATTR_FREQ
 from oper import OP_LOAD, OP_POLL, OP_FORK, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
@@ -64,12 +64,7 @@ def show(func):
         return func(*args, **kwargs)
     return _show
 
-class VDevFS(Operations):
-    def _check_mountpoint(self):
-        os.system('umount %s 2>/dev/null' % VDEV_FS_MOUNTPOINT)
-        if not os.path.exists(VDEV_FS_MOUNTPOINT):
-            os.mkdir(VDEV_FS_MOUNTPOINT)
-    
+class VDevFS(Operations):    
     def __init__(self, query=None):
         self._events = {}
         self._results = {}
@@ -102,7 +97,6 @@ class VDevFS(Operations):
             self._link = link
         
         self.manager = manager
-        self._check_mountpoint()
         self._lock = VDevLock()
         if manager:
             manager.start()

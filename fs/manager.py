@@ -224,7 +224,7 @@ class VDevFSManager(object):
         self._daemon = VDevDaemon(self)
         self._daemon.start()
     
-    def _touch(self):
+    def _update(self):
         d = shelve.open(VDEV_RUN_PATH)
         try:
             d['addr'] = self.addr
@@ -326,18 +326,12 @@ class VDevFSManager(object):
         self._active = False
         self._prepare()
     
-    def _start(self):
-        path = os.path.join(VDEV_FS_MOUNTPOINT, self.uid)
-        while not os.path.exists(path):
-            time.sleep(1)
-        for device in self.devices:
-            device.start()
-    
     def start(self):
         if not self._active:
-            Thread(target=self._start).start()
+            for device in self.devices:
+                device.start()
+            self._update()
             self._active = True
-            self._touch()
     
     def notify(self, op, buf):
         notifier.push(op, buf)
@@ -348,5 +342,4 @@ class VDevFSManager(object):
             if token:
                 _, addr = self._server.get_device(name)
                 return (addr, token)
-    
     
