@@ -17,72 +17,39 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import time
 import sandbox
 from math import ceil
+from lib.util import lock
+from threading import Lock
 from random import randint
 from fs.path import is_local
 from loader import VDevLoader
 from base64 import encodestring
 from sandbox import VDEV_SANDBOX_PUT
-from lib.util import hash_name, lock
 from lib.log import log, log_get, log_err
-from threading import Thread, Lock, Event
 from conf.virtdev import VDEV_DISPATCHER_PORT
+from lib.queue import VDevQueue, VDevQueueArray
 from dev.vdev import VDEV_MODE_FI, VDEV_MODE_FO, VDEV_MODE_PI, VDEV_MODE_PO, VDEV_MODE_REFLECT
 
-VDEV_DISPATCHER_LOG = True
-VDEV_DISPATCHER_WAIT_TIME = 0.01
-VDEV_DISPATCHER_TIMEOUT = 30000
-VDEV_DISPATCHER_QUEUE_MAX = 64
-VDEV_DISPATCHER_QUEUE_LEN = 2
+LOG = True
+QUEUE_LEN = 2
+QUEUE_MAX = 64
 
-class VDevDispatcherQueue(Thread):
+class VDevDispatcherQueue(VDevQueue):
     def __init__(self, dispatcher, manager):
-        Thread.__init__(self)
+        VDevQueue.__init__(self, QUEUE_LEN)
         self._dispatcher = dispatcher
-        self.manager = manager
-        self._event = Event()
-        self._lock = Lock()
-        self._queue = []
-        self.start()
+        self._manager = manager
     
-    @lock
-    def insert(self, buf):
+    def _insert(self, buf):
         self._dispatcher.add_source(buf[0])
-        self._queue.insert(0, buf)
-        self._event.set()
     
-    @lock
-    def push(self, buf):
-        if len(self._queue) < VDEV_DISPATCHER_QUEUE_LEN:
-            self._dispatcher.add_source(buf[0])
-            self._queue.append(buf)
-            self._event.set()
-            return True
+    def _push(self, buf):
+        self._dispatcher.add_source(buf[0])
     
-    def get_length(self):
-        return len(self._queue)
-    
-    @lock
-    def pop(self):
-        buf = None
-        if len(self._queue) > 0:
-            buf = self._queue.pop(0)
-            if len(self._queue) == 0:
-                self._event.clear()
-        return buf
-    
-    def run(self):
-        while True:
-            self._event.wait()
-            buf = self.pop()
-            if buf:
-                try:
-                    self._dispatcher.remove_source(buf[0])
-                    self.manager.synchronizer.put(*buf)
-                except:
-                    log_err(self, 'failed')
+    def _proc(self, buf):
+        self._dispatcher.remove_source(buf[0])
+        self._manager.synchronizer.put(*buf)
 
 class VDevDispatcher(object):
     def __init__(self, manager):
@@ -91,17 +58,18 @@ class VDevDispatcher(object):
         self._paths = {}
         self._output = {}
         self._hidden = {}
-        self._queues = []
         self._source = {}
         self._lock = Lock()
         self._dispatchers = {}
         self.manager = manager
         self._uid = manager.uid
         self._loader = VDevLoader(self._uid)
-        self._queues = [VDevDispatcherQueue(self, manager) for _ in range(VDEV_DISPATCHER_QUEUE_MAX)]
+        self._queues = VDevQueueArray(QUEUE_LEN)
+        for _ in range(QUEUE_MAX):
+            self._queues.add(VDevDispatcherQueue(self, manager))
     
     def _log(self, s):
-        if VDEV_DISPATCHER_LOG:
+        if LOG:
             log(log_get(self, s))
     
     def _get_code(self, name):
@@ -110,25 +78,6 @@ class VDevDispatcher(object):
             buf = self._loader.get_dispatcher(name)
             self._dispatchers.update({name:buf})
         return buf
-    
-    def _get_queue(self):
-        n = 0
-        length = VDEV_DISPATCHER_QUEUE_LEN
-        i = randint(0, VDEV_DISPATCHER_QUEUE_MAX - 1)
-        for _ in range(VDEV_DISPATCHER_QUEUE_MAX):
-            l = self._queues[i].get_length()
-            if l == 0:
-                length = 0
-                n = i
-                break
-            elif l < length:
-                length = l
-                n = i
-            i += 1
-            if i == VDEV_DISPATCHER_QUEUE_MAX:
-                i = 0
-        if length < VDEV_DISPATCHER_QUEUE_LEN:
-            return self._queues[n]
     
     @lock
     def _check_source(self, name):
@@ -149,23 +98,13 @@ class VDevDispatcher(object):
             if self._source[name] <= 0:
                 del self._source[name]
     
-    def _hash(self, name):
-        n = hash_name(name) % VDEV_DISPATCHER_QUEUE_MAX
-        return self._queues[n]
-    
     def _send(self, dest, src, buf, flags):
         self._log('send, dest=%s, src=%s' % (dest, src))
         if self._check_source(src):
-            q = self._hash(src)
+            q = self._queues.select(src)
             q.insert((dest, src, buf, flags))
         else:
-            while True:
-                q = self._get_queue()
-                if not q:
-                    time.sleep(VDEV_DISPATCHER_WAIT_TIME)
-                else:
-                    if q.push((dest, src, buf, flags)):
-                        return
+            self._queues.push((dest, src, buf, flags))
     
     def add(self, edge, output=True, hidden=False):
         src = edge[0]
@@ -246,7 +185,7 @@ class VDevDispatcher(object):
             local = paths[dest]
         if not local:
             self._log('sendto, dest=%s, src=%s' % (dest, src))
-            self.manager.tunnel.put(dest, dest=dest, src=src, buf=buf, flags=flags)
+            self.manager.tunnel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
         else:
             self._send(dest, src, buf, flags)
     
@@ -302,8 +241,8 @@ class VDevDispatcher(object):
             if not temp:
                 continue
             if not dest[i]:
-                self._log('send->tunnel->put, dest=%s, src=%s' % (i, name))
-                self.manager.tunnel.put(i, dest=i, src=name, buf=temp, flags=flags)
+                self._log('send, dest=%s, src=%s' % (i, name))
+                self.manager.tunnel.push(i, dest=i, src=name, buf=temp, flags=flags)
             else:
                 self._send(i, name, temp, flags)
     

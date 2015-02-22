@@ -23,7 +23,7 @@ from base64 import decodestring
 
 DEBUG_BLOB = False
 
-class Blob(VDevAnon):    
+class Blob(VDevAnon):
     def get_sentiment(self, text):
         buf = decodestring(text)
         if buf:

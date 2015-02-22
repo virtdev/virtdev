@@ -20,10 +20,12 @@
 from fs.path import load
 from mode import VDevMode
 from freq import VDevFreq
+from threading import Event
 from mapper import VDevMapper
+from lib.lock import VDevLock
 from handler import VDevHandler
+from lib.util import named_lock
 from lib.log import log_get, log
-from threading import Lock, Event
 from dispatcher import VDevDispatcher
 from dev.vdev import VDEV_MODE_VIRT, VDEV_MODE_SWITCH, VDEV_MODE_IN, VDEV_MODE_OUT, VDEV_MODE_REFLECT, VDEV_GET, VDEV_PUT, VDEV_OPEN, VDEV_CLOSE
 
@@ -33,17 +35,16 @@ VDEV_SYNCHRONIZER_LOG = True
 
 class VDevSynchronizer(object):
     def __init__(self, manager):
+        self._queue = {}
+        self._members = {}
         self.manager = manager
+        self._lock = VDevLock()
         self._uid = manager.uid
         self._mode = VDevMode(self._uid)
         self._freq = VDevFreq(self._uid)
         self._mapper = VDevMapper(self._uid)
         self._handler = VDevHandler(self._uid)
         self._dispatcher = VDevDispatcher(manager)
-        self._prelock = Lock()
-        self._members = {}
-        self._queue = {}
-        self._lock = {}
     
     def _log(self, s):
         if VDEV_SYNCHRONIZER_LOG:
@@ -81,31 +82,6 @@ class VDevSynchronizer(object):
             else:
                 self._check_input(dest)
     
-    def _lock_acquire(self, name):
-        self._prelock.acquire()
-        try:
-            if self._lock.has_key(name):
-                self._lock[name][1] += 1
-                lock = self._lock[name][0]
-            else:
-                lock = Lock()
-                self._lock[name] = [lock, 1]
-        finally:
-            self._prelock.release()
-        lock.acquire()
-    
-    def _lock_release(self, name):
-        self._prelock.acquire()
-        try:
-            if self._lock.has_key(name):
-                lock = self._lock[name][0]
-                lock.release()
-                self._lock[name][1] -= 1
-                if self._lock[name][1] == 0:
-                    del self._lock[name]
-        finally:
-            self._prelock.release()
-    
     def _count(self, name):
         cnt = 0
         for i in self._members[name].keys():
@@ -138,49 +114,37 @@ class VDevSynchronizer(object):
                 if not self._queue[dest]:
                     del self._queue[dest]
     
+    @named_lock
+    def _remove_dispatcher(self, name, edge):
+        self._dispatcher.remove(edge)
+    
     def remove_dispatcher(self, edge):
         name = edge[0]
-        self._lock_acquire(name)
-        try:
-            self._dispatcher.remove(edge)
-        finally:
-            self._lock_release(name)
+        self._remove_dispatcher(name, edge)
     
+    @named_lock
     def remove_handler(self, name):
-        self._lock_acquire(name)
-        try:
-            self._handler.remove(name)
-        finally:
-            self._lock_release(name)
+        self._handler.remove(name)
     
+    @named_lock
     def remove_mapper(self, name):
-        self._lock_acquire(name)
-        try:
-            self._mapper.remove(name)
-        finally:
-            self._lock_release(name)
+        self._mapper.remove(name)
     
+    @named_lock
     def remove_mode(self, name):
-        self._lock_acquire(name)
-        try:
-            self._mode.remove(name)
-        finally:
-            self._lock_release(name)
+        self._mode.remove(name)
     
+    @named_lock
     def remove_freq(self, name):
-        self._lock_acquire(name)
-        try:
-            self._freq.remove(name)
-        finally:
-            self._lock_release(name)
+        self._freq.remove(name)
+    
+    @named_lock
+    def _add_dispatcher(self, name, edge):
+        self._dispatcher.add(edge)
     
     def add_dispatcher(self, edge):
         name = edge[0]
-        self._lock_acquire(name)
-        try:
-            self._dispatcher.add(edge)
-        finally:
-            self._lock_release(name)
+        self._add_dispatcher(name, edge)
     
     def get_mode(self, name):
         return self._mode.get(name)
@@ -199,16 +163,13 @@ class VDevSynchronizer(object):
             del self._queue[name]
         del self._members[name]
     
+    @named_lock
     def remove(self, name):
-        self._lock_acquire(name)
-        try:
-            self._dispatcher.remove_all(name)
-            self.remove_handler(name)
-            self.remove_mapper(name)
-            self.remove_mode(name)
-            self._remove(name)
-        finally:
-            self._lock_release(name)
+        self._dispatcher.remove_all(name)
+        self.remove_handler(name)
+        self.remove_mapper(name)
+        self.remove_mode(name)
+        self._remove(name)
     
     def _dispatch(self, name, buf):
         self._check_output(name)
@@ -223,12 +184,9 @@ class VDevSynchronizer(object):
                     self._log('dispatch->sendto, name=%s, dest=%s' % (name, i[0]))
                     self._dispatcher.sendto(i[0], name, i[1])
     
+    @named_lock
     def dispatch(self, name, buf):
-        self._lock_acquire(name)
-        try:
-            self._dispatch(name, buf)
-        finally:
-            self._lock_release(name)
+        self._dispatch(name, buf)
     
     def get_oper(self, buf, mode):
         if type(buf) != dict:
@@ -299,7 +257,21 @@ class VDevSynchronizer(object):
                     self._members[dest][i].pop(0)
         return args
     
-    def _put(self, dest, src, buf, flags):
+    def _forward(self, name, buf):
+        mode = self._mode.get(name)
+        if not mode & VDEV_MODE_VIRT:
+            return
+        if not self._mapper.check(name):
+            self._log('forward->send, name=%s' % name)
+            self._dispatcher.send(name, buf, mode, output=False)
+        else:
+            res = self._mapper.put(name, buf)
+            if res:
+                for i in res:
+                    self._log('forward->sendto, name=%s, dest=%s' % (name, i[0]))
+                    self._dispatcher.sendto(i[0], name, i[1], output=False)
+    
+    def _try_put(self, dest, src, buf, flags):
         if not self._is_ready(dest, src, flags):
             self._log('put->collect, dest=%s, src=%s' % (dest, src))
             if len(self._members[dest][src]) >= VDEV_SYNCHRONIZER_DEPTH:
@@ -316,33 +288,19 @@ class VDevSynchronizer(object):
                     self._log('put->dispatch, %s=>%s' % (dest, src))
                     self._dispatcher.sendto(src, dest, ret, hidden=True)
     
-    def _forward(self, name, buf):
-        mode = self._mode.get(name)
-        if not mode & VDEV_MODE_VIRT:
-            return
-        if not self._mapper.check(name):
-            self._log('forward->send, name=%s' % name)
-            self._dispatcher.send(name, buf, mode, output=False)
+    @named_lock
+    def _put(self, dest, src, buf, flags):
+        self._check(dest, src, flags)
+        if self._can_put(dest, src, flags):
+            return self._try_put(dest, src, buf, flags)
         else:
-            res = self._mapper.put(name, buf)
-            if res:
-                for i in res:
-                    self._log('forward->sendto, name=%s, dest=%s' % (name, i[0]))
-                    self._dispatcher.sendto(i[0], name, i[1], output=False)
-    
+            self._forward(dest, buf)
+        
     def put(self, dest, src, buf, flags):
-        retry = None
-        self._lock_acquire(dest)
-        try:
-            self._check(dest, src, flags)
-            if self._can_put(dest, src, flags):
-                retry = self._put(dest, src, buf, flags)
-            else:
-                self._forward(dest, buf)
-            return True
-        finally:
-            self._lock_release(dest)
-            if retry:
-                self._log('put->wait, dest=%s, src=%s' % (dest, src))
-                retry.wait(VDEV_SYNCHRONIZER_WAIT_TIME)
+        ev = self._put(dest, src, buf, flags)
+        if ev:
+            self._log('put->wait, dest=%s, src=%s' % (dest, src))
+            ev.wait(VDEV_SYNCHRONIZER_WAIT_TIME)
+            return
+        return True
     

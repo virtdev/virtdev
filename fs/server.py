@@ -24,9 +24,22 @@ from threading import Thread, Event
 from lib.log import log_err, log_get
 from conf.virtdev import VDEV_FS_PORT
 from lib.request import VDevAuthRequest
+from lib.queue import VDevQueue, VDevQueueArray
 from lib.util import DEFAULT_UID, DEFAULT_TOKEN, UID_SIZE
 
-class VDevFSServer(object):
+
+QUEUE_LEN = 2
+QUEUE_MAX = 32
+
+class VDevFSServerQueue(VDevQueue):
+    def __init__(self, srv):
+        VDevQueue.__init__(self, QUEUE_LEN)
+        self._srv = srv
+    
+    def _proc(self, buf):
+        self._srv.proc(buf)
+        
+class VDevFSServer(Thread):
     def _init_sock(self, addr):
         addr = tunnel.addr2ip(addr)
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -40,12 +53,14 @@ class VDevFSServer(object):
         token = manager.token
         tunnel.create(addr, token)
         
-        self._srv = None
         self._addr_list = {}
         self._event = Event()
         self._op = VDevFSOperation(manager)
+        self._queues = VDevQueueArray(QUEUE_LEN)
         self._tokens = {uid:token, DEFAULT_UID:DEFAULT_TOKEN}
         self._init_sock(manager.addr)
+        for _ in range(QUEUE_MAX):
+            self._queues.add(VDevFSServerQueue(self))
         
         self.uid = uid
         self.addr = addr
@@ -81,7 +96,7 @@ class VDevFSServer(object):
             raise Exception(log_get(self, 'failed to get token'))
         return token
     
-    def _proc(self, sock):
+    def proc(self, sock):
         if not sock:
             return
         try:
@@ -111,16 +126,11 @@ class VDevFSServer(object):
         finally:
             sock.close()
     
-    def _start(self):
+    def run(self):
         while True:
             try:
-                conn, _ = self._sock.accept()
-                Thread(target=self._proc, args=(conn,)).start()
+                sock, _ = self._sock.accept()
+                self._queues.push(sock)
             except:
-                log_err(self, 'failed to start')
-    
-    def start(self):
-        if not self._srv:
-            self._srv = Thread(target=self._start)
-            self._srv.start()
+                log_err(self, 'failed to push')
     
