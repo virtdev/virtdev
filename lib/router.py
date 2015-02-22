@@ -17,24 +17,15 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from lib.util import lock
 from threading import Lock
-
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        self._lock.acquire()
-        try:
-            return func(*args, **kwargs)
-        finally:
-            self._lock.release()
-    return _excl
 
 class VDevRouter(object):
     def __init__(self):
-        self._lock = Lock()
         self._servers = {}
+        self._lock = Lock()
     
-    @excl
+    @lock
     def add_server(self, namespace, key, val=None, compare=None):
         if self._servers.has_key(namespace):
             if compare:

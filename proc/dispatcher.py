@@ -23,9 +23,9 @@ from math import ceil
 from random import randint
 from fs.path import is_local
 from loader import VDevLoader
-from lib.util import hash_name
 from base64 import encodestring
 from sandbox import VDEV_SANDBOX_PUT
+from lib.util import hash_name, lock
 from lib.log import log, log_get, log_err
 from threading import Thread, Lock, Event
 from conf.virtdev import VDEV_DISPATCHER_PORT
@@ -37,16 +37,6 @@ VDEV_DISPATCHER_TIMEOUT = 30000
 VDEV_DISPATCHER_QUEUE_MAX = 64
 VDEV_DISPATCHER_QUEUE_LEN = 2
 
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        self._lock.acquire()
-        try:
-            return func(*args, **kwargs)
-        finally:
-            self._lock.release()
-    return _excl
-
 class VDevDispatcherQueue(Thread):
     def __init__(self, dispatcher, manager):
         Thread.__init__(self)
@@ -57,13 +47,13 @@ class VDevDispatcherQueue(Thread):
         self._queue = []
         self.start()
     
-    @excl
+    @lock
     def insert(self, buf):
         self._dispatcher.add_source(buf[0])
         self._queue.insert(0, buf)
         self._event.set()
     
-    @excl
+    @lock
     def push(self, buf):
         if len(self._queue) < VDEV_DISPATCHER_QUEUE_LEN:
             self._dispatcher.add_source(buf[0])
@@ -74,7 +64,7 @@ class VDevDispatcherQueue(Thread):
     def get_length(self):
         return len(self._queue)
     
-    @excl
+    @lock
     def pop(self):
         buf = None
         if len(self._queue) > 0:
@@ -140,19 +130,19 @@ class VDevDispatcher(object):
         if length < VDEV_DISPATCHER_QUEUE_LEN:
             return self._queues[n]
     
-    @excl
+    @lock
     def _check_source(self, name):
         if self._source.has_key(name):
             return True
     
-    @excl
+    @lock
     def add_source(self, name):
         if not self._source.has_key(name):
             self._source.update({name:1})
         else:
             self._source[name] += 1
     
-    @excl
+    @lock
     def remove_source(self, name):
         if self._source.has_key(name):
             self._source[name] -= 1

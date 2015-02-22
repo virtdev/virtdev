@@ -27,7 +27,6 @@ from data import Data
 from fuse import FUSE
 from errno import EINVAL
 from vertex import Vertex
-from lib.util import DIR_MODE
 from lib.lock import VDevLock
 from path import VDEV_FS_UPDATE
 from lib.log import log_err, log
@@ -36,6 +35,7 @@ from watcher import VDevWatcherPool
 from dev.interface import load_device
 from dev.lo import load_anon, get_device
 from fuse import FuseOSError, Operations
+from lib.util import DIR_MODE, named_lock
 from conf.virtdev import VDEV_DFS_SERVERS
 from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_VISI, VDEV_MODE_ANON, VDEV_MODE_LINK, VDEV_GET
 from attr import Attr, VDEV_ATTR_MODE, VDEV_ATTR_PROFILE, VDEV_ATTR_HANDLER, VDEV_ATTR_MAPPER, VDEV_ATTR_DISPATCHER, VDEV_ATTR_FREQ
@@ -45,17 +45,6 @@ _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
 
 VDEV_PATH_MAX = 1024
-
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        path = args[1]
-        lock = self._lock.acquire(path)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            lock.release()
-    return _excl
 
 def show(func):
     def _show(*args, **kwargs):
@@ -226,8 +215,8 @@ class VDevFS(Operations):
                     log_err(self, 'failed to sync disable, op=OP_DISABLE')
                     raise FuseOSError(EINVAL)
     
-    @excl
     @show
+    @named_lock
     def _invalidate(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -347,7 +336,7 @@ class VDevFS(Operations):
         mode = args.get('mode')
         self._mount_device(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ=typ)
     
-    @excl
+    @named_lock
     def getattr(self, path, fh=None):
         obj, uid, name = self._parse(path)
         if not name:
@@ -357,8 +346,8 @@ class VDevFS(Operations):
             raise FuseOSError(EINVAL)
         return obj.getattr(uid, name)
     
-    @excl
     @show
+    @named_lock
     def create(self, path, mode):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -367,8 +356,8 @@ class VDevFS(Operations):
         self._sync_create(obj, uid, name)
         return obj.create(uid, name)
     
-    @excl
-    @show                        
+    @show
+    @named_lock                        
     def readdir(self, path, fh):
         obj, uid, name = self._parse(path)
         res = []
@@ -376,8 +365,8 @@ class VDevFS(Operations):
             res = obj.readdir(uid, name)
         return res
     
-    @excl
     @show
+    @named_lock
     def open(self, path, flags):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -386,8 +375,8 @@ class VDevFS(Operations):
         self._sync_open(obj, uid, name, flags)
         return obj.open(uid, name, flags)
     
-    @excl
     @show
+    @named_lock
     def release(self, path, fh):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -396,18 +385,18 @@ class VDevFS(Operations):
         flags = obj.release(uid, name, fh)
         self._sync_release(obj, uid, name, flags)
     
-    @excl
+    @named_lock
     def write(self, path, buf, offset, fh):
         os.lseek(fh, offset, 0)
         return os.write(fh, buf)
     
-    @excl
+    @named_lock
     def read(self, path, size, offset, fh):
         os.lseek(fh, offset, 0)
         return os.read(fh, size)
     
-    @excl
     @show
+    @named_lock
     def unlink(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -509,7 +498,7 @@ class VDevFS(Operations):
         elif name == OP_ACCEPT:
             self._accept(path, value)
     
-    @excl
+    @named_lock
     def _get_event(self, uid):
         ret = self._events.get(uid)
         if ret:
@@ -518,7 +507,7 @@ class VDevFS(Operations):
         else:
             return ''
     
-    @excl
+    @named_lock
     def _set_event(self, uid, event):
         self._events[uid] = event
     
@@ -569,7 +558,7 @@ class VDevFS(Operations):
                     return d.proc(name, VDEV_GET)
         return ''
     
-    @excl
+    @named_lock
     def _get_result(self, path, op):
         if self._results.has_key(op):
             ret = self._results[op].get(path)
@@ -578,7 +567,7 @@ class VDevFS(Operations):
                 return ret
         return ''
     
-    @excl
+    @named_lock
     def _set_result(self, path, op, result):
         if self._results.has_key(op):
             self._results[op].update({path:result})
@@ -618,8 +607,8 @@ class VDevFS(Operations):
         self._set_result(path, op, res)
         return res
     
-    @excl
     @show
+    @named_lock
     def truncate(self, path, length, fh=None):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -627,8 +616,8 @@ class VDevFS(Operations):
             raise FuseOSError(EINVAL)
         obj.truncate(uid, name, length)
     
-    @excl
     @show
+    @named_lock
     def readlink(self, path):
         obj, uid, name = self._parse(path)
         return obj.readlink(uid, name)

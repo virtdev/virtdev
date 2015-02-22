@@ -156,3 +156,24 @@ def cat(*items):
         for i in range(1, len(items)):
             ret += ':%s' % str(items[i])
     return ret
+
+def lock(func):
+    def _lock(*args, **kwargs):
+        self = args[0]
+        self._lock.acquire()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            self._lock.release()
+    return _lock
+
+def named_lock(func):
+    def _named_lock(*args, **kwargs):
+        self = args[0]
+        name = args[1]
+        self._lock.acquire(name)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            self._lock.release(name)
+    return _named_lock

@@ -20,19 +20,8 @@
 import zerorpc
 from threading import Thread
 from lib.lock import VDevLock
-from lib.util import zmqaddr, ifaddr
+from lib.util import zmqaddr, ifaddr, named_lock
 from conf.virtdev import VDEV_EVENT_COLLECTOR_PORT, VDEV_EVENT_RECEIVER_PORT
-
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        uid = args[1]
-        lock = self._lock.acquire(uid)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            lock.release()
-    return _excl
 
 class VDevEventCollectorD(object):
     def __init__(self, collector):
@@ -78,7 +67,7 @@ class VDevEventCollector(Thread):
         cli.connect(zmqaddr(addr, VDEV_EVENT_RECEIVER_PORT))
         cli.put(uid, events)
     
-    @excl
+    @named_lock
     def put(self, uid, name):
         events = self._events.get(uid)
         if None == events:
@@ -86,7 +75,7 @@ class VDevEventCollector(Thread):
         self._events[uid].update({name:None})
         self._pop(uid)
     
-    @excl
+    @named_lock
     def get(self, uid, addr):
         if not self._events.has_key(uid) or not self._events[uid]:
             self._push(uid, addr)

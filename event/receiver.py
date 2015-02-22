@@ -21,21 +21,10 @@ import zerorpc
 from lib.log import log_err
 from lib.lock import VDevLock
 from threading import Thread, Event
-from lib.util import zmqaddr, ifaddr
+from lib.util import zmqaddr, ifaddr, named_lock
 from conf.virtdev import VDEV_EVENT_COLLECTOR_PORT, VDEV_EVENT_RECEIVER_PORT
 
 VDEV_EVENT_RECEIVER_WAIT_TIME = 3600
-
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        uid = args[1]
-        lock = self._lock.acquire(uid)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            lock.release()
-    return _excl
 
 class VDevEventReceiverD(object):
     def __init__(self, receiver):
@@ -55,7 +44,7 @@ class VDevEventReceiver(Thread):
         self._recvd = VDevEventReceiverD(self)
         self.start()
     
-    @excl
+    @named_lock
     def _get_event(self, uid):
         ev = self._events.get(uid)
         if not ev:
@@ -68,21 +57,21 @@ class VDevEventReceiver(Thread):
             event.clear()
         return event
     
-    @excl
+    @named_lock
     def _put_event(self, uid):
         if self._events.has_key(uid):
             self._events[uid][1] -= 1
             if self._events[uid][1] <= 0:
                 del self._events[uid]
     
-    @excl
+    @named_lock
     def _get_result(self, uid):
         ret = self._results.get(uid)
         if ret:
             del self._results[uid]
         return ret
     
-    @excl
+    @named_lock
     def _put_result(self, uid, buf):
         if not self._results.get(uid):
             self._results[uid] = []

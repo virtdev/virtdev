@@ -26,7 +26,7 @@ from log import log
 from lock import VDevLock
 from subprocess import Popen
 from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
-from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split
+from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split, named_lock
 
 NETSIZE = 30
 RETRY_MAX = 50
@@ -35,17 +35,6 @@ TOUCH_TIMEOUT = 1 # seconds
 NETMASK = '255.255.255.224'
 PATH = '/etc/dhcp/dhcpd.conf'
 DEVNULL = open(os.devnull, 'wb')
-
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        addr = args[1]
-        lock = self._lock.acquire(addr)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            lock.release()
-    return _excl
 
 class Tunnel(object):
     def __init__(self):
@@ -139,7 +128,7 @@ class Tunnel(object):
         except:
             pass
     
-    @excl
+    @named_lock
     def connect(self, addr, key, static, touch):
         if self._tunnels.has_key(addr):
             if touch:
@@ -164,7 +153,7 @@ class Tunnel(object):
         os.system('kill -9 %d 2>/dev/null' % pid)
         os.remove(path)
     
-    @excl
+    @named_lock
     def disconnect(self, addr, force):
         cnt = self._tunnels.get(addr)
         if cnt and cnt > 0:
@@ -173,7 +162,7 @@ class Tunnel(object):
                 del self._tunnels[addr]
                 self._disconnect(addr, force)
     
-    @excl
+    @named_lock
     def exists(self, addr):
         return os.path.exists(self._get_path(addr))
     
@@ -191,7 +180,7 @@ class Tunnel(object):
         log('tunnel: failed to check iface')      
         raise Exception('tunnel: failed to check iface')
     
-    @excl
+    @named_lock
     def create(self, addr, key):
         cfg = []
         address = split(addr)[1]

@@ -19,50 +19,28 @@
 
 import os
 import re
-import time
 import shelve
 from lib import tunnel
 from lib import notifier
+from threading import Lock
 from lib.lock import VDevLock
 from server import VDevFSServer
 from lib.daemon import VDevDaemon
-from threading import Thread, Lock
 from proc.sandbox import VDevSandbox
 from lib.log import log_err, log_get
 from lib.request import VDevAuthRequest
 from proc.synchronizer import VDevSynchronizer
-from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_SYNC, VDEV_OPEN, VDEV_CLOSE
-from lib.util import USERNAME_SIZE, PASSWORD_SIZE, VDEV_FLAG_SPECIAL, netaddresses, get_node, vdev_name, cat
+from dev.vdev import VDEV_MODE_SYNC, VDEV_OPEN, VDEV_CLOSE
+from conf.virtdev import VDEV_LIB_PATH, VDEV_RUN_PATH, VDEV_FILE_SERVICE, VDEV_FILE_SHADOW, VDEV_SPECIAL
 from conf.virtdev import VDEV_LO, VDEV_BLUETOOTH, VDEV_SANDBOX, VDEV_MAPPER_PORT, VDEV_HANDLER_PORT, VDEV_DISPATCHER_PORT
-from conf.virtdev import VDEV_LIB_PATH, VDEV_RUN_PATH, VDEV_FS_MOUNTPOINT, VDEV_FILE_SERVICE, VDEV_FILE_SHADOW, VDEV_SPECIAL
-
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        self._lock.acquire()
-        try:
-            return func(*args, **kwargs)
-        finally:
-            self._lock.release()
-    return _excl
-
-def excl_name(func):
-    def _excl_name(*args, **kwargs):
-        self = args[0]
-        name = args[1]
-        lock = self._lock.acquire(name)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            lock.release()
-    return _excl_name
+from lib.util import USERNAME_SIZE, PASSWORD_SIZE, VDEV_FLAG_SPECIAL, netaddresses, get_node, vdev_name, cat, lock, named_lock
 
 class DeviceManager(object):
     def __init__(self, server): 
         self._lock = VDevLock()
         self._server = server
     
-    @excl_name
+    @named_lock
     def open(self, name):
         for device in self._server.devices:
             dev = device.find(name)
@@ -70,7 +48,7 @@ class DeviceManager(object):
                 dev.proc(name, VDEV_OPEN)
                 return
     
-    @excl_name
+    @named_lock
     def close(self, name):
         for device in self._server.devices:
             dev = device.find(name)
@@ -78,24 +56,24 @@ class DeviceManager(object):
                 dev.proc(name, VDEV_CLOSE)
                 return
     
-    @excl_name
+    @named_lock
     def add(self, name, mode=None, freq=None, profile=None):
         return self._server.request.device.add(node=get_node(), addr=self._server.addr, name=name, mode=mode, freq=freq, profile=profile)
     
-    @excl_name
+    @named_lock
     def sync(self, name, buf):
         if self._server.synchronizer.get_mode(name) & VDEV_MODE_SYNC:
             return self._server.request.device.sync(name=name, buf=buf)
     
-    @excl_name
+    @named_lock
     def get(self, name):
         return self._server.request.device.get(name=name)
     
-    @excl_name
+    @named_lock
     def diff(self, name, label, item, buf):
         return self._server.request.device.diff(name=name, label=label, item=item, buf=buf)
     
-    @excl_name
+    @named_lock
     def remove(self, name):
         return self._server.request.device.remove(node=get_node(), name=name)
 
@@ -104,15 +82,15 @@ class GuestManager(object):
         self._lock = Lock()
         self._server = server
     
-    @excl
+    @lock
     def join(self, dest, src):
         return self._server.request.guest.join(dest=dest, src=src)
     
-    @excl
+    @lock
     def accept(self, dest, src):
         return self._server.request.guest.accept(dest=dest, src=src)
     
-    @excl
+    @lock
     def drop(self, dest, src):
         return self._server.request.guest.drop(dest=dest, src=src)
 
@@ -121,11 +99,11 @@ class NodeManager(object):
         self._lock = Lock()
         self._server = server
     
-    @excl
+    @lock
     def search(self, user, random, limit):
         return self._server.request.node.search(user=user, random=random, limit=limit)
     
-    @excl
+    @lock
     def find(self, user, node):
         return self._server.request.node.search(user=user, node=node)
 
@@ -134,7 +112,7 @@ class TunnelManager(object):
         self._lock = VDevLock()
         self._server = server
     
-    @excl_name
+    @named_lock
     def open(self, name):
         uid, addr = self._server.get_device(name)
         if not uid:
@@ -147,13 +125,13 @@ class TunnelManager(object):
                 raise Exception(log_get(self, 'failed to create'))
             tunnel.connect(addr, token)
     
-    @excl_name
+    @named_lock
     def close(self, name):
         addr = self._server.get_device(name)[1]
         if tunnel.exist(addr):
             tunnel.disconnect(addr)
     
-    @excl_name
+    @named_lock
     def put(self, name, **args):
         dev = self._server.get_device(name)
         addr = tunnel.addr2ip(dev[1])
@@ -165,7 +143,7 @@ class MemberManager(object):
         self._server = server
         self._path = os.path.join(VDEV_LIB_PATH, vdev_name(server.uid))
     
-    @excl
+    @lock
     def list(self):
         d = shelve.open(self._path)
         try:
@@ -180,7 +158,7 @@ class MemberManager(object):
         finally:
             d.close()
     
-    @excl
+    @lock
     def update(self, item):
         if type(item) != dict or len(item) != 1:
             log_err(self, 'failed to update, invalid type')
@@ -191,7 +169,7 @@ class MemberManager(object):
         finally:
             d.close()
     
-    @excl
+    @lock
     def remove(self, name):
         name = str(name)
         d = shelve.open(self._path)

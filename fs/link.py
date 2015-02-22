@@ -21,23 +21,13 @@ from lib import tunnel
 from random import randint
 from lib.log import log_err, log_get
 from threading import Thread, Lock, Event
-from lib.util import DEFAULT_NAME, str2tuple
+from lib.util import DEFAULT_NAME, str2tuple, lock
 from dev.vdev import VDEV_MODE_LINK, update_device
 from oper import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
 VDEV_FS_LINK_QUEUE_MAX = 64
 VDEV_FS_LINK_QUEUE_LEN = 512
 VDEV_FS_LINK_BUF_SIZE = 1 << 20
-
-def excl(func):
-    def _excl(*args, **kwargs):
-        self = args[0]
-        self._lock.acquire()
-        try:
-            return func(*args, **kwargs)
-        finally:
-            self._lock.release()
-    return _excl
 
 class VDevFSLinkQueue(Thread):
     def __init__(self, proc):
@@ -51,7 +41,7 @@ class VDevFSLinkQueue(Thread):
         if not self._event.is_set():
             self._event.set()
     
-    @excl
+    @lock
     def _clear(self):
         if self._event.is_set():
             self._event.clear()
@@ -60,7 +50,7 @@ class VDevFSLinkQueue(Thread):
         self._clear()
         self._event.wait()
     
-    @excl
+    @lock
     def push(self, buf):     
         if len(self._queue) >= VDEV_FS_LINK_QUEUE_LEN:
             return False
@@ -68,7 +58,7 @@ class VDevFSLinkQueue(Thread):
         self._notify()
         return True
     
-    @excl
+    @lock
     def pop(self):
         length = len(self._queue)
         if length > 0:
