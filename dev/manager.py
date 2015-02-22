@@ -24,13 +24,13 @@ from lib import tunnel
 from lib import notifier
 from threading import Lock
 from lib.lock import VDevLock
-from server import VDevFSServer
+from server import VDevServer
 from lib.daemon import VDevDaemon
 from proc.sandbox import VDevSandbox
 from lib.log import log_err, log_get
 from lib.request import VDevAuthRequest
 from proc.synchronizer import VDevSynchronizer
-from dev.vdev import VDEV_MODE_SYNC, VDEV_OPEN, VDEV_CLOSE
+from vdev import VDEV_MODE_SYNC, VDEV_OPEN, VDEV_CLOSE
 from conf.virtdev import VDEV_LIB_PATH, VDEV_RUN_PATH, VDEV_FILE_SERVICE, VDEV_FILE_SHADOW, VDEV_SPECIAL
 from conf.virtdev import VDEV_LO, VDEV_BLUETOOTH, VDEV_SANDBOX, VDEV_MAPPER_PORT, VDEV_HANDLER_PORT, VDEV_DISPATCHER_PORT
 from lib.util import USERNAME_SIZE, PASSWORD_SIZE, VDEV_FLAG_SPECIAL, netaddresses, get_node, vdev_name, cat, lock, named_lock
@@ -179,7 +179,7 @@ class MemberManager(object):
         finally:
             d.close()
 
-class VDevFSManager(object):
+class VDevManager(object):
     def _init_sandbox(self):
         self._mapper = VDevSandbox(VDEV_MAPPER_PORT)
         self._handler = VDevSandbox(VDEV_HANDLER_PORT)
@@ -189,7 +189,7 @@ class VDevFSManager(object):
         self._dispatcher.start()
     
     def _init_server(self):
-        server = VDevFSServer(self)
+        server = VDevServer(self)
         self.node = NodeManager(server)
         self.guest = GuestManager(server)
         self.device = DeviceManager(server)
@@ -228,7 +228,7 @@ class VDevFSManager(object):
         else:
             log_err(self, 'failed to login, invalid user name')
             return
-            
+        
         if len(password) != PASSWORD_SIZE:
             log_err(self, 'failed to login, invalid password')
             return

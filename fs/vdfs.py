@@ -30,7 +30,7 @@ from vertex import Vertex
 from lib.lock import VDevLock
 from path import VDEV_FS_UPDATE
 from lib.log import log_err, log
-from manager import VDevFSManager
+from dev.manager import VDevManager
 from watcher import VDevWatcherPool
 from dev.interface import load_device
 from dev.lo import load_anon, get_device
@@ -61,7 +61,7 @@ class VDevFS(Operations):
         watcher = VDevWatcherPool()
         if not query:
             self._shadow = True
-            manager = VDevFSManager()
+            manager = VDevManager()
             self._edge = Edge(manager=manager)
             self._attr = Attr(manager=manager)
             self._vertex = Vertex(manager=manager)

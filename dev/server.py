@@ -21,18 +21,17 @@ import socket
 from lib.pool import VDevPool
 from lib import tunnel, crypto
 from lib.queue import VDevQueue
-from oper import VDevFSOperation
+from fs.oper import VDevFSOperation
 from threading import Thread, Event
 from lib.log import log_err, log_get
 from conf.virtdev import VDEV_FS_PORT
 from lib.request import VDevAuthRequest
 from lib.util import DEFAULT_UID, DEFAULT_TOKEN, UID_SIZE
 
-
 QUEUE_LEN = 2
 POOL_SIZE = 32
 
-class VDevFSServerQueue(VDevQueue):
+class VDevServerQueue(VDevQueue):
     def __init__(self, srv):
         VDevQueue.__init__(self, QUEUE_LEN)
         self._srv = srv
@@ -40,7 +39,7 @@ class VDevFSServerQueue(VDevQueue):
     def _proc(self, buf):
         self._srv.proc(buf)
         
-class VDevFSServer(Thread):
+class VDevServer(Thread):
     def _init_sock(self, addr):
         addr = tunnel.addr2ip(addr)
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -61,7 +60,7 @@ class VDevFSServer(Thread):
         self._tokens = {uid:token, DEFAULT_UID:DEFAULT_TOKEN}
         self._init_sock(manager.addr)
         for _ in range(POOL_SIZE):
-            self._pool.add(VDevFSServerQueue(self))
+            self._pool.add(VDevServerQueue(self))
         
         self.uid = uid
         self.addr = addr
