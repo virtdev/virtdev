@@ -29,9 +29,9 @@ from lib.log import log_get, log
 from dispatcher import VDevDispatcher
 from dev.vdev import VDEV_MODE_VIRT, VDEV_MODE_SWITCH, VDEV_MODE_IN, VDEV_MODE_OUT, VDEV_MODE_REFLECT, VDEV_GET, VDEV_PUT, VDEV_OPEN, VDEV_CLOSE
 
-VDEV_SYNCHRONIZER_DEPTH = 4
-VDEV_SYNCHRONIZER_WAIT_TIME = 0.1 #second
-VDEV_SYNCHRONIZER_LOG = True
+QUEUE_LEN = 4
+WAIT_TIME = 0.1 #second
+LOG = True
 
 class VDevSynchronizer(object):
     def __init__(self, manager):
@@ -47,7 +47,7 @@ class VDevSynchronizer(object):
         self._dispatcher = VDevDispatcher(manager)
     
     def _log(self, s):
-        if VDEV_SYNCHRONIZER_LOG:
+        if LOG:
             log(log_get(self, s))
     
     def _can_put(self, dest, src, flags):
@@ -220,14 +220,14 @@ class VDevSynchronizer(object):
             for device in self.manager.devices:
                 dev = device.find(name)
                 if dev:
-                    self._log('default callback, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
+                    self._log('default_callback, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
                     return dev.proc(name, oper, buf)
         else:
             if type(buf) == dict and 1 == len(buf):
-                self._log('default callback, name=%s' % name)
+                self._log('default_callback, name=%s' % name)
                 return buf[buf.keys()[0]]
             oper = self.get_oper(buf, mode)
-            self._log('default callback, name=%s, oper=%s' % (name, oper))
+            self._log('default_callback, name=%s, oper=%s' % (name, oper))
             if not oper:
                 return
             if oper == VDEV_OPEN:
@@ -273,8 +273,8 @@ class VDevSynchronizer(object):
     
     def _try_put(self, dest, src, buf, flags):
         if not self._is_ready(dest, src, flags):
-            self._log('put->collect, dest=%s, src=%s' % (dest, src))
-            if len(self._members[dest][src]) >= VDEV_SYNCHRONIZER_DEPTH:
+            self._log('try_put, not ready, dest=%s, src=%s' % (dest, src))
+            if len(self._members[dest][src]) >= QUEUE_LEN:
                 return self._get_event(dest, src)
             else:
                 self._members[dest][src].append(buf)
@@ -285,7 +285,7 @@ class VDevSynchronizer(object):
                 if not flags & VDEV_MODE_REFLECT:
                     self._dispatch(dest, ret)
                 else:
-                    self._log('put->dispatch, %s=>%s' % (dest, src))
+                    self._log('try_put->sendto, dest=%s, src=%s' % (dest, src))
                     self._dispatcher.sendto(src, dest, ret, hidden=True)
     
     @named_lock
@@ -300,7 +300,7 @@ class VDevSynchronizer(object):
         ev = self._put(dest, src, buf, flags)
         if ev:
             self._log('put->wait, dest=%s, src=%s' % (dest, src))
-            ev.wait(VDEV_SYNCHRONIZER_WAIT_TIME)
+            ev.wait(WAIT_TIME)
             return
         return True
     
