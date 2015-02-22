@@ -24,14 +24,15 @@ import socket
 import psutil
 from log import log
 from lock import VDevLock
+from pool import VDevPool
+from queue import VDevQueue
 from subprocess import Popen
-from queue import VDevQueue, VDevQueueArray
 from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
 from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split, named_lock
 
 NETSIZE = 30
 QUEUE_LEN = 4
-QUEUE_MAX = 32
+POOL_SIZE = 32
 RETRY_MAX = 50
 SLEEP_TIME = 0.1 # seconds
 TOUCH_TIMEOUT = 1 # seconds
@@ -46,14 +47,14 @@ class TunnelQueue(VDevQueue):
     def _proc(self, buf):
         put(*buf)
 
-class TunnelQueues(object):
+class TunnelPool(object):
     def __init__(self):
-        self._queues = VDevQueueArray(QUEUE_LEN)
-        for _ in range(QUEUE_MAX):
-            self._queues.add(TunnelQueue())
+        self._pool = VDevPool()
+        for _ in range(POOL_SIZE):
+            self._pool.add(TunnelQueue())
     
     def push(self, buf):
-        self._queues.push(buf)
+        self._pool.push(buf)
 
 class Tunnel(object):
     def __init__(self):
@@ -227,7 +228,7 @@ class Tunnel(object):
         return self._chkiface(addr)
 
 tunnel = Tunnel()
-queues = TunnelQueues()
+pool = TunnelPool()
 
 def send(sock, buf):
     send_pkt(sock, buf)
@@ -264,4 +265,4 @@ def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
         sock.close()
 
 def push(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
-    queues.push((ip, op, args, uid, token))
+    pool.push((ip, op, args, uid, token))

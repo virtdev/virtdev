@@ -17,14 +17,9 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import time
 from util import lock
 from log import log_err
-from random import randint
-from lib.util import hash_name
 from threading import Thread, Event, Lock
-
-WAIT_TIME = 0.01
 
 class VDevQueue(Thread):
     def __init__(self, queue_len):
@@ -58,6 +53,9 @@ class VDevQueue(Thread):
     def get_length(self):
         return len(self._queue)
     
+    def get_capcity(self):
+        return self._queue_len
+    
     @lock
     def pop(self):
         buf = None
@@ -79,50 +77,5 @@ class VDevQueue(Thread):
                     self._proc(buf)
                 except:
                     log_err(self, 'failed to process')
-                    
-class VDevQueueArray(object):
-    def __init__(self, queue_len):
-        self._count = 0
-        self._queues = []
-        self._queue_len = queue_len
-    
-    def add(self, queue):
-        self._queues.append(queue)
-        self._count += 1
-    
-    def get(self):
-        if 0 == self._count:
-            return
-        n = 0
-        length = self._queue_len
-        i = randint(0, self._count - 1)
-        for _ in range(self._count):
-            l = self._queues[i].get_length()
-            if l == 0:
-                length = 0
-                n = i
-                break
-            elif l < length:
-                length = l
-                n = i
-            i += 1
-            if i == self._count:
-                i = 0
-        if length < self._queue_len:
-            return self._queues[n]
-    
-    def select(self, name):
-        if 0 == self._count:
-            return
-        n = hash_name(name) % self._count
-        return self._queues[n]
-    
-    def push(self, buf):
-        while True:
-            q = self.get()
-            if not q:
-                time.sleep(WAIT_TIME)
-            else:
-                if q.push(buf):
-                    return
+
     

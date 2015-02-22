@@ -24,16 +24,17 @@ from threading import Lock
 from random import randint
 from fs.path import is_local
 from loader import VDevLoader
+from lib.pool import VDevPool
+from lib.queue import VDevQueue
 from base64 import encodestring
 from sandbox import VDEV_SANDBOX_PUT
 from lib.log import log, log_get, log_err
 from conf.virtdev import VDEV_DISPATCHER_PORT
-from lib.queue import VDevQueue, VDevQueueArray
 from dev.vdev import VDEV_MODE_FI, VDEV_MODE_FO, VDEV_MODE_PI, VDEV_MODE_PO, VDEV_MODE_REFLECT
 
 LOG = True
 QUEUE_LEN = 2
-QUEUE_MAX = 64
+POOL_SIZE = 64
 
 class VDevDispatcherQueue(VDevQueue):
     def __init__(self, dispatcher, manager):
@@ -63,10 +64,10 @@ class VDevDispatcher(object):
         self._dispatchers = {}
         self.manager = manager
         self._uid = manager.uid
+        self._pool = VDevPool()
         self._loader = VDevLoader(self._uid)
-        self._queues = VDevQueueArray(QUEUE_LEN)
-        for _ in range(QUEUE_MAX):
-            self._queues.add(VDevDispatcherQueue(self, manager))
+        for _ in range(POOL_SIZE):
+            self._pool.add(VDevDispatcherQueue(self, manager))
     
     def _log(self, s):
         if LOG:
@@ -101,10 +102,10 @@ class VDevDispatcher(object):
     def _send(self, dest, src, buf, flags):
         self._log('send, dest=%s, src=%s' % (dest, src))
         if self._check_source(src):
-            q = self._queues.select(src)
-            q.insert((dest, src, buf, flags))
+            queue = self._pool.select(src)
+            queue.insert((dest, src, buf, flags))
         else:
-            self._queues.push((dest, src, buf, flags))
+            self._pool.push((dest, src, buf, flags))
     
     def add(self, edge, output=True, hidden=False):
         src = edge[0]

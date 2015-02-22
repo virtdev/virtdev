@@ -18,18 +18,19 @@
 #      MA 02110-1301, USA.
 
 import socket
+from lib.pool import VDevPool
 from lib import tunnel, crypto
+from lib.queue import VDevQueue
 from oper import VDevFSOperation
 from threading import Thread, Event
 from lib.log import log_err, log_get
 from conf.virtdev import VDEV_FS_PORT
 from lib.request import VDevAuthRequest
-from lib.queue import VDevQueue, VDevQueueArray
 from lib.util import DEFAULT_UID, DEFAULT_TOKEN, UID_SIZE
 
 
 QUEUE_LEN = 2
-QUEUE_MAX = 32
+POOL_SIZE = 32
 
 class VDevFSServerQueue(VDevQueue):
     def __init__(self, srv):
@@ -55,12 +56,12 @@ class VDevFSServer(Thread):
         
         self._addr_list = {}
         self._event = Event()
+        self._pool = VDevPool()
         self._op = VDevFSOperation(manager)
-        self._queues = VDevQueueArray(QUEUE_LEN)
         self._tokens = {uid:token, DEFAULT_UID:DEFAULT_TOKEN}
         self._init_sock(manager.addr)
-        for _ in range(QUEUE_MAX):
-            self._queues.add(VDevFSServerQueue(self))
+        for _ in range(POOL_SIZE):
+            self._pool.add(VDevFSServerQueue(self))
         
         self.uid = uid
         self.addr = addr
@@ -130,7 +131,7 @@ class VDevFSServer(Thread):
         while True:
             try:
                 sock, _ = self._sock.accept()
-                self._queues.push(sock)
+                self._pool.push(sock)
             except:
                 log_err(self, 'failed to push')
     
