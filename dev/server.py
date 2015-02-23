@@ -48,6 +48,7 @@ class VDevServer(Thread):
         self._sock.listen(5)
     
     def __init__(self, manager):
+        Thread.__init__(self)
         uid = manager.uid
         addr = manager.addr
         token = manager.token

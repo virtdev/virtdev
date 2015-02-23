@@ -29,7 +29,7 @@ LOCK_MAX = 65536
 class VDevLock(object):
     def __init__(self):
         self._count = 0
-        self._locks = []
+        self._locks = {}
         self._lock = Lock()
     
     def _alloc(self):
@@ -62,7 +62,7 @@ class VDevLock(object):
             l[POS_CNT] -= 1
         else:
             del self._locks[name]
-        return l
+        return l[POS_LOCK]
     
     def acquire(self, name):
         l = self._get(name)
@@ -70,5 +70,5 @@ class VDevLock(object):
     
     def release(self, name):
         l = self._put(name)
-        l.relase()
+        l.release()
     

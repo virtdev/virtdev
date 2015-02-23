@@ -46,7 +46,7 @@ _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.tim
 
 VDEV_PATH_MAX = 1024
 
-def show(func):
+def show_path(func):
     def _show(*args, **kwargs):
         path = args[1]
         log('%s: path=%s' % (func.func_name, path))
@@ -215,8 +215,8 @@ class VDevFS(Operations):
                     log_err(self, 'failed to sync disable, op=OP_DISABLE')
                     raise FuseOSError(EINVAL)
     
-    @show
     @named_lock
+    @show_path
     def _invalidate(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -346,8 +346,8 @@ class VDevFS(Operations):
             raise FuseOSError(EINVAL)
         return obj.getattr(uid, name)
     
-    @show
     @named_lock
+    @show_path
     def create(self, path, mode):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -356,8 +356,8 @@ class VDevFS(Operations):
         self._sync_create(obj, uid, name)
         return obj.create(uid, name)
     
-    @show
-    @named_lock                        
+    @named_lock
+    @show_path  
     def readdir(self, path, fh):
         obj, uid, name = self._parse(path)
         res = []
@@ -365,8 +365,8 @@ class VDevFS(Operations):
             res = obj.readdir(uid, name)
         return res
     
-    @show
     @named_lock
+    @show_path
     def open(self, path, flags):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -375,8 +375,8 @@ class VDevFS(Operations):
         self._sync_open(obj, uid, name, flags)
         return obj.open(uid, name, flags)
     
-    @show
     @named_lock
+    @show_path
     def release(self, path, fh):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -395,8 +395,8 @@ class VDevFS(Operations):
         os.lseek(fh, offset, 0)
         return os.read(fh, size)
     
-    @show
     @named_lock
+    @show_path
     def unlink(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -607,8 +607,8 @@ class VDevFS(Operations):
         self._set_result(path, op, res)
         return res
     
-    @show
     @named_lock
+    @show_path
     def truncate(self, path, length, fh=None):
         obj, uid, name = self._parse(path)
         if not obj:
@@ -616,8 +616,8 @@ class VDevFS(Operations):
             raise FuseOSError(EINVAL)
         obj.truncate(uid, name, length)
     
-    @show
     @named_lock
+    @show_path
     def readlink(self, path):
         obj, uid, name = self._parse(path)
         return obj.readlink(uid, name)
