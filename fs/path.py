@@ -40,6 +40,8 @@ def load(uid, name='', label='', sort=False, passthrough=False):
         root = VDEV_FS_MOUNTPOINT
     else:
         root = VDEV_FS_PATH
+        if not label:
+            label = VDEV_FS_LABELS['data']
     if not name and not label:
         path = os.path.join(root, uid)
     else:
