@@ -105,10 +105,9 @@ def tuple2str(v):
 
 def send_pkt(sock, buf):
     head = struct.pack('I', len(buf))
+    sock.sendall(head)
     if buf:
-        sock.sendall(head + buf)
-    else:
-        sock.sendall(head)
+        sock.sendall(buf)
 
 def _recv(sock, length):
     ret = []
