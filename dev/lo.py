@@ -44,7 +44,7 @@ def load_anon(typ, name=None, sock=None):
                 return anon(name, sock)
     except:
         pass
-        
+
 class VDevLo(VDevInterface):
     def _get_name(self, device):
         res = device.split('_')
@@ -106,7 +106,7 @@ class VDevLo(VDevInterface):
             return device_list
         self._active = True
         uid = self.manager.uid
-        names = load(uid, sort=True)
+        names = load(uid, sort=True, passthrough=True)
         if not names:
             return device_list
         for name in names:

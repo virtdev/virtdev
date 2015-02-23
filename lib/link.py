@@ -30,20 +30,18 @@ POOL_SIZE = 32
 BUF_SIZE = 1 << 22
 
 def chkargs(func):
-    def _chkargs(*args, **kwargs):
-        self = args[0]
-        name = args[1]
+    def _chkargs(self, name, op, **args):
         if not name:
             raise Exception('link: chkargs failed, invalid name')
-        op = args[2]
         if op not in self.operations:
             raise Exception('link: chkargs failed, invalid operation')
-        buf = kwargs.get('buf')
+        buf = args.get('buf')
         if buf:
             if type(buf) != str and type(buf) != unicode:
                 raise Exception('link: chkargs failed, invalid buf')
             if len(buf) > BUF_SIZE:
                 raise Exception('link: chkargs failed, invalid length of buf')
+        return func(name, op, **args)
     return _chkargs
 
 class VDevUplink(object):
