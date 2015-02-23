@@ -162,11 +162,11 @@ class VDevFS(Operations):
         if not self._shadow:
             if obj.can_invalidate():
                 if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
-                    log_err(self, 'failed to sync create, op=OP_INVALIDATE')
+                    log_err(self, 'sync_create failed, op=OP_INVALIDATE, name=%s' % name)
                     raise FuseOSError(EINVAL)
             elif obj.can_touch():
                 if not self._link.put(name=obj.parent(name), op=OP_TOUCH, path=obj.real(name)):
-                    log_err(self, 'failed to sync create, op=OP_TOUCH')
+                    log_err(self, 'sync_create failed, op=OP_TOUCH, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
     def _sync_open(self, obj, uid, name, flags):
@@ -174,11 +174,11 @@ class VDevFS(Operations):
             if obj.can_invalidate():
                 if obj.may_update(flags):
                     if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
-                        log_err(self, 'failed to sync open, op=INVALIDATE')
+                        log_err(self, 'sync_open failed, op=INVALIDATE, name=%s' % name)
                         raise FuseOSError(EINVAL)
             elif obj.can_touch():
                 if not self._link.put(name=obj.parent(name), op=OP_TOUCH, path=obj.real(name)):
-                    log_err(self, 'failed to sync open, op=OP_TOUCH')
+                    log_err(self, 'sync_open failed, op=OP_TOUCH, name=%s' % name)
                     raise FuseOSError(EINVAL)
         elif obj.is_expired(uid, name):
             buf = self._link.put(name=obj.parent(name), op=OP_DIFF, label=obj.label, item=obj.child(name), buf=obj.signature(uid, name))
@@ -190,28 +190,28 @@ class VDevFS(Operations):
                 with open(obj.get_path(uid, name), 'r') as f:
                     buf = f.read()
                 if not self._link.put(name=name, op=OP_SYNC, buf=buf):
-                    log_err(self, 'failed to sync release, op=OP_SYNC')
+                    log_err(self, 'sync_release failed, op=OP_SYNC, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
     def _sync_unlink(self, obj, uid, name):
         if not self._shadow:
             if obj.can_invalidate() or obj.can_unlink():
                 if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
-                    log_err(self, 'failed to sync unlink, op=OP_INVALIDATE')
+                    log_err(self, 'sync_unlink failed, op=OP_INVALIDATE, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
     def _sync_enable(self, obj, uid, name):
         if not self._shadow:
             if obj.can_enable():
                 if not self._link.put(name=name, op=OP_ENABLE, path=name):
-                    log_err(self, 'failed to sync enable, op=OP_ENABLE')
+                    log_err(self, 'sync_enable failed, op=OP_ENABLE, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
     def _sync_disable(self, obj, uid, name):
         if not self._shadow:
             if obj.can_disable():
                 if not self._link.put(name=name, op=OP_DISABLE, path=name):
-                    log_err(self, 'failed to sync disable, op=OP_DISABLE')
+                    log_err(self, 'sync_disable failed, op=OP_DISABLE, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
     @named_lock

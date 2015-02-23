@@ -208,4 +208,6 @@ class VDevDownlink(object):
     
     def put(self, **args):
         self._pool.push(args)
+        return True
+    
     
