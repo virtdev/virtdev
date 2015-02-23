@@ -24,7 +24,7 @@ from conf.virtdev import VDEV_LO, VDEV_AUTH_SERVICE, VDEV_AUTH_WORKER, VDEV_AUTH
 _active = False
 
 def _clean():
-    os.system('killall edge 2>/dev/null')
+    os.system('killall -9 edge 2>/dev/null')
     os.system('rm -f /var/run/vdev-tunnel-*')
     
     ports = []
