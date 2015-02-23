@@ -75,7 +75,8 @@ class VDevFSOperation(object):
     def touch(self, path):
         try:
             path = self._get_path(path)
-            os.system('touch %s' % path)
+            with open(path, 'w') as _:
+                pass
             return True
         except:
             log_err(self, 'failed to touch, path=%s' % path)

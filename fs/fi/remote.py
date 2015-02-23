@@ -28,6 +28,7 @@ from hdfs.client import Client as HTTPClient
 from snakebite.client import Client as DFSClient
 from conf.virtdev import VDEV_DFS_PORT, VDEV_DFS_HTTP_PORT
 
+HTTP_TOUCH = True
 VDEV_FILE_SIZE = 1000000
 
 class VDevRemoteFS(VDevFileInterface):
@@ -88,11 +89,22 @@ class VDevRemoteFS(VDevFileInterface):
         cli = self._get_dfs_cli(uid)
         return cli.test(path, exists=True)
     
-    def touch(self, uid, path):
+    def _http_touch(self, uid, path):
+        cli = self._get_http_cli(uid)
+        cli.write(path, "", overwrite=True)
+        return True
+    
+    def _dfs_touch(self, uid, path):
         cli = self._get_dfs_cli(uid)
         ret = cli.touchz([path]).next()
         if ret:
             return ret['result']
+    
+    def touch(self, uid, path):
+        if HTTP_TOUCH:
+            self._http_touch(uid, path)
+        else:
+            self._dfs_touch(uid, path)
     
     def rename(self, uid, src, dest):
         cli = self._get_dfs_cli(uid)
