@@ -138,6 +138,12 @@ class TunnelManager(object):
         addr = tunnel.addr2ip(dev[1])
         tunnel.put(addr, 'put', args, self._server.uid, self._server.token)
 
+    @named_lock
+    def push(self, name, **args):
+        dev = self._server.get_device(name)
+        addr = tunnel.addr2ip(dev[1])
+        tunnel.push(addr, 'put', args, self._server.uid, self._server.token)
+
 class MemberManager(object):
     def __init__(self, server):
         self._lock = Lock()

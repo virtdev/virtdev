@@ -98,7 +98,7 @@ def mount():
         from fs.vdfs import VDevFS
         from conf.virtdev import VDEV_FS_MOUNTPOINT
         
-        os.system('fusermount -u %s 2>/dev/null' % VDEV_FS_MOUNTPOINT)
+        os.system('umount -lf %s 2>/dev/null' % VDEV_FS_MOUNTPOINT)
         if not os.path.exists(VDEV_FS_MOUNTPOINT):
             os.makedirs(VDEV_FS_MOUNTPOINT, 0o755)
         FUSE(VDevFS(query), VDEV_FS_MOUNTPOINT, foreground=True)
