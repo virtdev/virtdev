@@ -53,7 +53,7 @@ class VDevQueue(Thread):
     def get_length(self):
         return len(self._queue)
     
-    def get_capcity(self):
+    def get_capacity(self):
         return self._queue_len
     
     @lock
