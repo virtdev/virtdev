@@ -24,7 +24,6 @@ import time
 import stat
 from edge import Edge
 from data import Data
-from fuse import FUSE
 from errno import EINVAL
 from vertex import Vertex
 from lib.lock import VDevLock
@@ -67,8 +66,8 @@ class VDevFS(Operations):
             self._vertex = Vertex(manager=manager)
             self._data = Data(self._vertex, self._edge, self._attr, watcher=watcher, manager=manager)
             
-            from link import VDevFSUplink
-            self._link = VDevFSUplink(manager)
+            from lib.link import VDevUplink
+            self._link = VDevUplink(manager)
         else:
             manager = None
             self._shadow = False
@@ -80,8 +79,8 @@ class VDevFS(Operations):
             self._attr = Attr(watcher=watcher, router=router)
             self._data = Data(self._vertex, self._edge, self._attr, watcher=watcher, router=router)
             
-            from link import VDevFSDownlink
-            link = VDevFSDownlink(query)
+            from lib.link import VDevDownlink
+            link = VDevDownlink(query)
             self._query.link = link
             self._link = link
         
@@ -106,7 +105,7 @@ class VDevFS(Operations):
         if len(path) > VDEV_PATH_MAX:
             log_err(self, 'failed to parse')
             raise FuseOSError(EINVAL)
-        
+        self._downlink = downlink
         if path == '/' or path[:2] == '/.':
             return (None, None, None)
         

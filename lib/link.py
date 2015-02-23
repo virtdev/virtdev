@@ -17,118 +17,79 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from lib import tunnel
-from random import randint
-from lib.log import log_err, log_get
-from threading import Thread, Lock, Event
-from lib.util import DEFAULT_NAME, str2tuple, lock
+import tunnel
+from pool import VDevPool
+from queue import VDevQueue
+from log import log_err, log_get
+from util import DEFAULT_NAME, str2tuple
 from dev.vdev import VDEV_MODE_LINK, update_device
-from oper import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
+from fs.oper import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
-VDEV_FS_LINK_QUEUE_MAX = 64
-VDEV_FS_LINK_QUEUE_LEN = 512
-VDEV_FS_LINK_BUF_SIZE = 1 << 20
+QUEUE_LEN = 4
+POOL_SIZE = 32
+BUF_SIZE = 1 << 22
 
-class VDevFSLinkQueue(Thread):
-    def __init__(self, proc):
-        Thread.__init__(self)
-        self._event = Event()
-        self._lock = Lock()
-        self._queue = []
-        self.proc = proc
-    
-    def _notify(self):
-        if not self._event.is_set():
-            self._event.set()
-    
-    @lock
-    def _clear(self):
-        if self._event.is_set():
-            self._event.clear()
-    
-    def wait(self):
-        self._clear()
-        self._event.wait()
-    
-    @lock
-    def push(self, buf):     
-        if len(self._queue) >= VDEV_FS_LINK_QUEUE_LEN:
-            return False
-        self._queue.append(buf)
-        self._notify()
-        return True
-    
-    @lock
-    def pop(self):
-        length = len(self._queue)
-        if length > 0:
-            self._notify()
-            return self._queue.pop()
-    
-    def run(self):
-        while True:
-            buf = self.pop()
-            if buf:
-                self.proc(**buf)
-            else:
-                self.wait()
-
-class VDevFSLink(object):
-    def __init__(self, async=True):
-        self._queues = []
-        self._operations = []
-        if async:
-            for i in range(VDEV_FS_LINK_QUEUE_MAX):
-                self._queues.append(VDevFSLinkQueue(self.proc))
-                self._queues[i].start()
-        self._async = async
-    
-    def _chkargs(self, args):
-        name = args.get('name')
+def chkargs(func):
+    def _chkargs(*args, **kwargs):
+        self = args[0]
+        name = args[1]
         if not name:
-            log_err(self, 'invalid arguments')
-            raise Exception(log_get(self, 'invalid arguments'))
-        op = args.get('op')
-        if not op or op not in self._operations:
-            log_err(self, 'invalid arguments')
-            raise Exception(log_get(self, 'invalid arguments'))
-        buf = args.get('buf')
+            raise Exception('link: chkargs failed, invalid name')
+        op = args[2]
+        if op not in self.operations:
+            raise Exception('link: chkargs failed, invalid operation')
+        buf = kwargs.get('buf')
         if buf:
             if type(buf) != str and type(buf) != unicode:
-                log_err(self, 'invalid arguments')
-                raise Exception(log_get(self, 'invalid arguments'))
-            if len(buf) > VDEV_FS_LINK_BUF_SIZE:
-                log_err(self, 'invalid arguments')
-                raise Exception(log_get(self, 'invalid arguments'))
-    
-    def put(self, **args):
-        self._chkargs(args)
-        if self._async:
-            return self._queues[randint(0, VDEV_FS_LINK_QUEUE_MAX - 1)].push(args)
-        else:
-            return self.proc(**args)
+                raise Exception('link: chkargs failed, invalid buf')
+            if len(buf) > BUF_SIZE:
+                raise Exception('link: chkargs failed, invalid length of buf')
+    return _chkargs
 
-class VDevFSUplink(VDevFSLink):
+class VDevUplink(object):
     def __init__(self, manager):
-        VDevFSLink.__init__(self, async=False)
-        self._operations = [OP_ADD, OP_DIFF, OP_SYNC]
-        self._manager = manager
+        self.manager = manager
+        self.operations = [OP_ADD, OP_DIFF, OP_SYNC]
     
-    def proc(self, name, op, **args):
+    @chkargs
+    def put(self, name, op, **args):
         if op == OP_DIFF:
-            return self._manager.device.diff(name, **args)
+            return self.manager.device.diff(name, **args)
         elif op == OP_SYNC:
-            return self._manager.device.sync(name, **args)
+            return self.manager.device.sync(name, **args)
         elif op == OP_ADD:
-            return self._manager.device.add(name, **args)
+            return self.manager.device.add(name, **args)
 
-class VDevFSDownlink(VDevFSLink):
+class VDevDownlinkQueue(VDevQueue):
+    def __init__(self, downlink):
+        VDevQueue.__init__(self, QUEUE_LEN)
+        self.operations = [OP_MOUNT, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
+        self._downlink = downlink
+    
+    @chkargs
+    def _request(self, name, op, **args):
+        if name == DEFAULT_NAME:
+            addr = self._downlink.connect(None, uid=args['uid'], addr=args['addr'])
+            del args['addr']
+            del args['uid']
+        else:
+            addr = self._downlink.connect(name)
+        
+        if addr:
+            self._downlink.request(addr, op, args)
+            self._downlink.disconnect(addr)
+    
+    def _proc(self, buf):
+        self._request(**buf)
+
+class VDevDownlink(object):
     def __init__(self, query):
-        VDevFSLink.__init__(self)
-        self._operations = [OP_MOUNT, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
         self.query = query
         self._devices = {}
         self._tokens = {}
+        self._pool = VDevPool()
+        for _ in range(POOL_SIZE):
+            self._pool.add(VDevDownlinkQueue(self))
     
     def _add_device(self, uid, name, addr):
         res = (uid, addr)
@@ -147,7 +108,7 @@ class VDevFSDownlink(VDevFSLink):
             log_err(self, 'failed to get token')
             raise Exception(log_get(self, 'failed to get token'))
         return token
-            
+        
     def _get_device(self, name, cache=False):
         if not cache:
             res = self.query.device.get(name)
@@ -162,7 +123,7 @@ class VDevFSDownlink(VDevFSLink):
         else:
             return res
     
-    def _connect(self, name, uid=None, addr=None):
+    def connect(self, name, uid=None, addr=None):
         try:
             if name:
                 uid, addr = self._get_device(name)
@@ -179,29 +140,18 @@ class VDevFSDownlink(VDevFSLink):
         except:
             log_err(self, 'failed to connect')
     
-    def _disconnect(self, addr):
-        tunnel.disconnect(addr, force=True)
-    
-    def _request(self, addr, op, args):
+    def request(self, addr, op, args):
         try:
             tunnel.put(tunnel.addr2ip(addr), op, args)
             return True
         except:
-            pass
+            log_err(self, 'failed to request, addr=%s, op=%s' % (addr, op))
     
-    def proc(self, name, op, **args):
-        if name == DEFAULT_NAME:
-            addr = self._connect(None, uid=args['uid'], addr=args['addr'])
-            del args['addr']
-            del args['uid']
-        else:
-            addr = self._connect(name)
-        if not addr:
-            log_err(self, 'failed to process, cannot get address, name=%s, op=%s' % (name, op))
-            return
-        if not self._request(addr, op, args):
-            log_err(self, 'failed to process, cannot send request, addr=%s, name=%s, op=%s' % (addr, name, op))
-        self._disconnect(addr)
+    def disconnect(self, addr):
+        try:
+            tunnel.disconnect(addr, force=True)
+        except:
+            pass
     
     def _touch(self, addr, token):
         try:
@@ -251,11 +201,13 @@ class VDevFSDownlink(VDevFSLink):
         attr.update({'mode':mode | VDEV_MODE_LINK})
         
         try:
-            self._request(addr, OP_MOUNT, {'attr':str(attr)})
+            self.request(addr, OP_MOUNT, {'attr':str(attr)})
             update_device(self.query, uid, node, addr, name)
             self._add_device(uid, name, addr)
         finally:
-            self._disconnect(addr)
-        
+            self.disconnect(addr)
         return True
+    
+    def put(self, **args):
+        self._pool.push(args)
     
