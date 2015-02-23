@@ -62,6 +62,7 @@ class VDevLock(object):
             l[POS_CNT] -= 1
         else:
             del self._locks[name]
+            self._count -= 1
         return l[POS_LOCK]
     
     def acquire(self, name):

@@ -46,11 +46,11 @@ _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.tim
 VDEV_PATH_MAX = 1024
 
 def show_path(func):
-    def _show(*args, **kwargs):
+    def _show_path(*args, **kwargs):
         path = args[1]
         log('%s: path=%s' % (func.func_name, path))
         return func(*args, **kwargs)
-    return _show
+    return _show_path
 
 class VDevFS(Operations):    
     def __init__(self, query=None):
@@ -331,7 +331,7 @@ class VDevFS(Operations):
         if profile and type(profile) != dict:
             log_err(self, 'failed to mount, invalid profile')
             raise FuseOSError(EINVAL)
-            
+        
         mode = args.get('mode')
         self._mount_device(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ=typ)
     
