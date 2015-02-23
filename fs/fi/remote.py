@@ -29,6 +29,7 @@ from snakebite.client import Client as DFSClient
 from conf.virtdev import VDEV_DFS_PORT, VDEV_DFS_HTTP_PORT
 
 HTTP_TOUCH = True
+HTTP_EXISTS = True
 VDEV_FILE_SIZE = 1000000
 
 class VDevRemoteFS(VDevFileInterface):
@@ -85,9 +86,23 @@ class VDevRemoteFS(VDevFileInterface):
             ret.append(os.path.basename(name['path']))
         return ret
     
-    def exists(self, uid, path):
+    def _http_exists(self, uid, path):
+        cli = self._get_http_cli(uid)
+        try:
+            cli.status(path)
+            return True
+        except:
+            pass
+        
+    def _dfs_exists(self, uid, path):
         cli = self._get_dfs_cli(uid)
         return cli.test(path, exists=True)
+    
+    def exists(self, uid, path):
+        if HTTP_EXISTS:
+            return self._http_exists(uid, path)
+        else:
+            return self._dfs_exists(uid, path)
     
     def _http_touch(self, uid, path):
         cli = self._get_http_cli(uid)
