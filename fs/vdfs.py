@@ -105,7 +105,7 @@ class VDevFS(Operations):
         if len(path) > VDEV_PATH_MAX:
             log_err(self, 'failed to parse')
             raise FuseOSError(EINVAL)
-        self._downlink = downlink
+        
         if path == '/' or path[:2] == '/.':
             return (None, None, None)
         

@@ -122,7 +122,7 @@ class Tunnel(object):
     def addr2ip(self, addr):
         return split(addr)[1]
     
-    def _connect(self, @chkargs    addr, key, static):
+    def _connect(self, addr, key, static):
         if not static:
             address = '0.0.0.0'
         else:
