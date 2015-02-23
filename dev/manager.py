@@ -19,20 +19,21 @@
 
 import os
 import re
+import time
 import shelve
 from lib import tunnel
 from lib import notifier
-from threading import Lock
 from lib.lock import VDevLock
 from server import VDevServer
 from lib.daemon import VDevDaemon
+from threading import Lock, Thread
 from proc.sandbox import VDevSandbox
 from lib.log import log_err, log_get
 from lib.request import VDevAuthRequest
 from proc.synchronizer import VDevSynchronizer
 from vdev import VDEV_MODE_SYNC, VDEV_OPEN, VDEV_CLOSE
-from conf.virtdev import VDEV_LIB_PATH, VDEV_RUN_PATH, VDEV_FILE_SERVICE, VDEV_FILE_SHADOW, VDEV_SPECIAL
 from conf.virtdev import VDEV_LO, VDEV_BLUETOOTH, VDEV_SANDBOX, VDEV_MAPPER_PORT, VDEV_HANDLER_PORT, VDEV_DISPATCHER_PORT
+from conf.virtdev import VDEV_LIB_PATH, VDEV_RUN_PATH, VDEV_FILE_SERVICE, VDEV_FILE_SHADOW, VDEV_SPECIAL, VDEV_FS_MOUNTPOINT
 from lib.util import USERNAME_SIZE, PASSWORD_SIZE, VDEV_FLAG_SPECIAL, netaddresses, get_node, vdev_name, cat, lock, named_lock
 
 class DeviceManager(object):
@@ -202,7 +203,7 @@ class VDevManager(object):
         self._daemon = VDevDaemon(self)
         self._daemon.start()
     
-    def _update(self):
+    def _save_addr(self):
         d = shelve.open(VDEV_RUN_PATH)
         try:
             d['addr'] = self.addr
@@ -303,12 +304,18 @@ class VDevManager(object):
         self._daemon = None
         self._active = False
         self._prepare()
+        
+    def _start_devices(self):
+        path = os.path.join(VDEV_FS_MOUNTPOINT, self.uid)
+        while not os.path.exists(path):
+            time.sleep(0.1)
+        for device in self.devices:
+            device.start()
     
     def start(self):
         if not self._active:
-            for device in self.devices:
-                device.start()
-            self._update()
+            Thread(target=self._start_devices).start()
+            self._save_addr()
             self._active = True
     
     def notify(self, op, buf):
