@@ -170,7 +170,8 @@ class Tunnel(object):
         path = self._get_path(addr)
         with open(path, 'r') as f:
             pid = int(f.readlines()[0].strip())
-        os.system('ifconfig %s down;kill -9 %d 2>/dev/null' % (self._get_iface(addr), pid))
+        os.system('kill -9 %d 2>/dev/null' % pid)
+        #os.system('ifconfig %s down;kill -9 %d 2>/dev/null' % (self._get_iface(addr), pid))
         os.remove(path)
     
     @named_lock
