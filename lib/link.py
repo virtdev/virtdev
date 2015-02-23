@@ -41,7 +41,7 @@ def chkargs(func):
                 raise Exception('link: chkargs failed, invalid buf')
             if len(buf) > BUF_SIZE:
                 raise Exception('link: chkargs failed, invalid length of buf')
-        return func(name, op, **args)
+        return func(self, name, op, **args)
     return _chkargs
 
 class VDevUplink(object):
