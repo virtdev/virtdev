@@ -25,6 +25,7 @@ from StringIO import StringIO
 from dev.anon import VDevAnon
 from base64 import decodestring
 
+RESIZE = False
 PATH_CASCADE = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml'
 
 class FaceRec(VDevAnon):
@@ -41,8 +42,9 @@ class FaceRec(VDevAnon):
                 src = img.convert('RGB')
                 array = numpy.array(src)
                 image = array[:, :, ::-1].copy()
-                nu = cv2.resize(image, (img.size[0] / 2, img.size[1] / 2))
-                gray = cv2.cvtColor(nu, cv2.COLOR_BGR2GRAY)
+                if RESIZE:
+                    image = cv2.resize(image, (img.size[0] / 2, img.size[1] / 2))
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                 gray = cv2.equalizeHist(gray)
                 faces = self._cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=2, minSize=(100, 100), flags=cv2.cv.CV_HAAR_DO_ROUGH_SEARCH)
                 if len(faces) > 0:
