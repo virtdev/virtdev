@@ -22,22 +22,21 @@ import socket
 from base64 import decodestring
 from lib.log import log, log_err
 from threading import Lock, Thread
+from conf.virtdev import SANDBOX_ADDR
 from lib.util import send_pkt, recv_pkt
-from conf.virtdev import VDEV_SANDBOX_ADDR
 from multiprocessing.pool import ThreadPool
 from RestrictedPython import compile_restricted
 
-VDEV_SANDBOX_TIMEOUT = 20 # seconds
-
-VDEV_SANDBOX_PUT = 'put'
-VDEV_SANDBOX_OP = [VDEV_SANDBOX_PUT]
+TIMEOUT = 20 # seconds
+SANDBOX_PUT = 'put'
+SANDBOX_OP = [SANDBOX_PUT]
 
 def request(port, op, **args):
-    if op not in VDEV_SANDBOX_OP:
+    if op not in SANDBOX_OP:
         log('This operation is not supported by VDevSandbox')
         return
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((VDEV_SANDBOX_ADDR, port))
+    sock.connect((SANDBOX_ADDR, port))
     try:
         buf = json.dumps({'op':op, 'args':args})
         send_pkt(sock, buf)
@@ -77,7 +76,7 @@ class VDevSandbox(Thread):
     def _init_sock(self, port):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind((VDEV_SANDBOX_ADDR, port))
+        self._sock.bind((SANDBOX_ADDR, port))
         self._sock.listen(5)
     
     def __init__(self, port):
@@ -90,7 +89,7 @@ class VDevSandbox(Thread):
         pool = ThreadPool(processes=1)
         result = pool.apply_async(_sandbox, args=(decodestring(code), args))
         try:
-            ret = result.get(timeout=VDEV_SANDBOX_TIMEOUT)
+            ret = result.get(timeout=TIMEOUT)
         finally:
             pool.terminate()
             return ret
@@ -105,7 +104,7 @@ class VDevSandbox(Thread):
                     ret = None
                     op = req['op']
                     args = req['args']
-                    if op == VDEV_SANDBOX_PUT:
+                    if op == SANDBOX_PUT:
                         ret = self._put(code=args['code'], args=args['args'])
                     if ret:
                         res = str(ret)

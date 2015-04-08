@@ -20,14 +20,14 @@
 from emitter import VDevEventEmitter
 from receiver import VDevEventReceiver
 from collector import VDevEventCollector
-from conf.virtdev import VDEV_EVENT_SERVICE
+from conf.virtdev import EVENT_SERVICE
 
 class VDevEvent(object):
     def __init__(self, router):
         self._collector = None
         self._emitter = VDevEventEmitter(router)
         self._receiver = VDevEventReceiver(router)
-        if VDEV_EVENT_SERVICE:
+        if EVENT_SERVICE:
             self._collector = VDevEventCollector()
     
     def put(self, uid, name):

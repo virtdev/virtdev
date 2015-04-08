@@ -22,8 +22,8 @@ import xattr
 
 import sys
 sys.path.append('..')
-from fs.oper import OP_DISABLE
-from conf.virtdev import VDEV_FS_MOUNTPOINT
+from lib.op import OP_DISABLE
+from conf.virtdev import MOUNTPOINT
 
 def usage():
     print 'disable.py uid name'
@@ -35,6 +35,6 @@ if __name__ == '__main__':
         sys.exit()
     uid = sys.argv[1]
     name = sys.argv[2]
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
+    path = os.path.join(MOUNTPOINT, uid, name)
     xattr.setxattr(path, OP_DISABLE, '')
     

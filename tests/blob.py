@@ -23,7 +23,7 @@ from base64 import encodestring
 
 import sys
 sys.path.append('..')
-from anon.blob import Blob
+from drivers.blob import Blob
 
 PATH_TEXT = '/tmp/blob'
 URL = 'http://en.wikipedia.org/wiki/User:West.andrew.g/Popular_pages'

@@ -21,10 +21,8 @@ import sandbox
 from lib.log import log_err
 from loader import VDevLoader
 from base64 import encodestring
-from sandbox import VDEV_SANDBOX_PUT
-from conf.virtdev import VDEV_HANDLER_PORT
-
-VDEV_HANDLER_TIMEOUT = 30000
+from sandbox import SANDBOX_PUT
+from conf.virtdev import HANDLER_PORT
 
 class VDevHandler(object):  
     def __init__(self, uid):
@@ -57,7 +55,7 @@ class VDevHandler(object):
         try:
             code = self._get_code(name)
             if code:
-                return sandbox.request(VDEV_HANDLER_PORT, VDEV_SANDBOX_PUT, code=encodestring(code), args=buf)
+                return sandbox.request(HANDLER_PORT, SANDBOX_PUT, code=encodestring(code), args=buf)
         except:
             log_err(self, 'failed to put')
     

@@ -22,7 +22,7 @@ import xattr
 
 import sys
 sys.path.append('..')
-from conf.virtdev import VDEV_FS_MOUNTPOINT
+from conf.virtdev import MOUNTPOINT
 
 def usage():
     print 'today.py uid name limit'
@@ -36,5 +36,5 @@ if __name__ == '__main__':
     name = sys.argv[2]
     limit = sys.argv[3]
     query = {'today':{'limit':int(limit)}}
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
+    path = os.path.join(MOUNTPOINT, uid, name)
     print 'today: ' + xattr.getxattr(path, 'scan:%s' % str(query))

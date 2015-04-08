@@ -18,8 +18,7 @@
 #      MA 02110-1301, USA.
 
 import os
-from path import VDEV_FS_UPDATE
-from conf.virtdev import VDEV_FS_PATH
+from conf.virtdev import FS_PATH
 
 class Temp(object):
     def __init__(self, parent, watcher):
@@ -37,7 +36,7 @@ class Temp(object):
         return ret
     
     def _get_dir(self, uid, label):
-        return os.path.join(VDEV_FS_PATH, uid, 'temp', label)
+        return os.path.join(FS_PATH, uid, 'temp', label)
     
     def _check_dir(self, uid, label):
         path = self._get_dir(uid, label)
@@ -90,9 +89,9 @@ class Temp(object):
     def open(self, uid, name, flags):
         path = self._check_path(uid, name)
         parent = self._parent.get_path(uid, name)
-        t = self._parent.fs.mtime(uid, parent)
+        t = self._parent.file.mtime(uid, parent)
         if not t or t != self.mtime(uid, name):
-            self._parent.fs.load(uid, parent, path)
+            self._parent.file.load(uid, parent, path)
             if t:
                 self.set_mtime(uid, name, t)
         mode = os.O_RDWR
@@ -115,6 +114,7 @@ class Temp(object):
             if not path:
                 path = self.get_path(uid, name)
             parent = self._parent.get_path(uid, name)
-            self._parent.fs.save(uid, path, parent)
-            return VDEV_FS_UPDATE
+            self._parent.file.save(uid, path, parent)
+            return True
+        return False
     

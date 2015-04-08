@@ -26,19 +26,20 @@ from log import log
 from lock import VDevLock
 from pool import VDevPool
 from queue import VDevQueue
-from subprocess import Popen
-from conf.virtdev import VDEV_SUPERNODE_PORT, VDEV_SUPERNODES, VDEV_FS_PORT
-from util import DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split, named_lock
+from subprocess import Popen, call
+from conf.virtdev import SUPERNODE_PORT, SUPERNODES, CONDUCTOR_PORT, RUN_PATH
+from util import DEVNULL, DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split, named_lock
 
 NETSIZE = 30
-QUEUE_LEN = 4
-POOL_SIZE = 32
+QUEUE_LEN = 2
+POOL_SIZE = 64
 RETRY_MAX = 50
+CREATE_MAX = 2
 SLEEP_TIME = 0.1 # seconds
 TOUCH_TIMEOUT = 1 # seconds
+DHCP_CLEAN = True
 NETMASK = '255.255.255.224'
 PATH = '/etc/dhcp/dhcpd.conf'
-DEVNULL = open(os.devnull, 'wb')
 
 class TunnelQueue(VDevQueue):
     def __init__(self):
@@ -62,7 +63,7 @@ class Tunnel(object):
         self._lock = VDevLock()
     
     def _get_path(self, addr):
-        return '/var/run/tunnel-%s.pid' % self._get_iface(addr)
+        return os.path.join(RUN_PATH, 'tunnel-%s.pid' % self._get_iface(addr))
     
     def _get_reserved_address(self, addr):
         ip = self.addr2ip(addr)
@@ -90,7 +91,7 @@ class Tunnel(object):
     def _get_supernode(self, addr):
         odd = 1
         code = 0
-        length = len(VDEV_SUPERNODES)
+        length = len(SUPERNODES)
         if length >= (1 << 16):
             log('tunnel: too much supernodes')
             raise Exception('tunnel: too much supernodes')
@@ -101,7 +102,7 @@ class Tunnel(object):
             else:
                 code ^= ord(i) << 8
                 odd = 1
-        return '%s:%d' % (VDEV_SUPERNODES[code % length], VDEV_SUPERNODE_PORT)
+        return '%s:%d' % (SUPERNODES[code % length], SUPERNODE_PORT)
     
     def _is_gateway(self, addr):
         address = ifaddr(self._get_iface(addr))
@@ -134,7 +135,7 @@ class Tunnel(object):
         with open(self._get_path(addr), 'w') as f:
             f.write(str(pid))
         if not static:
-            os.system('dhclient -q %s' % self._get_iface(addr))
+            call(['dhclient', '-q', self._get_iface(addr)], stderr=DEVNULL, stdout=DEVNULL)
         return self._chkiface(addr)
     
     def _touch(self, addr):
@@ -142,7 +143,7 @@ class Tunnel(object):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(TOUCH_TIMEOUT)
         try:
-            sock.connect((ip, VDEV_FS_PORT))
+            sock.connect((ip, CONDUCTOR_PORT))
             sock.close()
             return True
         except:
@@ -170,8 +171,8 @@ class Tunnel(object):
         path = self._get_path(addr)
         with open(path, 'r') as f:
             pid = int(f.readlines()[0].strip())
-        os.system('kill -9 %d 2>/dev/null' % pid)
-        #os.system('ifconfig %s down;kill -9 %d 2>/dev/null' % (self._get_iface(addr), pid))
+        call(['ifconfig', self._get_iface(addr), 'down'], stderr=DEVNULL, stdout=DEVNULL)
+        call(['kill', '-9', str(pid)], stderr=DEVNULL, stdout=DEVNULL)
         os.remove(path)
     
     @named_lock
@@ -201,8 +202,7 @@ class Tunnel(object):
         log('tunnel: failed to check iface')      
         raise Exception('tunnel: failed to check iface')
     
-    @named_lock
-    def create(self, addr, key):
+    def _create(self, addr, key):
         cfg = []
         address = split(addr)[1]
         fields = address.split('.')
@@ -222,11 +222,22 @@ class Tunnel(object):
         with open(PATH, 'w') as f:
             f.writelines(cfg)
         pid = Popen(['edge', '-r', '-d', self._get_iface(addr), '-a', address, '-s', NETMASK, '-c', self._get_tunnel(addr), '-k', key, '-l', self._get_supernode(addr)], stdout=DEVNULL, stderr=DEVNULL).pid
-        with open(self._get_path(addr), 'w') as f:
-            f.write(str(pid))
-        os.system('killall -q -9 dhcpd')
-        os.system('dhcpd -q')
-        return self._chkiface(addr)
+        if DHCP_CLEAN:
+            call(['killall', '-9', 'dhcpd'], stderr=DEVNULL, stdout=DEVNULL)
+        call(['dhcpd', '-q'], stderr=DEVNULL, stdout=DEVNULL)
+        return pid
+
+    @named_lock
+    def create(self, addr, key):
+        for _ in range(CREATE_MAX):
+            pid = self._create(addr, key)
+            ret = self._chkiface(addr)
+            if ret:
+                with open(self._get_path(addr), 'w') as f:
+                    f.write(str(pid))
+                return ret
+            else:
+                call(['kill', '-9', str(pid)], stderr=DEVNULL, stdout=DEVNULL)
 
 tunnel = Tunnel()
 pool = TunnelPool()
@@ -257,7 +268,7 @@ def exist(addr):
 
 def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((ip, VDEV_FS_PORT))
+    sock.connect((ip, CONDUCTOR_PORT))
     try:
         req = {'op':op, 'args':args}
         msg = crypto.pack(uid, req, token)
@@ -267,3 +278,8 @@ def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
 
 def push(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
     pool.push((ip, op, args, uid, token))
+    
+def clean():
+    path = os.path.join(RUN_PATH, 'tunnel-*')
+    call(['killall', '-9', 'edge'], stderr=DEVNULL, stdout=DEVNULL)
+    call(['rm', '-f', path], stderr=DEVNULL, stdout=DEVNULL)

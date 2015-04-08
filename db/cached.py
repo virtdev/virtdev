@@ -17,21 +17,20 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
+from subprocess import call
 from threading import Thread
-from conf.virtdev import VDEV_CACHE_PORTS
+from conf.virtdev import CACHE_PORTS
 from lib.util import service_start, service_join
 
-class VDevDBCacheD(Thread):
+class VDevCacheD(Thread):
     def __init__(self):
         Thread.__init__(self)
         self._services = []
-        for i in VDEV_CACHE_PORTS:
-            self._services.append(Thread(target=self._create, args=(VDEV_CACHE_PORTS[i],)))
+        for i in CACHE_PORTS:
+            self._services.append(Thread(target=self._create, args=(CACHE_PORTS[i],)))
     
     def _create(self, port):
-        cmd = 'memcached -u root -m 10 -p %d' % port
-        os.system(cmd)
+        call(['memcached', '-u', 'root', '-m', '10', '-p', str(port)])
     
     def run(self):
         if self._services:

@@ -22,22 +22,21 @@ import xattr
 
 import sys
 sys.path.append('..')
-from conf.virtdev import VDEV_FS_MOUNTPOINT
+from conf.virtdev import MOUNTPOINT
 
 def usage():
-    print 'create.py uid type [vertex]...'
+    print 'create.py uid type [parent]...'
 
 if __name__ == '__main__':
     argc = len(sys.argv)
-    if argc < 2:
+    if argc <= 2 or argc > 4:
         usage()
         sys.exit()
     attr = {}
     uid = sys.argv[1]
-    if argc >= 3:
-        attr['type'] = sys.argv[2]
-    if argc > 3:
-        attr['vertex'] = sys.argv[3:] 
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
+    attr['type'] = sys.argv[2]
+    if argc == 4:
+        attr['parent'] = sys.argv[3]
+    path = os.path.join(MOUNTPOINT, uid)
     name = xattr.getxattr(path, 'create:%s' % str(attr))
     print 'create: name=' + name

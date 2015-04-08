@@ -20,7 +20,7 @@
 import zerorpc
 from lib.log import log_err
 from lib.util import zmqaddr
-from conf.virtdev import VDEV_EVENT_COLLECTOR_PORT
+from conf.virtdev import EVENT_COLLECTOR_PORT
 
 class VDevEventEmitter(object):
     def __init__(self, router):
@@ -29,7 +29,7 @@ class VDevEventEmitter(object):
     def put(self, uid, name):
         addr = self._router.get('event', uid)
         cli = zerorpc.Client()
-        cli.connect(zmqaddr(addr, VDEV_EVENT_COLLECTOR_PORT))
+        cli.connect(zmqaddr(addr, EVENT_COLLECTOR_PORT))
         try:
             cli.put(uid, name)
         except:

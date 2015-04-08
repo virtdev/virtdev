@@ -20,30 +20,18 @@
 import os
 import librsync
 from temp import Temp
-from fuse import FuseOSError
+from path import VDevPath
 from StringIO import StringIO
 from lib.log import log_err, log_get
-from path import VDEV_FS_LABELS, VDevPath
-from conf.virtdev import VDEV_FS_MOUNTPOINT
 from base64 import encodestring, decodestring
 
-VDEV_ATTR_MODE = 'mode'
-VDEV_ATTR_FREQ = 'freq'
-VDEV_ATTR_MAPPER = 'mapper'
-VDEV_ATTR_HANDLER = 'handler'
-VDEV_ATTR_PROFILE = 'profile'
-VDEV_ATTR_DISPATCHER = 'dispatcher'
-VDEV_ATTR = [VDEV_ATTR_MODE, VDEV_ATTR_FREQ, VDEV_ATTR_MAPPER, VDEV_ATTR_HANDLER, VDEV_ATTR_PROFILE, VDEV_ATTR_DISPATCHER]
-
-def get_attr(uid, name, attr):
-    ret = ''
-    if attr not in VDEV_ATTR:
-        return ret
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, VDEV_FS_LABELS['attr'], name, attr)
-    if os.path.exists(path):
-        with open(path) as f:
-            ret = f.read()
-    return ret
+ATTR_MODE = 'mode'
+ATTR_FREQ = 'freq'
+ATTR_FILTER = 'filter'
+ATTR_HANDLER = 'handler'
+ATTR_PROFILE = 'profile'
+ATTR_DISPATCHER = 'dispatcher'
+ATTRIBUTES = [ATTR_MODE, ATTR_FREQ, ATTR_FILTER, ATTR_HANDLER, ATTR_PROFILE, ATTR_DISPATCHER]
 
 class Attr(VDevPath):
     def __init__(self, watcher=None, router=None, manager=None):
@@ -56,7 +44,7 @@ class Attr(VDevPath):
     def truncate(self, uid, name, length):
         if not self.manager:
             path = self.get_path(uid, name)
-            self.fs.truncate(uid, path, length)
+            self.file.truncate(uid, path, length)
             self._temp.truncate(uid, name, length)
     
     def may_update(self, flags):
@@ -64,7 +52,7 @@ class Attr(VDevPath):
     
     def is_expired(self, uid, name):
         path = self.path2temp(self.get_path(uid, name))
-        return self.fs.exists(uid, path)
+        return self.file.exists(uid, path)
     
     def getattr(self, uid, name):
         return self.lsattr(uid, name)
@@ -90,11 +78,11 @@ class Attr(VDevPath):
         child = self.child(name)
         parent = self.parent(name)
         if parent != child:
-            if child == VDEV_ATTR_HANDLER:
+            if child == ATTR_HANDLER:
                 self.manager.synchronizer.remove_handler(parent)
-            elif child == VDEV_ATTR_MAPPER:
-                self.manager.synchronizer.remove_mapper(parent)
-            elif child == VDEV_ATTR_MODE:
+            elif child == ATTR_FILTER:
+                self.manager.synchronizer.remove_filter(parent)
+            elif child == ATTR_MODE:
                 self.manager.synchronizer.remove_mode(parent)
     
     def unlink(self, uid, name):
@@ -104,11 +92,11 @@ class Attr(VDevPath):
     def invalidate(self, uid, name):
         path = self.get_path(uid, name)
         temp = self.path2temp(path)
-        if self.fs.exists(uid, path):
-            self.fs.rename(uid, path, temp)
+        if self.file.exists(uid, path):
+            self.file.rename(uid, path, temp)
             self._unlink(uid, name)
         else:
-            self.fs.touch(uid, temp)
+            self.file.touch(uid, temp)
     
     def signature(self, uid, name):
         path = self.path2temp(self.get_path(uid, name))
@@ -126,16 +114,16 @@ class Attr(VDevPath):
                     librsync.patch(f_src, delta, f_dest)
                 except:
                     # warning
-                    self.fs.rename(uid, src, dest)
+                    self.file.rename(uid, src, dest)
                     return
-        self.fs.remove(uid, src)
-        self.fs.save(uid, dest, self._temp.get_path(uid, name))
+        self.file.remove(uid, src)
+        self.file.save(uid, dest, self._temp.get_path(uid, name))
     
     def readdir(self, uid, name):
         return self.lsdir(uid, name)
     
-    def _create_mapper(self, uid, name, val):
-        name = os.path.join(name, VDEV_ATTR_MAPPER)
+    def _create_filter(self, uid, name, val):
+        name = os.path.join(name, ATTR_FILTER)
         f = self.create(uid, name)
         try:
             os.write(f, str(val))
@@ -143,7 +131,7 @@ class Attr(VDevPath):
             self._release(uid, name, f, force=True)
     
     def _create_mode(self, uid, name, val):
-        name = os.path.join(name, VDEV_ATTR_MODE)
+        name = os.path.join(name, ATTR_MODE)
         f = self.create(uid, name)
         try:
             os.write(f, str(val))
@@ -151,7 +139,7 @@ class Attr(VDevPath):
             self._release(uid, name, f, force=True)
     
     def _create_freq(self, uid, name, val):
-        name = os.path.join(name, VDEV_ATTR_FREQ)
+        name = os.path.join(name, ATTR_FREQ)
         f = self.create(uid, name)
         try:
             os.write(f, str(val))
@@ -159,7 +147,7 @@ class Attr(VDevPath):
             self._release(uid, name, f, force=True)
     
     def _create_handler(self, uid, name, val):
-        name = os.path.join(name, VDEV_ATTR_HANDLER)
+        name = os.path.join(name, ATTR_HANDLER)
         f = self.create(uid, name)
         try:
             os.write(f, str(val))
@@ -167,7 +155,7 @@ class Attr(VDevPath):
             self._release(uid, name, f, force=True)
     
     def _create_profile(self, uid, name, val):
-        name = os.path.join(name, VDEV_ATTR_PROFILE)
+        name = os.path.join(name, ATTR_PROFILE)
         f = self.create(uid, name)
         try:
             for i in val:
@@ -176,7 +164,7 @@ class Attr(VDevPath):
             self._release(uid, name, f, force=True)
     
     def _create_dispatcher(self, uid, name, val):
-        name = os.path.join(name, VDEV_ATTR_DISPATCHER)
+        name = os.path.join(name, ATTR_DISPATCHER)
         f = self.create(uid, name)
         try:
             os.write(f, str(val))
@@ -189,16 +177,16 @@ class Attr(VDevPath):
             raise Exception(log_get(self, 'failed to initialize, invalid attr'))
         key = attr.keys()[0]
         val = attr[key]
-        if key == VDEV_ATTR_MAPPER:
-            self._create_mapper(uid, name, val)
-        elif key == VDEV_ATTR_MODE:
+        if key == ATTR_FILTER:
+            self._create_filter(uid, name, val)
+        elif key == ATTR_MODE:
             self._create_mode(uid, name, val)
-        elif key == VDEV_ATTR_FREQ:
+        elif key == ATTR_FREQ:
             self._create_freq(uid, name, val)
-        elif key == VDEV_ATTR_HANDLER:
+        elif key == ATTR_HANDLER:
             self._create_handler(uid, name, val)
-        elif key == VDEV_ATTR_PROFILE:
+        elif key == ATTR_PROFILE:
             self._create_profile(uid, name, val)
-        elif key == VDEV_ATTR_DISPATCHER:
+        elif key == ATTR_DISPATCHER:
             self._create_dispatcher(uid, name, val)
     

@@ -22,9 +22,9 @@ import datetime
 from threading import Lock
 from cache import VDevDBCache
 from lib.log import log_err, log_get
-from conf.virtdev import VDEV_DEFAULT_SERVERS, VDEV_DB_PORT
+from conf.virtdev import META_SERVERS, META_SERVER_PORT
 
-VDEV_ADDR_TTL = 30 # minutes
+TTL = 30 # minutes
 
 def strkey(func):
     def _strkey(*args, **kwargs):
@@ -97,8 +97,8 @@ class VDevDB(object):
             self._db = {}
         else:
             if not addr:
-                addr = VDEV_DEFAULT_SERVERS[0]
-            conn = pymongo.Connection(addr, VDEV_DB_PORT)
+                addr = META_SERVERS[0]
+            conn = pymongo.Connection(addr, META_SERVER_PORT)
             self._db = eval('conn.test.%s' % str(self))
     
     def _get_db(self, key=''):
@@ -114,7 +114,7 @@ class VDevDB(object):
             try:
                 db = self._db.get(addr)
                 if not db:
-                    conn = pymongo.Connection(addr, VDEV_DB_PORT)
+                    conn = pymongo.Connection(addr, META_SERVER_PORT)
                     db = eval('conn.test.%s' % str(self))
                     if db:
                         self._db.update({addr:db})
@@ -259,7 +259,7 @@ class MemberDB(VDevDB):
 
 class AddressDB(VDevDB):
     def __init__(self):
-        VDevDB.__init__(self, multi=True, ttl=VDEV_ADDR_TTL)
+        VDevDB.__init__(self, multi=True, ttl=TTL)
 
 class CounterDB(VDevDB):
     def __init__(self):

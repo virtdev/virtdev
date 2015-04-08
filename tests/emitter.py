@@ -19,9 +19,10 @@
 
 import sys
 sys.path.append('..')
+
 from lib.router import VDevRouter
+from conf.virtdev import EVENT_SERVERS
 from event.event import VDevEventEmitter
-from conf.virtdev import VDEV_DB_SERVERS
 
 def usage():
     print 'emitter.py uid name'
@@ -32,7 +33,7 @@ if __name__ == '__main__':
         usage()
         sys.exit()
     router = VDevRouter()
-    for i in VDEV_DB_SERVERS:
+    for i in EVENT_SERVERS:
         router.add_server('event', i)
     uid = sys.argv[1]
     name = sys.argv[2]

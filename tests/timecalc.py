@@ -21,7 +21,7 @@ import random
 
 import sys
 sys.path.append('..')
-from anon.timecalc import TimeCalc, TIMECALC_TOTAL
+from drivers.timecalc import TimeCalc, TIMECALC_TOTAL
 
 if __name__ == '__main__':
     calc = TimeCalc()

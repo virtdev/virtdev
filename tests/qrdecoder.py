@@ -23,7 +23,7 @@ from base64 import encodestring
 
 import sys
 sys.path.append('..')
-from anon.qrdecoder import QRDecoder
+from drivers.qrdecoder import QRDecoder
 
 PATH_PNG = '/tmp/qr.png'
 PATH_JPG = '/tmp/qr.jpg'

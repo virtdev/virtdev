@@ -19,7 +19,7 @@
 
 import sys
 sys.path.append('..')
-from anon.camera import Camera
+from drivers.camera import Camera
 
 if __name__ == '__main__':
     cam = Camera()

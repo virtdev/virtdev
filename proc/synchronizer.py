@@ -21,17 +21,18 @@ from fs.path import load
 from mode import VDevMode
 from freq import VDevFreq
 from threading import Event
-from mapper import VDevMapper
+from filter import VDevFilter
 from lib.lock import VDevLock
 from handler import VDevHandler
 from lib.util import named_lock
 from lib.log import log_get, log
 from dispatcher import VDevDispatcher
-from dev.vdev import VDEV_MODE_VIRT, VDEV_MODE_SWITCH, VDEV_MODE_IN, VDEV_MODE_OUT, VDEV_MODE_REFLECT, VDEV_GET, VDEV_PUT, VDEV_OPEN, VDEV_CLOSE
+from lib.op import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
+from lib.mode import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT
 
+LOG = True
 QUEUE_LEN = 4
 WAIT_TIME = 0.1 #second
-LOG = True
 
 class VDevSynchronizer(object):
     def __init__(self, manager):
@@ -42,7 +43,7 @@ class VDevSynchronizer(object):
         self._uid = manager.uid
         self._mode = VDevMode(self._uid)
         self._freq = VDevFreq(self._uid)
-        self._mapper = VDevMapper(self._uid)
+        self._filter = VDevFilter(self._uid)
         self._handler = VDevHandler(self._uid)
         self._dispatcher = VDevDispatcher(manager)
     
@@ -51,7 +52,7 @@ class VDevSynchronizer(object):
             log(log_get(self, s))
     
     def _can_put(self, dest, src, flags):
-        if flags & VDEV_MODE_REFLECT:
+        if flags & MODE_REFLECT:
             return True
         else:
             return not self._members[dest] or self._members[dest].has_key(src)
@@ -73,7 +74,7 @@ class VDevSynchronizer(object):
                 self._members[name][i] = []
     
     def _check(self, dest, src, flags):
-        if flags & VDEV_MODE_REFLECT:
+        if flags & MODE_REFLECT:
             self._dispatcher.add((dest, src), hidden=True)
         else:
             self._check_members(dest)
@@ -90,7 +91,7 @@ class VDevSynchronizer(object):
         return cnt
     
     def _is_ready(self, dest, src, flags):
-        if flags & VDEV_MODE_REFLECT or not self._members[dest]:
+        if flags & MODE_REFLECT or not self._members[dest]:
             return True
         elif self._members[dest].has_key(src) and not len(self._members[dest][src]):
             if self._count(dest) + 1 == len(self._members[dest]):
@@ -127,8 +128,8 @@ class VDevSynchronizer(object):
         self._handler.remove(name)
     
     @named_lock
-    def remove_mapper(self, name):
-        self._mapper.remove(name)
+    def remove_filter(self, name):
+        self._filter.remove(name)
     
     @named_lock
     def remove_mode(self, name):
@@ -167,7 +168,7 @@ class VDevSynchronizer(object):
     def remove(self, name):
         self._dispatcher.remove_all(name)
         self.remove_handler(name)
-        self.remove_mapper(name)
+        self.remove_filter(name)
         self.remove_mode(name)
         self._remove(name)
     
@@ -191,7 +192,7 @@ class VDevSynchronizer(object):
     def get_oper(self, buf, mode):
         if type(buf) != dict:
             return
-        if mode & VDEV_MODE_SWITCH:
+        if mode & MODE_SWITCH:
             ret = None
             for i in buf:
                 if type(buf[i]) == dict and buf[i].has_key('Enable'):
@@ -202,18 +203,18 @@ class VDevSynchronizer(object):
                     else:
                         ret = tmp
             if ret:
-                return VDEV_OPEN
+                return OP_OPEN
             else:
-                return VDEV_CLOSE
-        elif mode & VDEV_MODE_IN:
+                return OP_CLOSE
+        elif mode & MODE_IN:
             if 1 == len(buf):
-                return VDEV_PUT
-        elif mode & VDEV_MODE_OUT:
-            return VDEV_GET
+                return OP_PUT
+        elif mode & MODE_OUT:
+            return OP_GET
     
     def _default_callback(self, name, buf):
         mode = self._mode.get(name)
-        if not mode & VDEV_MODE_VIRT:
+        if not mode & MODE_VIRT:
             oper = self.get_oper(buf, mode)
             if not oper:
                 return
@@ -230,9 +231,9 @@ class VDevSynchronizer(object):
             self._log('default_callback, name=%s, oper=%s' % (name, oper))
             if not oper:
                 return
-            if oper == VDEV_OPEN:
+            if oper == OP_OPEN:
                 return {'Enable':'True'}
-            elif oper == VDEV_CLOSE:
+            elif oper == OP_CLOSE:
                 return {'Enable':'False'}
     
     def has_callback(self, name):
@@ -250,7 +251,7 @@ class VDevSynchronizer(object):
     def _get_args(self, dest, src, buf, flags):
         args = {}
         args[src] = buf
-        if not flags & VDEV_MODE_REFLECT:
+        if not flags & MODE_REFLECT:
             for i in self._members[dest]:
                 if i != src:
                     args[i] = self._members[dest][i][0]
@@ -259,13 +260,13 @@ class VDevSynchronizer(object):
     
     def _forward(self, name, buf):
         mode = self._mode.get(name)
-        if not mode & VDEV_MODE_VIRT:
+        if not mode & MODE_VIRT:
             return
-        if not self._mapper.check(name):
+        if not self._filter.check(name):
             self._log('forward->send, name=%s' % name)
             self._dispatcher.send(name, buf, mode, output=False)
         else:
-            res = self._mapper.put(name, buf)
+            res = self._filter.put(name, buf)
             if res:
                 for i in res:
                     self._log('forward->sendto, name=%s, dest=%s' % (name, i[0]))
@@ -282,7 +283,7 @@ class VDevSynchronizer(object):
             args = self._get_args(dest, src, buf, flags)
             ret = self._proc(dest, args)
             if ret:
-                if not flags & VDEV_MODE_REFLECT:
+                if not flags & MODE_REFLECT:
                     self._dispatch(dest, ret)
                 else:
                     self._log('try_put->sendto, dest=%s, src=%s' % (dest, src))
@@ -295,7 +296,7 @@ class VDevSynchronizer(object):
             return self._try_put(dest, src, buf, flags)
         else:
             self._forward(dest, buf)
-        
+    
     def put(self, dest, src, buf, flags):
         ev = self._put(dest, src, buf, flags)
         if ev:

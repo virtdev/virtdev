@@ -22,9 +22,9 @@ from lib.log import log_err
 from lib.lock import VDevLock
 from threading import Thread, Event
 from lib.util import zmqaddr, ifaddr, named_lock
-from conf.virtdev import VDEV_EVENT_COLLECTOR_PORT, VDEV_EVENT_RECEIVER_PORT
+from conf.virtdev import EVENT_COLLECTOR_PORT, EVENT_RECEIVER_PORT
 
-VDEV_EVENT_RECEIVER_WAIT_TIME = 3600
+WAIT_TIME = 3600
 
 class VDevEventReceiverD(object):
     def __init__(self, receiver):
@@ -86,14 +86,14 @@ class VDevEventReceiver(Thread):
         ret = ''
         addr = self._router.get('event', uid)
         cli = zerorpc.Client()
-        cli.connect(zmqaddr(addr, VDEV_EVENT_COLLECTOR_PORT))
+        cli.connect(zmqaddr(addr, EVENT_COLLECTOR_PORT))
         try:
             while not ret:
                 ret = cli.get(uid, ifaddr())
                 if not ret:
                     event = self._get_event(uid)
                     try:
-                        event.wait(VDEV_EVENT_RECEIVER_WAIT_TIME)
+                        event.wait(WAIT_TIME)
                         ret = self._get_result(uid)
                     finally:
                         self._put_event(uid)
@@ -110,6 +110,6 @@ class VDevEventReceiver(Thread):
     
     def run(self):
         srv = zerorpc.Server(self._recvd)
-        srv.bind(zmqaddr(ifaddr(), VDEV_EVENT_RECEIVER_PORT))
+        srv.bind(zmqaddr(ifaddr(), EVENT_RECEIVER_PORT))
         srv.run()
     

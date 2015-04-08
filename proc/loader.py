@@ -18,18 +18,20 @@
 #      MA 02110-1301, USA.
 
 import os
-from fs.path import VDEV_FS_LABELS
-from conf.virtdev import VDEV_FS_MOUNTPOINT
-from fs.attr import VDEV_ATTR_MODE, VDEV_ATTR_HANDLER, VDEV_ATTR_MAPPER, VDEV_ATTR_DISPATCHER, VDEV_ATTR_FREQ
+import ast
+from fs.path import DOMAIN
+from conf.virtdev import MOUNTPOINT
+from lib.log import log_get, log_err
+from fs.attr import ATTR_MODE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PROFILE
 
 class VDevLoader(object):
     def __init__(self, uid):
         self._uid = uid
     
     def _get_path(self, name, attr):
-        return os.path.join(VDEV_FS_MOUNTPOINT, self._uid, VDEV_FS_LABELS['attr'], name, attr)
+        return os.path.join(MOUNTPOINT, self._uid, DOMAIN['attr'], name, attr)
     
-    def _get(self, name, attr):
+    def _read(self, name, attr):
         path = self._get_path(name, attr)
         if not os.path.exists(path):
             return ''
@@ -37,18 +39,53 @@ class VDevLoader(object):
             buf = f.read()
         return buf
     
-    def get_mapper(self, name):
-        return self._get(name, VDEV_ATTR_MAPPER)
+    def _readlines(self, name, attr):
+        path = self._get_path(name, attr)
+        if not os.path.exists(path):
+            return
+        with open(path, 'r') as f:
+            lines = f.readlines()
+        return lines
+    
+    def get_filter(self, name):
+        return self._read(name, ATTR_FILTER)
     
     def get_handler(self, name):
-        return self._get(name, VDEV_ATTR_HANDLER)
-    
-    def get_freq(self, name):
-        return float(self._get(name, VDEV_ATTR_FREQ))
-    
-    def get_mode(self, name):
-        return int(self._get(name, VDEV_ATTR_MODE))
+        return self._read(name, ATTR_HANDLER)
     
     def get_dispatcher(self, name):
-        return self._get(name, VDEV_ATTR_DISPATCHER)
+        return self._read(name, ATTR_DISPATCHER)
     
+    def get_freq(self, name):
+        return float(self._read(name, ATTR_FREQ))
+    
+    def get_mode(self, name):
+        return int(self._read(name, ATTR_MODE))
+    
+    def get_profile(self, name):
+        prof = {}
+        lines = self._readlines(name, ATTR_PROFILE)
+        if not lines:
+            return prof
+        for l in lines:
+            pair = l.strip().split('=')
+            if len(pair) != 2:
+                log_err(self, 'invalid profile')
+                raise Exception(log_get(self, 'invalid profile'))
+            if pair[0] == 'type':
+                prof.update({'type':str(pair[1])})
+            elif pair[0] == 'range':
+                r = ast.literal_eval(pair[1])
+                if type(r) != dict:
+                    log_err(self, 'invalid range')
+                    raise Exception(log_get(self, 'invalid range'))
+                prof.update({'range':r})
+            elif pair[0] == 'index':
+                if pair[1] == 'None':
+                    prof.update({'index':None})
+                else:
+                    prof.update({'index':int(pair[1])})
+        if not prof.has_key('type'):
+            log_err(self, 'invalid profile')
+            raise Exception(log_get(self, 'invalid profile'))
+        return prof

@@ -18,19 +18,17 @@
 #      MA 02110-1301, USA.
 
 import sandbox
-from math import ceil
 from lib.util import lock
 from threading import Lock
-from random import randint
 from fs.path import is_local
 from loader import VDevLoader
 from lib.pool import VDevPool
 from lib.queue import VDevQueue
 from base64 import encodestring
-from sandbox import VDEV_SANDBOX_PUT
+from sandbox import SANDBOX_PUT
+from lib.mode import MODE_REFLECT
+from conf.virtdev import DISPATCHER_PORT
 from lib.log import log, log_get, log_err
-from conf.virtdev import VDEV_DISPATCHER_PORT
-from dev.vdev import VDEV_MODE_FI, VDEV_MODE_FO, VDEV_MODE_PI, VDEV_MODE_PO, VDEV_MODE_REFLECT
 
 LOG = True
 QUEUE_LEN = 2
@@ -179,73 +177,37 @@ class VDevDispatcher(object):
                 flags = 0
                 paths = self._output.get(src)
             else:
-                flags = VDEV_MODE_REFLECT
+                flags = MODE_REFLECT
                 paths = self._input.get(src)
             if not paths:
                 return
             local = paths[dest]
         if not local:
-            self._log('sendto, dest=%s, src=%s' % (dest, src))
+            self._log('sendto->push, dest=%s, src=%s' % (dest, src))
             self.manager.tunnel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
         else:
             self._send(dest, src, buf, flags)
     
-    def _gen_buf(self, buf, pos, total):
-        length = len(buf)
-        i = int(ceil(length / total))
-        start = pos * i
-        if start < total:
-            end = (pos + 1) * i
-            if end > total:
-                end = total
-            if type(buf) == list:
-                return buf[start:end]
-            elif type(buf) == dict:
-                res = {}
-                keys = buf.keys[start:end]
-                for i in keys:
-                    res.update({i:buf[i]})
-                return res
-    
-    def _gen_path(self, paths):
-        i = randint(0, len(paths) - 1)
-        n = paths.keys()[i]
-        return {n:paths[n]}
-    
     def send(self, name, buf, mode, output=True):
+        if not buf:
+            return
+        
         if output:
             flags = 0
-            paths = self._output.get(name)
+            dest = self._output.get(name)
         else:
-            flags = VDEV_MODE_REFLECT
-            paths = self._input.get(name)
-        if not paths:
+            flags = MODE_REFLECT
+            dest = self._input.get(name)
+        
+        if not dest:
             return
-        part = False
-        if mode & VDEV_MODE_FI or mode & VDEV_MODE_FO:
-            dest = self._gen_path(paths)
-        elif mode & VDEV_MODE_PI or mode & VDEV_MODE_PO:
-            if type(buf) == list or type(buf) == dict:
-                total = len(paths)
-                part = True
-                dest = paths
-            else:
-                dest = self._gen_path(paths)
-        else:
-            dest = paths
     
         for i in dest:
-            if not part:
-                temp = buf
-            else:
-                temp = self._gen_buf(buf, i, total)
-            if not temp:
-                continue
             if not dest[i]:
-                self._log('send, dest=%s, src=%s' % (i, name))
-                self.manager.tunnel.push(i, dest=i, src=name, buf=temp, flags=flags)
+                self._log('send->push, dest=%s, src=%s' % (i, name))
+                self.manager.tunnel.push(i, dest=i, src=name, buf=buf, flags=flags)
             else:
-                self._send(i, name, temp, flags)
+                self._send(i, name, buf, flags)
     
     def has_input(self, name):
         return self._input.has_key(name)
@@ -284,7 +246,7 @@ class VDevDispatcher(object):
         try:
             code = self._get_code(name)
             if code:
-                return sandbox.request(VDEV_DISPATCHER_PORT, VDEV_SANDBOX_PUT, code=encodestring(code), args=buf)
+                return sandbox.request(DISPATCHER_PORT, SANDBOX_PUT, code=encodestring(code), args=buf)
         except:
             log_err(self, 'failed to put')
     

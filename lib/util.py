@@ -18,18 +18,22 @@
 #      MA 02110-1301, USA.
 
 import os
+import imp
 import uuid
+import xattr
 import struct
+from op import OP_MOUNT
 from netifaces import interfaces, ifaddresses, AF_INET
 
 import sys
 sys.path.append('..')
-from conf.virtdev import VDEV_IFNAME
+from conf.virtdev import IFNAME, MOUNTPOINT
 
 UID_SIZE = 32
 TOKEN_SIZE = 32
 PASSWORD_SIZE = 32
 USERNAME_SIZE = UID_SIZE
+DEVNULL = open(os.devnull, 'wb')
 
 DEFAULT_UID = '0' * UID_SIZE
 DEFAULT_TOKEN = '1' * TOKEN_SIZE
@@ -37,21 +41,20 @@ DEFAULT_NAME = '__anon__'
 
 DIR_MODE = 0o755
 FILE_MODE = 0o644
-VDEV_FLAG_SPECIAL = 0x0001
 
 _default_addr = None
 
 def zmqaddr(addr, port):
     return 'tcp://%s:%d' % (str(addr), int(port))
 
-def ifaddr(ifname=VDEV_IFNAME):
+def ifaddr(ifname=IFNAME):
     global _default_addr
-    if ifname == VDEV_IFNAME and _default_addr:
+    if ifname == IFNAME and _default_addr:
         return _default_addr
     else:
         iface = ifaddresses(ifname)[AF_INET][0]
         addr = iface['addr']
-        if ifname == VDEV_IFNAME:
+        if ifname == IFNAME:
             _default_addr = addr
         return addr
 
@@ -133,16 +136,15 @@ def close_port(port):
 def get_node():
     return '%x' % uuid.getnode()
 
-def get_name(ns, parent, child=''):
-    return uuid.uuid5(uuid.UUID(ns), os.path.join(parent, child)).hex
+def get_name(ns, parent, child=None):
+    if None == child:
+        child = ''
+    return uuid.uuid5(uuid.UUID(ns), os.path.join(str(parent), str(child))).hex
 
-def vdev_name(uid, node=None):
-    if node:
-        if type(node) == str or type(node) == unicode:
-            node = int(node, 16)
-    else:
-        node = uuid.getnode()
-    ns = '%032x' % node
+def dev_name(uid, node=None):
+    if not node:
+        node = get_node()
+    ns = '%032x' % int(node, 16)
     return get_name(ns, str(uid), 'vdev')
 
 def split(s):
@@ -176,3 +178,29 @@ def named_lock(func):
         finally:
             self._lock.release(name)
     return _named_lock
+
+def mount_device(uid, name, mode, freq, prof):
+    attr = {}
+    attr.update({'name':name})
+    attr.update({'mode':mode})
+    attr.update({'freq':freq})
+    attr.update({'prof':prof})
+    path = os.path.join(MOUNTPOINT, uid)
+    xattr.setxattr(path, OP_MOUNT, str(attr))
+
+def update_device(query, uid, node, addr, name):
+    query.device.put(name, {'uid':uid, 'addr':addr, 'node':node})
+    query.member.remove(uid, (name,))
+    query.member.put(uid, (name, node))
+
+DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
+
+def load_driver(typ, name=None, sock=None):
+    try:
+        module = imp.load_source(typ, os.path.join(DRIVER_PATH, '%s.py' % typ.lower()))
+        if module and hasattr(module, typ):
+            driver = getattr(module, typ)
+            if driver:
+                return driver(name, sock)
+    except:
+        pass

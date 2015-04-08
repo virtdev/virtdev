@@ -22,7 +22,7 @@ import xattr
 
 import sys
 sys.path.append('..')
-from conf.virtdev import VDEV_FS_MOUNTPOINT
+from conf.virtdev import MOUNTPOINT
 
 def usage():
     print 'combine.py uid [vertex]...'
@@ -35,6 +35,6 @@ if __name__ == '__main__':
     attr = {}
     uid = sys.argv[1]
     attr['vertex'] = sys.argv[2:]
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
+    path = os.path.join(MOUNTPOINT, uid)
     name = xattr.getxattr(path, 'combine:%s' % str(attr))
     print 'combine: name=' + name

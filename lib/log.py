@@ -17,7 +17,7 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from conf.virtdev import VDEV_DEBUG, VDEV_LOG_ERR
+from conf.virtdev import DEBUG, LOG_ERR
 
 def _get_name(obj):
     return obj.__class__.__name__
@@ -26,11 +26,11 @@ def log_get(obj, text):
     return _get_name(obj) + ': ' + str(text)
 
 def log(text):
-    if VDEV_DEBUG:
+    if DEBUG:
         print(str(text))
 
 def log_err(obj, text):
-    if VDEV_DEBUG and VDEV_LOG_ERR:
+    if LOG_ERR:
         if obj:
             print(log_get(obj, text))
         else:

@@ -22,7 +22,7 @@ import xattr
 
 import sys
 sys.path.append('..')
-from conf.virtdev import VDEV_FS_MOUNTPOINT
+from conf.virtdev import MOUNTPOINT
 
 def usage():
     print 'load.py uid name'
@@ -34,5 +34,5 @@ if __name__ == '__main__':
         sys.exit()
     uid = sys.argv[1]
     name = sys.argv[2]
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
+    path = os.path.join(MOUNTPOINT, uid, name)
     print xattr.getxattr(path, 'load')

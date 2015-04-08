@@ -19,22 +19,23 @@
 
 import os
 import bluetooth
-from interface import VDevInterface
-from conf.virtdev import VDEV_LIB_PATH
+from udi import VDevUDI
+from lib.util import get_name
+from conf.virtdev import LIB_PATH
 
-VDEV_BT_PORT = 1
-VDEV_BT_PIN = '1234'
-VDEV_BT_DEVICE_MAX = 32
+PORT = 1
+PIN = '1234'
+DEVICE_MAX = 32
 
-class VDevBT(VDevInterface):
+class VDevBT(VDevUDI):
     def _connect(self, device):
         sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-        sock.connect((device, VDEV_BT_PORT))
+        sock.connect((device, PORT))
         return sock
     
     def _prepare(self, device):
         os.system('bluez-test-device remove %s' % device)
-        os.system('echo %s | bluez-simple-agent hci0 %s' % (VDEV_BT_PIN, device))
+        os.system('echo %s | bluez-simple-agent hci0 %s' % (PIN, device))
     
     def connect(self, device):
         self._prepare(device)
@@ -43,7 +44,7 @@ class VDevBT(VDevInterface):
     def _get_devices(self):
         cnt = 0
         device_list = []
-        path = os.path.join(VDEV_LIB_PATH, 'devices')
+        path = os.path.join(LIB_PATH, 'devices')
         if os.path.exists(path):
             with open(path, 'r') as f:
                 while True:
@@ -51,11 +52,14 @@ class VDevBT(VDevInterface):
                     if buf:
                         device_list.append(buf)
                         cnt += 1
-                        if cnt == VDEV_BT_DEVICE_MAX:
+                        if cnt == DEVICE_MAX:
                             break
                     else:
                         break
         return device_list
+    
+    def get_name(self, parent, child=None):
+        return get_name(self._uid, parent, child)
     
     def scan(self):
         device_list = []

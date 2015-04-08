@@ -20,7 +20,6 @@
 #      This work originally started from the example of Paranoid Pirate Pattern,
 #      which is provided by Daniel Lundin <dln(at)eintr(dot)org>
 
-import zmq
 import time
 from ppp import *
 from lib import util
@@ -28,28 +27,29 @@ from lib.log import log_err
 from threading import Thread
 from queue import VDevAuthItem
 from queue import VDevAuthQueue
-from conf.virtdev import VDEV_AUTH_PORT, VDEV_BROKER_PORT, VDEV_IFBACK
+from zmq import Poller, Context, ROUTER, POLLIN
+from conf.virtdev import AUTH_PORT, BROKER_PORT, IFBACK
 
 class VDevAuthBroker(Thread):
     def _init_frontend(self):
         addr = util.ifaddr()
-        self._frontend = self._context.socket(zmq.ROUTER)
-        self._frontend.bind(util.zmqaddr(addr, VDEV_AUTH_PORT))
+        self._frontend = self._context.socket(ROUTER)
+        self._frontend.bind(util.zmqaddr(addr, AUTH_PORT))
     
     def _init_backend(self):
-        addr = util.ifaddr(VDEV_IFBACK)
-        self._backend = self._context.socket(zmq.ROUTER)
-        self._backend.bind(util.zmqaddr(addr, VDEV_BROKER_PORT))
+        addr = util.ifaddr(IFBACK)
+        self._backend = self._context.socket(ROUTER)
+        self._backend.bind(util.zmqaddr(addr, BROKER_PORT))
     
     def _init_pollers(self):
-        self._poller1 = zmq.Poller()
-        self._poller1.register(self._backend, zmq.POLLIN)
-        self._poller2 = zmq.Poller()
-        self._poller2.register(self._frontend, zmq.POLLIN)
-        self._poller2.register(self._backend, zmq.POLLIN)
+        self._poller1 = Poller()
+        self._poller2 = Poller()
+        self._poller1.register(self._backend, POLLIN)
+        self._poller2.register(self._backend, POLLIN)
+        self._poller2.register(self._frontend, POLLIN)
         
     def _init_context(self):
-        self._context = zmq.Context(1)
+        self._context = Context(1)
         self._init_frontend()
         self._init_backend()
         self._init_pollers()
@@ -68,7 +68,7 @@ class VDevAuthBroker(Thread):
             else:
                 poller = self._poller1
             socks = dict(poller.poll(PPP_HEARTBEAT_INTERVAL * 1000))
-            if socks.get(self._backend) == zmq.POLLIN:
+            if socks.get(self._backend) == POLLIN:
                 frames = self._backend.recv_multipart()
                 if not frames:
                     break
@@ -87,7 +87,7 @@ class VDevAuthBroker(Thread):
                         self._backend.send_multipart(msg)
                     timeout = time.time() + PPP_HEARTBEAT_INTERVAL
             
-            if socks.get(self._frontend) == zmq.POLLIN:
+            if socks.get(self._frontend) == POLLIN:
                 frames = self._frontend.recv_multipart()
                 if not frames:
                     break

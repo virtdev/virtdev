@@ -25,18 +25,18 @@ import uuid
 import random
 from ppp import *
 from random import randint
-from task.auth import Auth
-from task.node import Node
+from tasks.user import User
+from tasks.node import Node
 from threading import Thread
-from task.token import Token
-from task.guest import Guest
-from task.device import Device
+from tasks.token import Token
+from tasks.guest import Guest
+from tasks.device import Device
 from lib.crypto import pack, unpack
 from lib.log import log_err, log_get
 from multiprocessing import TimeoutError
 from multiprocessing.pool import ThreadPool
+from conf.virtdev import AUTH_BROKERS, BROKER_PORT
 from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr
-from conf.virtdev import VDEV_DEFAULT_SERVERS, VDEV_BROKER_PORT
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
 
 POOL_SIZE = 64
@@ -44,15 +44,14 @@ SLEEP_TIME = 10 # Seconds
 TASK_TIMEOUT = 60 # Seconds
 
 class VDevAuthWorker(Thread):
-    def _get_auth(self):
-        length = len(VDEV_DEFAULT_SERVERS)
-        n = randint(0, length - 1)
-        return VDEV_DEFAULT_SERVERS[n]
+    def _get_broker(self):
+        length = len(AUTH_BROKERS)
+        return AUTH_BROKERS[randint(0, length - 1)]
     
     def _init_tasks(self, query):
         self._tasks = {}
         self.query = query
-        self._add_task(Auth(query))
+        self._add_task(User(query))
         self._add_task(Node(query))
         self._add_task(Guest(query))
         self._add_task(Token(query))
@@ -62,7 +61,7 @@ class VDevAuthWorker(Thread):
         self._sock = self._context.socket(DEALER)
         self._sock.setsockopt(IDENTITY, self._identity)
         self._poller.register(self._sock, POLLIN)
-        self._sock.connect(zmqaddr(self._get_auth(), VDEV_BROKER_PORT))
+        self._sock.connect(zmqaddr(self._get_broker(), BROKER_PORT))
         self._sock.send(PPP_READY)
     
     def _reset_sock(self):
@@ -122,7 +121,7 @@ class VDevAuthWorker(Thread):
         try:
             uid, token= self._get_token(buf)
             if not uid or not token:
-                log_err(self, 'failed to process, uid=%s, token=%s', (str(uid), str(token)))
+                log_err(self, 'failed to process, uid=%s, token=%s' % (str(uid), str(token)))
                 return
             req = unpack(None, buf, token)
             if not req:
@@ -137,7 +136,7 @@ class VDevAuthWorker(Thread):
                 return
             args.update({'uid':uid})
             if not self._tasks.has_key(name):
-                log_err(self, 'invalid task %s', name)
+                log_err(self, 'invalid task %s' % str(name))
                 return
             pool = ThreadPool(processes=1)
             result = pool.apply_async(self._tasks[name].proc, args=(op, args))

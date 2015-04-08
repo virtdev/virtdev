@@ -21,8 +21,8 @@ from history import HistoryDB
 from lib.util import tuple2str
 from event.event import VDevEvent
 from lib.router import VDevRouter
+from conf.virtdev import META_SERVERS, EVENT_SERVERS, DATA_SERVERS
 from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB
-from conf.virtdev import VDEV_DB_SERVERS, VDEV_EVENT_SERVERS, VDEV_DFS_SERVERS
 
 def tuplevalue(func):
     def _tuplevalue(*args, **kwargs):
@@ -31,10 +31,10 @@ def tuplevalue(func):
         return func(args[0], args[1], tuple2str(args[2]), *args[3:], **kwargs)
     return _tuplevalue
 
-class VDevDBQueryMember(object):
+class MemberQuery(object):
     def __init__(self, router):
         self._member = MemberDB(router)
-        for i in VDEV_DB_SERVERS:
+        for i in META_SERVERS:
             router.add_server(str(self._member), i)
     
     def get(self, key):
@@ -48,10 +48,10 @@ class VDevDBQueryMember(object):
     def remove(self, key, value):
         self._member.remove(key, value, regex=True)
 
-class VDevDBQueryNode(object):
+class NodeQuery(object):
     def __init__(self, router):
         self._node = NodeDB(router)
-        for i in VDEV_DB_SERVERS:
+        for i in META_SERVERS:
             router.add_server(str(self._node), i)
     
     def get(self, key):
@@ -65,19 +65,19 @@ class VDevDBQueryNode(object):
     def remove(self, key, value):
         self._node.remove(key, value, regex=True)
 
-class VDevDBQueryUser(object):
+class UserQuery(object):
     def __init__(self, router):
         self._user = UserDB(router)
-        for i in VDEV_DB_SERVERS:
+        for i in META_SERVERS:
             router.add_server(str(self._user), i)
     
     def get(self, key, *fields):
         return self._user.find(key, *fields)
 
-class VDevDBQueryToken(object):
+class TokenQuery(object):
     def __init__(self, router):
         self._token = TokenDB(router)
-        for i in VDEV_DB_SERVERS:
+        for i in META_SERVERS:
             router.add_server(str(self._token), i)
     
     def get(self, key):
@@ -89,10 +89,10 @@ class VDevDBQueryToken(object):
     def remove(self, key):
         return self._token.remove(key)
 
-class VDevDBQueryDevice(object):
+class DeviceQuery(object):
     def __init__(self, router):
         self._device = DeviceDB(router)
-        for i in VDEV_DB_SERVERS:
+        for i in META_SERVERS:
             router.add_server(str(self._device), i)
     
     def get(self, key):
@@ -104,10 +104,10 @@ class VDevDBQueryDevice(object):
     def remove(self, key):
         self._device.remove(key)
 
-class VDevDBQueryGuest(object):
+class GuestQuery(object):
     def __init__(self, router):
         self._guest = GuestDB(router)
-        for i in VDEV_DB_SERVERS:
+        for i in META_SERVERS:
             router.add_server(str(self._guest), i)
     
     def get(self, key):
@@ -119,10 +119,10 @@ class VDevDBQueryGuest(object):
     def remove(self, key, value):
         self._guest.remove(key, value)
 
-class VDevDBQueryHistory(object):
+class HistoryQuery(object):
     def __init__(self, router):
         self._history = HistoryDB(router)
-        for i in VDEV_DFS_SERVERS:
+        for i in DATA_SERVERS:
             router.add_server(str(self._history), i)
     
     def get(self, key, query):
@@ -131,10 +131,10 @@ class VDevDBQueryHistory(object):
     def put(self, key, **fields):
         self._history.put(key, fields)
 
-class VDevDBQueryEvent(object):
+class EventQuery(object):
     def __init__(self, router):
         self._event = VDevEvent(router)
-        for i in VDEV_EVENT_SERVERS:
+        for i in EVENT_SERVERS:
             router.add_server('event', i)
     
     def get(self, key):
@@ -143,16 +143,16 @@ class VDevDBQueryEvent(object):
     def put(self, key, value):
         return self._event.put(key, value)
 
-class VDevDBQuery(object):
+class VDevQuery(object):
     def __init__(self):
         self.link = None
         router = VDevRouter()
         self.router = router
-        self.user = VDevDBQueryUser(router)
-        self.node = VDevDBQueryNode(router)
-        self.event = VDevDBQueryEvent(router)
-        self.token = VDevDBQueryToken(router)
-        self.guest = VDevDBQueryGuest(router)
-        self.member = VDevDBQueryMember(router)
-        self.device = VDevDBQueryDevice(router)
-        self.history = VDevDBQueryHistory(router)
+        self.user = UserQuery(router)
+        self.node = NodeQuery(router)
+        self.event = EventQuery(router)
+        self.token = TokenQuery(router)
+        self.guest = GuestQuery(router)
+        self.member = MemberQuery(router)
+        self.device = DeviceQuery(router)
+        self.history = HistoryQuery(router)

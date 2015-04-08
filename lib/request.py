@@ -24,17 +24,17 @@ from log import log_err
 from util import zmqaddr
 from random import randint
 from threading import Lock
+from conf.virtdev import AUTH_SERVERS, AUTH_PORT
 from zmq import REQ, IDENTITY, POLLIN, SNDMORE, LINGER
-from conf.virtdev import VDEV_AUTH_SERVERS, VDEV_AUTH_PORT
 
-VDEV_AUTH_RETRIES = 3
-VDEV_AUTH_TIMEOUT = 30 # Seconds
+TIMEOUT = 30 # Seconds
+RETRY_MAX = 3
 
-class VDevAuthSock(object):
+class Packet(object):
     def _get_addr(self):
-        length = len(VDEV_AUTH_SERVERS)
+        length = len(AUTH_SERVERS)
         n = randint(0, length - 1)
-        return zmqaddr(VDEV_AUTH_SERVERS[n], VDEV_AUTH_PORT)
+        return zmqaddr(AUTH_SERVERS[n], AUTH_PORT)
     
     def _set_sock(self):
         self._sock = self._context.socket(REQ)
@@ -69,21 +69,21 @@ class VDevAuthSock(object):
         self._lock.acquire()
         try:
             self._seq += 1
-            while cnt < VDEV_AUTH_RETRIES:
+            while cnt < RETRY_MAX:
                 cnt += 1
                 self._send(buf)
                 while True:
-                    socks = dict(self._poller.poll(VDEV_AUTH_TIMEOUT * 1000))
+                    socks = dict(self._poller.poll(TIMEOUT * 1000))
                     if socks.get(self._sock):
                         reply = self._sock.recv_multipart()
                         if len(reply) != 2:
                             break
                         if int(reply[0]) == self._seq:
-                            cnt = VDEV_AUTH_RETRIES
+                            cnt = RETRY_MAX
                             res = reply[1]
                             break
                     else:
-                        if cnt < VDEV_AUTH_RETRIES:
+                        if cnt < RETRY_MAX:
                             self._reset_sock()
                         break
         finally:
@@ -94,7 +94,7 @@ class VDevAuthSock(object):
         self._close_sock()
         self._context.term()
 
-class VDevAuthClient(object):
+class Client(object):
     def __init__(self, task, uid, token, timeout):
         self._uid = uid
         self._task = task
@@ -110,19 +110,19 @@ class VDevAuthClient(object):
         try:
             cmd = {'task':self._task, 'op':self._op, 'args':kwargs, 'timeout':self._timeout}
             buf = crypto.pack(self._uid, cmd, self._token)
-            result = VDevAuthSock().send(buf)
+            result = Packet().send(buf)
             if result:
                 ret = crypto.unpack(self._uid, result, self._token)
             return ret
         except:
             log_err(self, "failed to request")
 
-class VDevAuthRequest(object):
+class VDevRequest(object):
     def __init__(self, uid, token, timeout=None):
         self._uid = uid
         self._token = token
         self._timeout = timeout
     
     def __getattr__(self, task):
-        return VDevAuthClient(task, self._uid, self._token, self._timeout)
+        return Client(task, self._uid, self._token, self._timeout)
     

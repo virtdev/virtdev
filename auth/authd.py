@@ -20,19 +20,19 @@
 from threading import Thread
 from lib.log import log_err, log_get
 from lib.util import service_start, service_join
-from conf.virtdev import VDEV_AUTH_BROKER, VDEV_AUTH_WORKER
+from conf.virtdev import AUTH_BROKER, AUTH_WORKER
 
 class VDevAuthD(Thread):
     def __init__(self, query=None):
         Thread.__init__(self)
         self._services = []
-        if VDEV_AUTH_WORKER:
+        if AUTH_WORKER:
             if not query:
                 log_err(self, 'no query')
                 raise Exception(log_get(self, 'no query'))
             from worker import VDevAuthWorker
             self._services.append(VDevAuthWorker(query))
-        if VDEV_AUTH_BROKER:
+        if AUTH_BROKER:
             from broker import VDevAuthBroker
             self._services.append(VDevAuthBroker())
     

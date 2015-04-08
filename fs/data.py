@@ -42,7 +42,7 @@ class Data(VDevPath):
     
     def truncate(self, uid, name, length):
         path = self.get_path(uid, name)
-        self.fs.truncate(uid, path, length)
+        self.file.truncate(uid, path, length)
         self._temp.truncate(uid, name, length)
     
     def getattr(self, uid, name):

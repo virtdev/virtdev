@@ -26,24 +26,23 @@ from edge import Edge
 from data import Data
 from errno import EINVAL
 from vertex import Vertex
+from dev.udo import VDevUDO
+from dev.lo import get_device
 from lib.lock import VDevLock
-from path import VDEV_FS_UPDATE
 from lib.log import log_err, log
 from dev.manager import VDevManager
 from watcher import VDevWatcherPool
-from dev.interface import load_device
-from dev.lo import load_anon, get_device
+from conf.virtdev import DATA_SERVERS
 from fuse import FuseOSError, Operations
-from lib.util import DIR_MODE, named_lock
-from conf.virtdev import VDEV_DFS_SERVERS
-from dev.vdev import VDev, VDEV_MODE_VIRT, VDEV_MODE_VISI, VDEV_MODE_ANON, VDEV_MODE_LINK, VDEV_GET
-from attr import Attr, VDEV_ATTR_MODE, VDEV_ATTR_PROFILE, VDEV_ATTR_HANDLER, VDEV_ATTR_MAPPER, VDEV_ATTR_DISPATCHER, VDEV_ATTR_FREQ
-from oper import OP_LOAD, OP_POLL, OP_FORK, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
+from lib.util import DIR_MODE, named_lock, load_driver
+from lib.mode import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK
+from attr import Attr, ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ
+from lib.op import OP_GET, OP_LOAD, OP_POLL, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
 
 _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
 
-VDEV_PATH_MAX = 1024
+PATH_MAX = 1024
 
 def show_path(func):
     def _show_path(*args, **kwargs):
@@ -72,8 +71,8 @@ class VDevFS(Operations):
             manager = None
             self._shadow = False
             router = query.router
-            for i in VDEV_DFS_SERVERS:
-                router.add_server('dfs', i)
+            for i in DATA_SERVERS:
+                router.add_server('fs', i)
             self._edge = Edge(router=router)
             self._vertex = Vertex(router=router)
             self._attr = Attr(watcher=watcher, router=router)
@@ -102,7 +101,7 @@ class VDevFS(Operations):
             return
     
     def _parse(self, path):
-        if len(path) > VDEV_PATH_MAX:
+        if len(path) > PATH_MAX:
             log_err(self, 'failed to parse')
             raise FuseOSError(EINVAL)
         
@@ -184,9 +183,9 @@ class VDevFS(Operations):
             buf = self._link.put(name=obj.parent(name), op=OP_DIFF, label=obj.label, item=obj.child(name), buf=obj.signature(uid, name))
             obj.patch(uid, name, buf)
     
-    def _sync_release(self, obj, uid, name, flags):
+    def _sync_release(self, obj, uid, name, update=False):
         if self._shadow:
-            if flags and flags & VDEV_FS_UPDATE:
+            if update:
                 with open(obj.get_path(uid, name), 'r') as f:
                     buf = f.read()
                 if not self._link.put(name=name, op=OP_SYNC, buf=buf):
@@ -223,44 +222,46 @@ class VDevFS(Operations):
             raise FuseOSError(EINVAL)
         obj.invalidate(uid, name)
     
-    def _initialize(self, uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ, parent):
-        anon = mode & VDEV_MODE_ANON
-        if anon:
+    def _initialize(self, uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ):
+        lo = mode & MODE_LO
+        if lo:
             if not typ or (self._shadow and not self.manager.lo):
                 log_err(self, 'failed to mount device')
                 raise FuseOSError(EINVAL)
         
-        if not profile:
-            if anon:
-                if not load_anon(typ): 
+        link = mode & MODE_LINK
+        if link:
+            mode &= ~MODE_LINK
+                
+        if not prof:
+            if lo:
+                driver = load_driver(typ)
+                if not driver:
                     log_err(self, 'failed to mount device, invalid device')
                     raise FuseOSError(EINVAL)
-                dev = load_device(typ)
-                if not dev:
-                    log_err(self, 'failed to mount device, invalid device')
-                    raise FuseOSError(EINVAL)
-                mode = dev.d_mode
-                profile = dev.d_profile
-            elif mode & VDEV_MODE_VIRT:
-                profile = VDev().d_profile
+                mode = driver.mode
+                freq = driver.freq
+                prof = driver.profile
+            elif mode & MODE_VIRT:
+                prof = VDevUDO().d_profile
         
         self._data.initialize(uid, name)
-        self._attr.initialize(uid, name, {VDEV_ATTR_MODE:mode})
+        self._attr.initialize(uid, name, {ATTR_MODE:mode})
         
         if freq:
-            self._attr.initialize(uid, name, {VDEV_ATTR_FREQ:freq})
+            self._attr.initialize(uid, name, {ATTR_FREQ:freq})
         
-        if mapper:
-            self._attr.initialize(uid, name, {VDEV_ATTR_MAPPER:mapper})
+        if filt:
+            self._attr.initialize(uid, name, {ATTR_FILTER:filt})
         
-        if handler:
-            self._attr.initialize(uid, name, {VDEV_ATTR_HANDLER:handler})
+        if hndl:
+            self._attr.initialize(uid, name, {ATTR_HANDLER:hndl})
         
-        if profile:
-            self._attr.initialize(uid, name, {VDEV_ATTR_PROFILE:profile})
+        if prof:
+            self._attr.initialize(uid, name, {ATTR_PROFILE:prof})
         
-        if dispatcher:
-            self._attr.initialize(uid, name, {VDEV_ATTR_DISPATCHER:dispatcher})
+        if disp:
+            self._attr.initialize(uid, name, {ATTR_DISPATCHER:disp})
         
         if vertex:
             self._vertex.initialize(uid, name, vertex)
@@ -270,26 +271,26 @@ class VDevFS(Operations):
         if not self._shadow:
             if vertex and not parent:
                 parent = vertex[0]
-            if not self._link.mount(uid, name, mode, vertex, typ, parent):
-                log_err(self, 'failed to mount device, cannot link')
-                raise FuseOSError(EINVAL)
+            if not link:
+                if not self._link.mount(uid, name, mode, vertex, typ, parent):
+                    log_err(self, 'failed to mount device, cannot link')
+                    raise FuseOSError(EINVAL)
         else:
-            if anon:
+            if lo:
                 self.manager.lo.register(get_device(typ, name), init=False)
     
-    def _mount_device(self, uid, name, mode, vertex, freq=None, profile=None, handler=None, mapper=None, dispatcher=None, typ=None, parent=None):
+    def _mount_device(self, uid, name, mode, vertex, parent, freq=None, prof=None, hndl=None, filt=None, disp=None, typ=None):
         if not name:
             name = uuid.uuid4().hex
         
-        link = None
         if mode != None:
-            link = mode & VDEV_MODE_LINK
-            if link:
-                mode &= ~VDEV_MODE_LINK
-            self._initialize(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ, parent)
+            link = mode & MODE_LINK
+            self._initialize(uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ)
+        else:
+            link = None
         
         if self._shadow and not link:
-            if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, profile=profile):
+            if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, prof=prof):
                 log_err(self, 'failed to mount device, cannot link, op=OP_ADD')
                 raise FuseOSError(EINVAL)
         
@@ -313,10 +314,10 @@ class VDevFS(Operations):
         typ = args.get('type')
         freq = args.get('freq')
         name = args.get('name')
+        filt = args.get('filter')
+        hndl = args.get('handler')
         vertex = args.get('vertex')
-        mapper = args.get('mapper')
-        handler = args.get('handler')
-        dispatcher = args.get('dispatcher')
+        disp = args.get('dispatcher')
         
         if vertex:
             if type(vertex) != list:
@@ -327,13 +328,13 @@ class VDevFS(Operations):
                     log_err(self, 'failed to mount')
                     raise FuseOSError(EINVAL)
         
-        profile = args.get('profile')
-        if profile and type(profile) != dict:
+        prof = args.get('prof')
+        if prof and type(prof) != dict:
             log_err(self, 'failed to mount, invalid profile')
             raise FuseOSError(EINVAL)
         
         mode = args.get('mode')
-        self._mount_device(uid, name, mode, vertex, freq, profile, handler, mapper, dispatcher, typ=typ)
+        self._mount_device(uid, name, mode, vertex, None, freq, prof, hndl, filt, disp, typ)
     
     @named_lock
     def getattr(self, path, fh=None):
@@ -381,8 +382,8 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to release, no object')
             raise FuseOSError(EINVAL)
-        flags = obj.release(uid, name, fh)
-        self._sync_release(obj, uid, name, flags)
+        update = obj.release(uid, name, fh)
+        self._sync_release(obj, uid, name, update)
     
     @named_lock
     def write(self, path, buf, offset, fh):
@@ -407,8 +408,7 @@ class VDevFS(Operations):
     def _create_device(self, path, op, attr):
         if self._shadow:
             return
-        parent = None
-        vertex = None
+        
         uid = self._get_uid(path)
         if not uid:
             log_err(self, 'failed to create device, invalid path')
@@ -423,33 +423,29 @@ class VDevFS(Operations):
         mode = args.get('mode')
         if None == mode:
             if not typ:
-                mode = VDEV_MODE_VIRT
+                mode = MODE_VIRT
             else:
-                mode = VDEV_MODE_ANON
+                mode = MODE_LO
         
         if op == OP_CREATE:
-            mode |= VDEV_MODE_VISI
+            mode |= MODE_VISI
         
-        if op != OP_FORK:
-            vertex = args.get('vertex')
-            if vertex:
-                if type(vertex) != list:
+        vertex = args.get('vertex')
+        if vertex:
+            if type(vertex) != list:
+                log_err(self, 'failed to create device, invalid vertex')
+                raise FuseOSError(EINVAL)
+            for i in vertex:
+                if not self._check_uid(i):
                     log_err(self, 'failed to create device, invalid vertex')
                     raise FuseOSError(EINVAL)
-                for i in vertex:
-                    if not self._check_uid(i):
-                        log_err(self, 'failed to create device, invalid vertex')
-                        raise FuseOSError(EINVAL)
-        else:
-            if not args.has_key('parent'):
-                log_err(self, 'failed to create device, no parent')
-                raise FuseOSError(EINVAL)
-            parent = self._check_uid(args['parent'])
-            if not parent:
-                log_err(self, 'failed to create device, cannot get parent')
-                raise FuseOSError(EINVAL)
+                    
+        parent = args.get('parent')
+        if parent and not self._check_uid(parent):
+            log_err(self, 'failed to create device, cannot get parent')
+            raise FuseOSError(EINVAL)
 
-        return self._mount_device(uid, None, mode=mode, vertex=vertex, typ=typ, parent=parent)
+        return self._mount_device(uid, None, mode, vertex, parent, typ=typ)
     
     def _enable(self, path):
         obj, uid, name = self._parse(path)
@@ -522,7 +518,7 @@ class VDevFS(Operations):
         return result
     
     def _get_uid(self, path):
-        if len(path) > VDEV_PATH_MAX:
+        if len(path) > PATH_MAX:
             log_err(self, 'failed to get uid')
             raise FuseOSError(EINVAL)
         
@@ -554,7 +550,7 @@ class VDevFS(Operations):
             for device in self.manager:
                 d = device.find(name)
                 if d:
-                    return d.proc(name, VDEV_GET)
+                    return d.proc(name, OP_GET)
         return ''
     
     @named_lock
@@ -580,8 +576,6 @@ class VDevFS(Operations):
             op = 'poll'
         elif name.startswith('scan:'):
             op = 'scan'
-        elif name.startswith('fork:'):
-            op = 'fork'
         elif name.startswith('create:'):
             op = 'create'
         elif name.startswith('combine:'):
@@ -597,8 +591,6 @@ class VDevFS(Operations):
             res = self._poll(path)
         elif op == 'scan':
             res = self._scan(path, name[len('scan:'):])
-        elif op == 'fork':
-            res = self._create_device(path, OP_FORK, name[len('fork:'):])
         elif op == 'create':
             res = self._create_device(path, OP_CREATE, name[len('create:'):])
         elif op == 'combine':

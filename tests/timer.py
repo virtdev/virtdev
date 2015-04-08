@@ -20,7 +20,7 @@
 import md5
 import sys
 sys.path.append('..')
-from anon.timer import Timer
+from drivers.timer import Timer
 
 if __name__ == '__main__':
     timer = Timer()

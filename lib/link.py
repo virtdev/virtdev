@@ -17,16 +17,19 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import time
 import tunnel
 from pool import VDevPool
+from mode import MODE_LINK
 from queue import VDevQueue
 from log import log_err, log_get
-from util import DEFAULT_NAME, str2tuple
-from dev.vdev import VDEV_MODE_LINK, update_device
-from fs.oper import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
+from util import DEFAULT_NAME, str2tuple, update_device
+from op import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
 QUEUE_LEN = 4
 POOL_SIZE = 32
+RETRY_MAX = 5
+WAIT_TIME = 0.1
 BUF_SIZE = 1 << 22
 
 def chkargs(func):
@@ -94,7 +97,7 @@ class VDevDownlink(object):
         self._devices.update({name:res})
         return res
     
-    def _get_token(self, uid, cache=False):
+    def _try_get_token(self, uid, cache):
         if not cache:
             return self.query.token.get(uid)
         token = self._tokens.get(uid)
@@ -106,8 +109,18 @@ class VDevDownlink(object):
             log_err(self, 'failed to get token')
             raise Exception(log_get(self, 'failed to get token'))
         return token
-        
-    def _get_device(self, name, cache=False):
+    
+    def _get_token(self, uid, cache=False):
+        for _ in range(RETRY_MAX):
+            try:
+                ret = self._try_get_token(uid, cache)
+                if ret:
+                    return ret
+            except:
+                pass
+            time.sleep(WAIT_TIME)
+    
+    def _try_get_device(self, name, cache):
         if not cache:
             res = self.query.device.get(name)
             if res:
@@ -120,6 +133,16 @@ class VDevDownlink(object):
                 return self._add_device(res['uid'], name, res['addr'])
         else:
             return res
+    
+    def _get_device(self, name, cache=False):
+        for _ in range(RETRY_MAX):
+            try:
+                ret = self._try_get_device(name, cache)
+                if ret:
+                    return ret
+            except:
+                pass
+            time.sleep(WAIT_TIME)
     
     def connect(self, name, uid=None, addr=None):
         try:
@@ -196,7 +219,7 @@ class VDevDownlink(object):
         attr.update({'type':typ})
         attr.update({'name':name})
         attr.update({'vertex':vertex})
-        attr.update({'mode':mode | VDEV_MODE_LINK})
+        attr.update({'mode':mode | MODE_LINK})
         
         try:
             self.request(addr, OP_MOUNT, {'attr':str(attr)})

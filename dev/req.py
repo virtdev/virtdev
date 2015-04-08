@@ -19,14 +19,13 @@
 
 import struct
 
-VDEV_REQ_GET   = 0x0001
-VDEV_REQ_PUT   = 0x0002 
-VDEV_REQ_OPEN  = 0x0004
-VDEV_REQ_CLOSE = 0x0008
-VDEV_REQ_PAIR  = 0x0010
-VDEV_REQ_RESET = 0x0020
-
-VDEV_REQ_SECRET = 'VIRTDEVLOGIN'
+REQ_GET   = 0x0001
+REQ_PUT   = 0x0002 
+REQ_OPEN  = 0x0004
+REQ_CLOSE = 0x0008
+REQ_MOUNT = 0x0010
+REQ_RESET = 0x0020
+REQ_SECRET = 'VIRTDEVLOGIN'
 
 def parse(buf):
     if len(buf) < 8:
@@ -40,20 +39,20 @@ def _req_new(index, flags, buf=''):
         index = 0
     return struct.pack('I', index) + struct.pack('I', flags) + buf
 
-def req_open(index):
-    return _req_new(index, VDEV_REQ_OPEN)
-
-def req_close(index):
-    return _req_new(index, VDEV_REQ_CLOSE)
-
 def req_get(index):
-    return _req_new(index, VDEV_REQ_GET)
-
-def req_put(index, buf):
-    return _req_new(index, VDEV_REQ_PUT, buf)
-
-def req_pair():
-    return _req_new(None, VDEV_REQ_PAIR, VDEV_REQ_SECRET)
+    return _req_new(index, REQ_GET)
 
 def req_reset():
-    return _req_new(None, VDEV_REQ_RESET)
+    return _req_new(None, REQ_RESET)
+
+def req_open(index):
+    return _req_new(index, REQ_OPEN)
+
+def req_close(index):
+    return _req_new(index, REQ_CLOSE)
+
+def req_put(index, buf):
+    return _req_new(index, REQ_PUT, buf)
+
+def req_mount():
+    return _req_new(None, REQ_MOUNT, REQ_SECRET)

@@ -18,90 +18,99 @@
 #      MA 02110-1301, USA.
 
 import os
-from lib.util import service_start, service_join, close_port
-from conf.virtdev import VDEV_LO, VDEV_AUTH_SERVICE, VDEV_AUTH_WORKER, VDEV_AUTH_BROKER, VDEV_CACHE_SERVICE, VDEV_EVENT_SERVICE, VDEV_SUPERNODE_SERVICE, VDEV_FILE_SERVICE, VDEV_FILE_SHADOW
+import time
+import tunnel
+from lib.log import log
+from subprocess import call
+from lib.util import DEVNULL, service_start, service_join, close_port
+from conf.virtdev import LO, AUTH_WORKER, AUTH_BROKER, CACHE_SERVICE, EVENT_SERVICE, SUPERNODE_SERVICE, FILE_SERVICE, FILE_SHADOW, MOUNTPOINT, RUN_PATH, LIB_PATH
 
-_active = False
+LOG = True
+
+def _log(text):
+    if LOG:
+        log(text)
 
 def _clean():
-    os.system('killall -9 edge 2>/dev/null')
-    os.system('rm -f /var/run/vdev-tunnel-*')
-    
     ports = []
-    if VDEV_CACHE_SERVICE:
-        from conf.virtdev import VDEV_CACHE_PORTS
-        for i in VDEV_CACHE_PORTS:
-            ports.append(VDEV_CACHE_PORTS[i])
+    tunnel.clean()
+    if CACHE_SERVICE:
+        from conf.virtdev import CACHE_PORTS
+        for i in CACHE_PORTS:
+            ports.append(CACHE_PORTS[i])
     
-    if VDEV_LO:
-        from conf.virtdev import VDEV_LO_PORT
-        ports.append(VDEV_LO_PORT)
+    if LO:
+        from conf.virtdev import LO_PORT
+        ports.append(LO_PORT)
     
-    if VDEV_SUPERNODE_SERVICE:
-        from conf.virtdev import VDEV_SUPERNODE_PORT
-        ports.append(VDEV_SUPERNODE_PORT)
+    if SUPERNODE_SERVICE:
+        from conf.virtdev import SUPERNODE_PORT
+        ports.append(SUPERNODE_PORT)
     
-    if VDEV_AUTH_BROKER:
-        from conf.virtdev import VDEV_AUTH_PORT, VDEV_BROKER_PORT
-        ports.append(VDEV_AUTH_PORT)
-        ports.append(VDEV_BROKER_PORT)
+    if AUTH_BROKER:
+        from conf.virtdev import AUTH_PORT, BROKER_PORT
+        ports.append(AUTH_PORT)
+        ports.append(BROKER_PORT)
     
-    if VDEV_EVENT_SERVICE:
-        from conf.virtdev import VDEV_EVENT_RECEIVER_PORT, VDEV_EVENT_COLLECTOR_PORT
-        ports.append(VDEV_EVENT_RECEIVER_PORT)
-        ports.append(VDEV_EVENT_COLLECTOR_PORT)
+    if EVENT_SERVICE:
+        from conf.virtdev import EVENT_RECEIVER_PORT, EVENT_COLLECTOR_PORT
+        ports.append(EVENT_RECEIVER_PORT)
+        ports.append(EVENT_COLLECTOR_PORT)
     
-    if VDEV_FILE_SERVICE:
-        from conf.virtdev import VDEV_FS_PORT, VDEV_DAEMON_PORT, VDEV_MAPPER_PORT, VDEV_HANDLER_PORT, VDEV_DISPATCHER_PORT
-        ports.append(VDEV_FS_PORT)
-        ports.append(VDEV_DAEMON_PORT)
-        ports.append(VDEV_MAPPER_PORT)
-        ports.append(VDEV_HANDLER_PORT)
-        ports.append(VDEV_DISPATCHER_PORT)
+    if FILE_SERVICE:
+        from conf.virtdev import CONDUCTOR_PORT, DAEMON_PORT, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
+        ports.append(DAEMON_PORT)
+        ports.append(FILTER_PORT)
+        ports.append(HANDLER_PORT)
+        ports.append(CONDUCTOR_PORT)
+        ports.append(DISPATCHER_PORT)
     
     for i in ports:
         close_port(i)
 
-def mount():
-    global _active
-    if _active:
-        print 'cannot mount again'
-        return
-    else:
-        _active = True
+def _mount(query):
+    from fuse import FUSE
+    from fs.vdfs import VDevFS
     
+    call(['umount', '-lf', MOUNTPOINT], stderr=DEVNULL, stdout=DEVNULL)
+    time.sleep(1)
+    
+    if not os.path.exists(MOUNTPOINT):
+        os.makedirs(MOUNTPOINT, 0o755)
+    
+    if not os.path.exists(RUN_PATH):
+        os.makedirs(RUN_PATH, 0o755)
+    
+    if not os.path.exists(LIB_PATH):
+        os.makedirs(LIB_PATH, 0o755)
+    
+    _log('mount vdfs ...')
+    FUSE(VDevFS(query), MOUNTPOINT, foreground=True)
+
+def mount():
     _clean()
     query = None
     services = []
+    if AUTH_WORKER or (FILE_SERVICE and not FILE_SHADOW):
+        from db.query import VDevQuery
+        query = VDevQuery()
     
-    if VDEV_AUTH_WORKER or (VDEV_FILE_SERVICE and not VDEV_FILE_SHADOW):
-        from db.query import VDevDBQuery
-        query = VDevDBQuery()
-    
-    if VDEV_AUTH_SERVICE:
+    if AUTH_BROKER or AUTH_WORKER:
         from auth.authd import VDevAuthD
         services.append(VDevAuthD(query))
     
-    if VDEV_CACHE_SERVICE:
-        from db.cached import VDevDBCacheD
-        services.append(VDevDBCacheD())
+    if CACHE_SERVICE:
+        from db.cached import VDevCacheD
+        services.append(VDevCacheD())
     
-    if VDEV_SUPERNODE_SERVICE:
+    if SUPERNODE_SERVICE:
         from supernode import VDevSupernode
         services.append(VDevSupernode())
     
     if services:
         service_start(*services)
     
-    if VDEV_FILE_SERVICE:
-        from fuse import FUSE
-        from fs.vdfs import VDevFS
-        from conf.virtdev import VDEV_FS_MOUNTPOINT
-        
-        os.system('umount -lf %s 2>/dev/null' % VDEV_FS_MOUNTPOINT)
-        if not os.path.exists(VDEV_FS_MOUNTPOINT):
-            os.makedirs(VDEV_FS_MOUNTPOINT, 0o755)
-        FUSE(VDevFS(query), VDEV_FS_MOUNTPOINT, foreground=True)
+    if FILE_SERVICE:
+        _mount(query)
     elif services:
         service_join(*services)
-    

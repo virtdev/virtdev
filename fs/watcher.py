@@ -24,7 +24,7 @@ from lib.util import hash_name
 from threading import Thread, Event
 from inotify.watcher import AutoWatcher
 
-VDEV_WATCHER_MAX = 4 # VDEV_WATCHER_MAX < 65536
+WATCHER_MAX = 4 # WATCHER_MAX < 65536
 
 class VDevWatcher(Thread):
     def __init__(self):
@@ -43,10 +43,10 @@ class VDevWatcher(Thread):
         self._results[path] = True
     
     def pop(self, path):
-        ret = self._results.get(path)
-        if ret:
-            self._results.pop(path)
-        return ret
+        try:
+            return self._results.pop(path)
+        except:
+            pass
     
     def run(self):
         while True:
@@ -65,13 +65,13 @@ class VDevWatcher(Thread):
 class VDevWatcherPool(object):
     def __init__(self):
         self._watchers = []
-        for _ in range(VDEV_WATCHER_MAX):
+        for _ in range(WATCHER_MAX):
             w = VDevWatcher()
             self._watchers.append(w)
             w.start()
     
     def _hash(self, path):
-        return hash_name(path) % VDEV_WATCHER_MAX
+        return hash_name(path) % WATCHER_MAX
     
     def add(self, path):
         n = self._hash(path)

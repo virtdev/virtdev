@@ -22,8 +22,8 @@ import xattr
 
 import sys
 sys.path.append('..')
-from fs.oper import OP_POLL
-from conf.virtdev import VDEV_FS_MOUNTPOINT
+from lib.op import OP_POLL
+from conf.virtdev import MOUNTPOINT
 
 def usage():
     print 'poll.py uid'
@@ -34,6 +34,6 @@ if __name__ == '__main__':
         usage()
         sys.exit()
     uid = sys.argv[1]
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid)
+    path = os.path.join(MOUNTPOINT, uid)
     ret = xattr.getxattr(path, OP_POLL)
     print 'poll:%s' % str(ret)

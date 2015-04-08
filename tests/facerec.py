@@ -22,7 +22,7 @@ from base64 import encodestring
 
 import sys
 sys.path.append('..')
-from anon.facerec import FaceRec
+from drivers.facerec import FaceRec
 
 PATH = '/opt/images/face.jpg'
 

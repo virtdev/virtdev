@@ -20,14 +20,14 @@
 import memcache
 from lib.log import log
 from hash_ring import HashRing
-from conf.virtdev import VDEV_CACHE_SERVERS
+from conf.virtdev import CACHE_SERVERS
 
 class VDevDBCache(object):
     def __init__(self, port):
         self._port = port
     
     def _locate(self, key):
-        servers = map(lambda addr: '%s:%d' % (addr, self._port), VDEV_CACHE_SERVERS)
+        servers = map(lambda addr: '%s:%d' % (addr, self._port), CACHE_SERVERS)
         return HashRing(servers).get_node(key)
     
     def put(self, key, value):

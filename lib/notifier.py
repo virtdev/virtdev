@@ -19,11 +19,11 @@
 
 import zerorpc
 from util import zmqaddr
-from conf.virtdev import VDEV_NOTIFIER_PORT
+from conf.virtdev import NOTIFIER_ADDR, NOTIFIER_PORT
 
 def push(op, buf):
     cli = zerorpc.Client()
-    cli.connect(zmqaddr('127.0.0.1', VDEV_NOTIFIER_PORT))
+    cli.connect(zmqaddr(NOTIFIER_ADDR, NOTIFIER_PORT))
     try:
         cli.push(op, buf)
     finally:

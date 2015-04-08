@@ -21,8 +21,8 @@ import ast
 from threading import Lock
 from datetime import datetime
 from happybase import Connection
-from conf.virtdev import VDEV_STATISTIC
-from lib.log import log, log_get, log_err
+from conf.virtdev import STATISTIC
+from lib.log import log_get, log_err
 
 HISTORY_TAG_DAY = 'day'
 HISTORY_TAG_YEAR = 'year'
@@ -36,9 +36,8 @@ HISTORY_CF_HEAD_SIZE = len(HISTORY_CF_HEAD)
 HISTORY_TAGS = (HISTORY_TAG_TODAY, HISTORY_TAG_YEAR, HISTORY_TAG_MONTH, HISTORY_TAG_DAY)
 
 HISTORY_ITEM_MAX = 1024
-HISTORY_STATISTIC = True
 
-if VDEV_STATISTIC:
+if STATISTIC:
     import unicorndb
 
 class Today(object):
@@ -59,7 +58,7 @@ class Today(object):
     def average(self, db, key, num):
         res = []
         try:
-            if VDEV_STATISTIC:
+            if STATISTIC:
                 res = unicorndb.stat(db, key, HISTORY_CF, num, "hour", "avg")
         except:
             log_err(self, 'failed, key=%s, num=%d' % (key, num))
@@ -120,7 +119,7 @@ class HistoryDB(object):
         if limit > HISTORY_ITEM_MAX:
             limit = HISTORY_ITEM_MAX
         db = self._get_db(key)
-        if VDEV_STATISTIC:
+        if STATISTIC:
             return self._today.average(db, key, limit)
         else:
             return self._today.scan(db, key, limit)

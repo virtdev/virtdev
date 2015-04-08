@@ -19,7 +19,7 @@
 
 import sys
 sys.path.append('..')
-from anon.downloader import Downloader
+from drivers.downloader import Downloader
 
 NAME = 'test'
 URL = 'http://upload.wikimedia.org/wikipedia/en/4/43/Better_than_a_hallelujah.jpg'

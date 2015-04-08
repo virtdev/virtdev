@@ -22,32 +22,27 @@ import stat
 from lib.log import log_err
 from fuse import FuseOSError
 from errno import EINVAL, ENOENT
-from conf.virtdev import VDEV_FS_PATH, VDEV_FS_MOUNTPOINT
+from conf.virtdev import FS_PATH, MOUNTPOINT
 
-VDEV_FS_UPDATE = 0x00000001
-VDEV_FS_LABELS = {'vertex':'vertex', 'edge':'edge', 'data':'data', 'attr':'attr', 'temp':'temp'}
-
-def undefined_opration():
-    log_err(self, 'failed to truncate')
-    raise FuseOSError(EINVAL)
+DOMAIN = {'vertex':'vertex', 'edge':'edge', 'data':'data', 'attr':'attr', 'temp':'temp'}
 
 def is_local(uid, name):
-    path = os.path.join(VDEV_FS_MOUNTPOINT, uid, name)
+    path = os.path.join(FS_PATH, uid, DOMAIN['attr'], name)
     return os.path.exists(path)
 
-def load(uid, name='', label='', sort=False, passthrough=False):
+def load(uid, name='', domain='', sort=False, passthrough=False):
     if not passthrough:
-        root = VDEV_FS_MOUNTPOINT
+        root = MOUNTPOINT
     else:
-        root = VDEV_FS_PATH
-        if not label:
-            label = VDEV_FS_LABELS['data']
-    if not name and not label:
+        root = FS_PATH
+        if not domain:
+            domain = DOMAIN['data']
+    if not name and not domain:
         path = os.path.join(root, uid)
     else:
-        if label not in VDEV_FS_LABELS.keys():
+        if domain not in DOMAIN.keys():
             return
-        path = os.path.join(root, uid, VDEV_FS_LABELS[label], name)
+        path = os.path.join(root, uid, DOMAIN[domain], name)
     if not os.path.exists(path):
         return
     if not sort:
@@ -58,18 +53,22 @@ def load(uid, name='', label='', sort=False, passthrough=False):
 
 class VDevPath(object):
     def __init__(self, router=None, manager=None):
-        if not os.path.exists(VDEV_FS_PATH):
-            os.mkdir(VDEV_FS_PATH)
+        if not os.path.exists(FS_PATH):
+            os.mkdir(FS_PATH)
         name = self.__class__.__name__.lower()
-        self._label = VDEV_FS_LABELS.get(name, '')
+        self._label = DOMAIN.get(name, '')
         if not router:
-            from fi.local import VDevLocalFS
-            self.fs = VDevLocalFS()
+            from local import VDevLocalFile
+            self.file = VDevLocalFile()
         else:
-            from fi.remote import VDevRemoteFS
-            self.fs = VDevRemoteFS(router)
+            from remote import VDevRemoteFile
+            self.file = VDevRemoteFile(router)
         self.router = router
         self.manager = manager
+    
+    def _undefined_op(self):
+        log_err(self, 'undefined operation')
+        raise FuseOSError(EINVAL)
     
     @property
     def label(self):
@@ -100,10 +99,10 @@ class VDevPath(object):
         return False
     
     def signature(self, uid, name):
-        undefined_opration()
+        self._undefined_op()
     
     def patch(self, uid, name, buf):
-        undefined_opration()
+        self._undefined_op()
     
     def is_expired(self, uid, name):
         return False
@@ -122,9 +121,9 @@ class VDevPath(object):
         return str(name).split('/')[-1] 
     
     def real(self, name):
-        if self._label == VDEV_FS_LABELS['data']:
+        if self._label == DOMAIN['data']:
             return name
-        elif self._label == VDEV_FS_LABELS['attr']:
+        elif self._label == DOMAIN['attr']:
             return os.path.join(self._label, name)
         else:
             tmp = name.split('/')
@@ -138,15 +137,15 @@ class VDevPath(object):
         return path + '~'
     
     def get_path(self, uid, name='', parent=''):
-        return str(os.path.join(VDEV_FS_PATH, uid, self._label, parent, name))
+        return str(os.path.join(FS_PATH, uid, self._label, parent, name))
     
     def check_path(self, uid, name='', parent=''):
         path = self.get_path(uid, name, parent)
         parent = os.path.dirname(path)
-        if not self.fs.exists(uid, parent):
-            self.fs.mkdir(uid, parent)
-        if not self.fs.exists(uid, path):
-            self.fs.touch(uid, path)
+        if not self.file.exists(uid, parent):
+            self.file.mkdir(uid, parent)
+        if not self.file.exists(uid, path):
+            self.file.touch(uid, path)
     
     def symlink(self, uid, name):
         child = self.child(name)
@@ -155,37 +154,37 @@ class VDevPath(object):
             log_err(self, 'failed to create symlink')
             raise FuseOSError(EINVAL) 
         path = os.path.join(self.get_path(uid, parent), child)
-        self.fs.touch(uid, path)   
+        self.file.touch(uid, path)   
     
     def remove(self, uid, name):
         path = self.get_path(uid, name)
-        self.fs.remove(uid, path)
+        self.file.remove(uid, path)
     
     def invalidate(self, uid, name):
         path = self.get_path(uid, name)
-        self.fs.remove(uid, path)
+        self.file.remove(uid, path)
     
     def truncate(self, uid, name, length):
         pass
     
     def lsdir(self, uid, name):
         path = self.get_path(uid, name)
-        return self.fs.lsdir(uid, path)
+        return self.file.lsdir(uid, path)
     
     def lslink(self, uid, name):
         child = self.child(name)
-        return os.path.join(VDEV_FS_MOUNTPOINT, uid, self._label, child)
+        return os.path.join(MOUNTPOINT, uid, self._label, child)
     
     def lsattr(self, uid, name, symlink=False):
         st = None
         path = self.get_path(uid, name)
         
-        if self.fs.exists(uid, path):
-            st = self.fs.stat(uid, path)
+        if self.file.exists(uid, path):
+            st = self.file.stat(uid, path)
         elif self.can_invalidate():
             path = self.path2temp(path)
             try:
-                st = self.fs.stat(uid, path)
+                st = self.file.stat(uid, path)
             except:
                 raise FuseOSError(ENOENT)
         
