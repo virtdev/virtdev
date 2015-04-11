@@ -34,17 +34,17 @@ ATTR_DISPATCHER = 'dispatcher'
 ATTRIBUTES = [ATTR_MODE, ATTR_FREQ, ATTR_FILTER, ATTR_HANDLER, ATTR_PROFILE, ATTR_DISPATCHER]
 
 class Attr(VDevPath):
-    def __init__(self, watcher=None, router=None, manager=None):
-        VDevPath.__init__(self, router, manager)
+    def __init__(self, watcher=None, router=None, core=None):
+        VDevPath.__init__(self, router, core)
         self._temp = Temp(self, watcher)
     
     def can_invalidate(self):
         return True
     
     def truncate(self, uid, name, length):
-        if not self.manager:
+        if not self._core:
             path = self.get_path(uid, name)
-            self.file.truncate(uid, path, length)
+            self._file.truncate(uid, path, length)
             self._temp.truncate(uid, name, length)
     
     def may_update(self, flags):
@@ -52,7 +52,7 @@ class Attr(VDevPath):
     
     def is_expired(self, uid, name):
         path = self.path2temp(self.get_path(uid, name))
-        return self.file.exists(uid, path)
+        return self._file.exists(uid, path)
     
     def getattr(self, uid, name):
         return self.lsattr(uid, name)
@@ -62,7 +62,7 @@ class Attr(VDevPath):
         return self._temp.create(uid, name)
     
     def open(self, uid, name, flags):
-        if self.manager:
+        if self._core:
             flags = 0
         return self._temp.open(uid, name, flags)
     
@@ -73,17 +73,17 @@ class Attr(VDevPath):
         self._release(uid, name, fh)
         
     def _unlink(self, uid, name):
-        if not self.manager:
+        if not self._core:
             return
         child = self.child(name)
         parent = self.parent(name)
         if parent != child:
             if child == ATTR_HANDLER:
-                self.manager.synchronizer.remove_handler(parent)
+                self._core.remove_handler(parent)
             elif child == ATTR_FILTER:
-                self.manager.synchronizer.remove_filter(parent)
+                self._core.remove_filter(parent)
             elif child == ATTR_MODE:
-                self.manager.synchronizer.remove_mode(parent)
+                self._core.remove_mode(parent)
     
     def unlink(self, uid, name):
         self.remove(uid, name)
@@ -92,11 +92,11 @@ class Attr(VDevPath):
     def invalidate(self, uid, name):
         path = self.get_path(uid, name)
         temp = self.path2temp(path)
-        if self.file.exists(uid, path):
-            self.file.rename(uid, path, temp)
+        if self._file.exists(uid, path):
+            self._file.rename(uid, path, temp)
             self._unlink(uid, name)
         else:
-            self.file.touch(uid, temp)
+            self._file.touch(uid, temp)
     
     def signature(self, uid, name):
         path = self.path2temp(self.get_path(uid, name))
@@ -114,10 +114,10 @@ class Attr(VDevPath):
                     librsync.patch(f_src, delta, f_dest)
                 except:
                     # warning
-                    self.file.rename(uid, src, dest)
+                    self._file.rename(uid, src, dest)
                     return
-        self.file.remove(uid, src)
-        self.file.save(uid, dest, self._temp.get_path(uid, name))
+        self._file.remove(uid, src)
+        self._file.save(uid, dest, self._temp.get_path(uid, name))
     
     def readdir(self, uid, name):
         return self.lsdir(uid, name)

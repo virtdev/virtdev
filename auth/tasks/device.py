@@ -30,10 +30,10 @@ from lib.util import mount_device, update_device
 
 class Device(VDevAuthTask):
     def get(self, uid, name):
-        device = self.query.device.get(name)
+        device = self._query.device.get(name)
         if device:
             if uid != device['uid']:
-                guests = self.query.guest.get(uid)
+                guests = self._query.guest.get(uid)
                 if not guests or name not in guests:
                     return 
             return device
@@ -41,30 +41,30 @@ class Device(VDevAuthTask):
     def add(self, uid, node, addr, name, mode, freq, prof):
         if mode != None and prof != None:
             mount_device(uid, name, mode | MODE_LINK, freq, prof)
-        update_device(self.query, uid, node, addr, name)
-        self.query.event.put(uid, name)
+        update_device(self._query, uid, node, addr, name)
+        self._query.event.put(uid, name)
         return True
     
     def remove(self, uid, node, name):
-        self.query.device.remove(name)
-        self.query.member.remove(uid, (name, node))
-        self.query.event.put(uid, name)
+        self._query.device.remove(name)
+        self._query.member.remove(uid, (name, node))
+        self._query.event.put(uid, name)
         return True
     
-    def sync(self, uid, name, buf):
+    def update(self, uid, name, buf):
         try:
             fields = ast.literal_eval(buf)
             if type(fields) != dict:
-                log_err(self, 'failed to sync, invalid type')
+                log_err(self, 'failed to update, invalid type')
                 return
         except:
-            log_err(self, 'failed to sync')
+            log_err(self, 'failed to update')
             return
         path = os.path.join(MOUNTPOINT, uid, name)
         with open(path, 'w') as f:
             f.write(buf)
-        self.query.history.put(name, **fields)
-        self.query.event.put(uid, name)
+        self._query.history.put(name, **fields)
+        self._query.event.put(uid, name)
         return True
     
     def diff(self, uid, name, label, item, buf):

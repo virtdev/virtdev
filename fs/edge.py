@@ -42,15 +42,15 @@ class Edge(VDevPath):
         self.create(uid, name)
     
     def _new_edge(self, src, dest):
-        if self.manager:
+        if self._core:
             if dest.startswith('.'):
                 edge = (src, dest[1:])
             else:
                 edge = (src, dest)
-            self.manager.synchronizer.add_dispatcher(edge)
+            self._core.add_dispatcher(edge)
     
     def _create(self, uid, name):
-        if self.manager:
+        if self._core:
             parent = self.parent(name)
             child = self.child(name)
             if parent != child:
@@ -65,13 +65,13 @@ class Edge(VDevPath):
         return self.create(uid, name)
     
     def _unlink(self, uid, name):
-        if not self.manager:
+        if not self._core:
             return
         parent = self.parent(name)
         child = self.child(name)
         if parent != child:
             edge = (parent, child)
-            self.manager.synchronizer.remove_dispatcher(edge)
+            self._core.remove_dispatcher(edge)
     
     def unlink(self, uid, name):
         self._unlink(uid, name)

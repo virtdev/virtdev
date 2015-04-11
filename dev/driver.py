@@ -100,13 +100,13 @@ class VDevDriver(object):
             pass
     
     def start(self):
-        self._thread = Thread(target=self._run)
+        self._thread = Thread(target=self._proc)
         self._thread.start()
     
     def _reply(self, buf):
         stream.put(self._sock, str({'None':buf}), local=True)
     
-    def _run(self):
+    def _proc(self):
         if not self._sock:
             return
         while True:

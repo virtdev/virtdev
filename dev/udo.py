@@ -46,9 +46,9 @@ class VDevUDO(object):
         self._thread_listen = None
         self._thread_poll = None
         self._requester = None
-        self.manager = None
         self._atime = None
         self._index = None
+        self._core = None
         self._sock = None
         self._name = None
         self._type = None
@@ -171,21 +171,21 @@ class VDevUDO(object):
     
     @property
     def d_mode(self):
-        if not self.manager or self._children:
+        if not self._core or self._children:
             return self._mode
         else:
             try:
-                return self.manager.synchronizer.get_mode(self.d_name)
+                return self._core.get_mode(self.d_name)
             except:
                 return self._mode
     
     @property
     def d_freq(self):
-        if not self.manager or self._children:
+        if not self._core or self._children:
             return self._freq
         else:
             try:
-                return self.manager.synchronizer.get_freq(self.d_name)
+                return self._core.get_freq(self.d_name)
             except:
                 return self._freq
     
@@ -275,7 +275,7 @@ class VDevUDO(object):
                 return
         return output
     
-    def sync(self, buf):
+    def update(self, buf):
         if type(buf) != str and type(buf) != unicode:
             buf = str(buf)
         path = self._get_path()
@@ -328,10 +328,10 @@ class VDevUDO(object):
         else:
             log_err(self, 'failed to process, invalid operation')
     
-    def mount(self, manager, name, sock=None, init=True):
-        self.manager = manager
-        self._uid = manager.uid
+    def mount(self, uid, name, core, sock=None, init=True):
+        self._uid = uid
         self._name = name
+        self._core = core
         self._sock = sock
         if self._children:
             self._mode |= MODE_VIRT
@@ -366,8 +366,8 @@ class VDevUDO(object):
                     continue
                 
                 name = device.d_name
-                if self.manager.synchronizer.has_callback(name):
-                    output = self.manager.synchronizer.callback(name, {name:buf})
+                if self._core.has_callback(name):
+                    output = self._core.callback(name, {name:buf})
                     if not output:
                         continue
                     
@@ -379,7 +379,7 @@ class VDevUDO(object):
                     if buf:
                         mode = device.d_mode
                         if mode & MODE_REFLECT:
-                            op = self.manager.synchronizer.get_oper({name:buf}, mode)
+                            op = self._core.get_oper({name:buf}, mode)
                             if op != None:
                                 buf = self.proc(name, op)
                 
@@ -387,10 +387,10 @@ class VDevUDO(object):
                     mode = device.d_mode
                     if not (mode & MODE_TRIG) or device.check_atime():
                         if mode & MODE_SYNC:
-                            device.sync(buf)
-                        self.manager.synchronizer.dispatch(name, buf)
+                            device.update(buf)
+                        self._core.dispatch(name, buf)
             except:
-                log_err(self, 'device=%s, restarting' % self.d_name)
+                log_err(self, 'error, device=%s' % self.d_name)
                 try:
                     self._sock.close()
                 except:

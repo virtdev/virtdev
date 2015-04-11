@@ -29,7 +29,7 @@ RETRY_MAX = 2
 
 class VDevOperation(object):
     def __init__(self, manager):
-        self.manager = manager
+        self._manager = manager
         self.uid = manager.uid
     
     def _get_path(self, path=''):
@@ -70,7 +70,7 @@ class VDevOperation(object):
         i = 0
         try:
             while i < RETRY_MAX:
-                if self.manager.synchronizer.put(dest, src, buf, flags):
+                if self._manager.core.put(dest, src, buf, flags):
                     return True
                 i += 1
         except:
@@ -78,21 +78,21 @@ class VDevOperation(object):
     
     def enable(self, path):
         try:
-            self.manager.device.open(path)
+            self._manager.device.open(path)
             return True
         except:
             log_err(self, 'failed to enable, path=%s' % path)
     
     def disable(self, path):
         try:
-            self.manager.device.close(path)
+            self._manager.device.close(path)
             return True
         except:
             log_err(self, 'failed to disable, path=%s' % path)
     
     def join(self, dest, src):
         try:
-            self.manager.notify('wait', json.dumps({'dest':dest, 'src':src}))
+            self._manager.notify('wait', json.dumps({'dest':dest, 'src':src}))
             return True
         except:
             log_err(self, 'failed to join, dest=%s, src=%s' % (str(dest), str(src)))
@@ -103,8 +103,8 @@ class VDevOperation(object):
             name = str(src['name'])
             user = str(src['user'])
             node = str(src['node'])
-            self.manager.member.update({name:{'uid':uid, 'user':user, 'node':node, 'state':'join'}})
-            self.manager.notify('list', cat(name, 'join'))
+            self._manager.member.update({name:{'uid':uid, 'user':user, 'node':node, 'state':'join'}})
+            self._manager.notify('list', cat(name, 'join'))
             return True
         except:
             log_err(self, 'failed to accept, dest=%s, src=%s' % (str(dest), str(src)))

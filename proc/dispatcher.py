@@ -35,10 +35,10 @@ QUEUE_LEN = 2
 POOL_SIZE = 64
 
 class VDevDispatcherQueue(VDevQueue):
-    def __init__(self, dispatcher, manager):
+    def __init__(self, dispatcher, core):
         VDevQueue.__init__(self, QUEUE_LEN)
         self._dispatcher = dispatcher
-        self._manager = manager
+        self._core = core
     
     def _insert(self, buf):
         self._dispatcher.add_source(buf[0])
@@ -48,24 +48,25 @@ class VDevDispatcherQueue(VDevQueue):
     
     def _proc(self, buf):
         self._dispatcher.remove_source(buf[0])
-        self._manager.synchronizer.put(*buf)
+        self._core.put(*buf)
 
 class VDevDispatcher(object):
-    def __init__(self, manager):
+    def __init__(self, uid, tunnel, core):
+        self._uid = uid
         self._queue = []
         self._input = {}
         self._paths = {}
         self._output = {}
         self._hidden = {}
         self._source = {}
+        self._core = core
         self._lock = Lock()
+        self._tunnel = tunnel
         self._dispatchers = {}
-        self.manager = manager
-        self._uid = manager.uid
         self._pool = VDevPool()
         self._loader = VDevLoader(self._uid)
         for _ in range(POOL_SIZE):
-            self._pool.add(VDevDispatcherQueue(self, manager))
+            self._pool.add(VDevDispatcherQueue(self, self._core))
     
     def _log(self, s):
         if LOG:
@@ -130,7 +131,7 @@ class VDevDispatcher(object):
             if not self._paths[src].has_key(dest):
                 self._paths[src].update({dest:1})
                 if not local:
-                    self.manager.tunnel.open(dest)
+                    self._tunnel.open(dest)
             else:
                 self._paths[src][dest] += 1
             self._log('add, edge=%s, local=%s' % (str(edge), str(local)))
@@ -153,7 +154,7 @@ class VDevDispatcher(object):
         if 0 == self._paths[src][dest]:
             del self._paths[src][dest]
             if not local:
-                self.manager.tunnel.close(dest)
+                self._tunnel.close(dest)
     
     def remove_all(self, name):
         paths = self._output.get(name)
@@ -184,7 +185,7 @@ class VDevDispatcher(object):
             local = paths[dest]
         if not local:
             self._log('sendto->push, dest=%s, src=%s' % (dest, src))
-            self.manager.tunnel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
+            self._tunnel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
         else:
             self._send(dest, src, buf, flags)
     
@@ -205,7 +206,7 @@ class VDevDispatcher(object):
         for i in dest:
             if not dest[i]:
                 self._log('send->push, dest=%s, src=%s' % (i, name))
-                self.manager.tunnel.push(i, dest=i, src=name, buf=buf, flags=flags)
+                self._tunnel.push(i, dest=i, src=name, buf=buf, flags=flags)
             else:
                 self._send(i, name, buf, flags)
     

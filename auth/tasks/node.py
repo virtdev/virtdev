@@ -26,13 +26,13 @@ NODE_MAX = 256
 
 class Node(VDevAuthTask):
     def _get_uid(self, user):
-        return self.query.user.get({'user':user}, 'uid')
+        return self._query.user.get({'user':user}, 'uid')
     
     def find(self, uid, user, node):
         uid = self._get_uid(user)
         if not uid:
             return
-        nodes = self.query.node.get(uid)
+        nodes = self._query.node.get(uid)
         for item in nodes:
             n, _, mode = str2tuple(item)
             if mode and int(mode) & MODE_VISI and n == node:
@@ -48,7 +48,7 @@ class Node(VDevAuthTask):
         elif limit > NODE_MAX:
             limit = NODE_MAX
         node_list = []
-        nodes = self.query.node.get(uid)
+        nodes = self._query.node.get(uid)
         for item in nodes:
             node, _, mode = str2tuple(item)
             if mode and int(mode) & MODE_VISI:

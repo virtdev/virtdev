@@ -21,7 +21,7 @@ from lib.log import log_err
 
 class VDevAuthTask(object):
     def __init__(self, query):
-        self.query = query
+        self._query = query
     
     def __str__(self):
         return self.__class__.__name__.lower()

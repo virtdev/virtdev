@@ -25,6 +25,7 @@ from lib import tunnel
 from lib import notifier
 from daemon import VDevDaemon
 from lib.lock import VDevLock
+from proc.core import VDevCore
 from threading import Lock, Thread
 from lib.request import VDevRequest
 from conductor import VDevConductor
@@ -32,7 +33,6 @@ from proc.sandbox import VDevSandbox
 from lib.op import OP_OPEN, OP_CLOSE
 from lib.log import log, log_err, log_get
 from lib.mode import MODE_SYNC, MODE_VISI
-from proc.synchronizer import VDevSynchronizer
 from conf.virtdev import LIB_PATH, RUN_PATH, FILE_SERVICE, FILE_SHADOW, VISIBLE, MOUNTPOINT
 from conf.virtdev import LO, BLUETOOTH, SANDBOX, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
 from lib.util import USERNAME_SIZE, PASSWORD_SIZE, netaddresses, get_node, dev_name, cat, lock, named_lock
@@ -40,13 +40,13 @@ from lib.util import USERNAME_SIZE, PASSWORD_SIZE, netaddresses, get_node, dev_n
 LOG=True
 
 class DeviceManager(object):
-    def __init__(self, conductor): 
+    def __init__(self, cond): 
+        self._cond = cond
         self._lock = VDevLock()
-        self._conductor = conductor
     
     @named_lock
     def open(self, name):
-        for device in self._conductor.devices:
+        for device in self._cond.devices:
             dev = device.find(name)
             if dev:
                 dev.proc(name, OP_OPEN)
@@ -54,7 +54,7 @@ class DeviceManager(object):
     
     @named_lock
     def close(self, name):
-        for device in self._conductor.devices:
+        for device in self._cond.devices:
             dev = device.find(name)
             if dev:
                 dev.proc(name, OP_CLOSE)
@@ -62,68 +62,68 @@ class DeviceManager(object):
     
     @named_lock
     def add(self, name, mode=None, freq=None, prof=None):
-        return self._conductor.request.device.add(node=get_node(), addr=self._conductor.addr, name=name, mode=mode, freq=freq, prof=prof)
+        return self._cond.request.device.add(node=get_node(), addr=self._cond.addr, name=name, mode=mode, freq=freq, prof=prof)
     
     @named_lock
-    def sync(self, name, buf):
-        if self._conductor.synchronizer.get_mode(name) & MODE_SYNC:
-            return self._conductor.request.device.sync(name=name, buf=buf)
+    def update(self, name, buf):
+        if self._cond.core.get_mode(name) & MODE_SYNC:
+            return self._cond.request.device.update(name=name, buf=buf)
     
     @named_lock
     def get(self, name):
-        return self._conductor.request.device.get(name=name)
+        return self._cond.request.device.get(name=name)
     
     @named_lock
     def diff(self, name, label, item, buf):
-        return self._conductor.request.device.diff(name=name, label=label, item=item, buf=buf)
+        return self._cond.request.device.diff(name=name, label=label, item=item, buf=buf)
     
     @named_lock
     def remove(self, name):
-        return self._conductor.request.device.remove(node=get_node(), name=name)
+        return self._cond.request.device.remove(node=get_node(), name=name)
 
 class GuestManager(object):
-    def __init__(self, conductor):
+    def __init__(self, cond):
+        self._cond = cond
         self._lock = Lock()
-        self._conductor = conductor
     
     @lock
     def join(self, dest, src):
-        return self._conductor.request.guest.join(dest=dest, src=src)
+        return self._cond.request.guest.join(dest=dest, src=src)
     
     @lock
     def accept(self, dest, src):
-        return self._conductor.request.guest.accept(dest=dest, src=src)
+        return self._cond.request.guest.accept(dest=dest, src=src)
     
     @lock
     def drop(self, dest, src):
-        return self._conductor.request.guest.drop(dest=dest, src=src)
+        return self._cond.request.guest.drop(dest=dest, src=src)
 
 class NodeManager(object):
-    def __init__(self, conductor):
+    def __init__(self, cond):
+        self._cond = cond
         self._lock = Lock()
-        self._conductor = conductor
     
     @lock
     def search(self, user, random, limit):
-        return self._conductor.request.node.search(user=user, random=random, limit=limit)
+        return self._cond.request.node.search(user=user, random=random, limit=limit)
     
     @lock
     def find(self, user, node):
-        return self._conductor.request.node.search(user=user, node=node)
+        return self._cond.request.node.search(user=user, node=node)
 
 class TunnelManager(object):
-    def __init__(self, conductor):
+    def __init__(self, cond):
+        self._cond = cond
         self._lock = VDevLock()
-        self._conductor = conductor
     
     @named_lock
     def open(self, name):
-        uid, addr = self._conductor.get_device(name)
+        uid, addr = self._cond.get_device(name)
         if not uid:
             log_err(self, 'failed to create, no uid')
             raise Exception(log_get(self, 'failed to create'))
         if not tunnel.exist(addr):
-            token = self._conductor.get_token(uid)
+            token = self._cond.get_token(uid)
             if not token:
                 log_err(self, 'failed to create, no token')
                 raise Exception(log_get(self, 'failed to create'))
@@ -131,27 +131,27 @@ class TunnelManager(object):
     
     @named_lock
     def close(self, name):
-        addr = self._conductor.get_device(name)[1]
+        addr = self._cond.get_device(name)[1]
         if tunnel.exist(addr):
             tunnel.disconnect(addr)
     
     @named_lock
     def put(self, name, **args):
-        dev = self._conductor.get_device(name)
+        dev = self._cond.get_device(name)
         addr = tunnel.addr2ip(dev[1])
-        tunnel.put(addr, 'put', args, self._conductor.uid, self._conductor.token)
+        tunnel.put(addr, 'put', args, self._cond.uid, self._cond.token)
     
     @named_lock
     def push(self, name, **args):
-        dev = self._conductor.get_device(name)
+        dev = self._cond.get_device(name)
         addr = tunnel.addr2ip(dev[1])
-        tunnel.push(addr, 'put', args, self._conductor.uid, self._conductor.token)
+        tunnel.push(addr, 'put', args, self._cond.uid, self._cond.token)
 
 class MemberManager(object):
-    def __init__(self, conductor):
+    def __init__(self, cond):
+        self._cond = cond
         self._lock = Lock()
-        self._conductor = conductor
-        self._path = os.path.join(LIB_PATH, dev_name(conductor.uid))
+        self._path = os.path.join(LIB_PATH, dev_name(cond.uid))
     
     @lock
     def list(self):
@@ -202,15 +202,15 @@ class VDevManager(object):
         self._handler.start()
         self._dispatcher.start()
     
-    def _init_conductor(self):
-        conductor = VDevConductor(self)
-        self.node = NodeManager(conductor)
-        self.guest = GuestManager(conductor)
-        self.device = DeviceManager(conductor)
-        self.tunnel = TunnelManager(conductor)
-        self.member = MemberManager(conductor)
-        self._conductor = conductor
-        conductor.start()
+    def _init_cond(self):
+        cond = VDevConductor(self)
+        self.node = NodeManager(cond)
+        self.guest = GuestManager(cond)
+        self.device = DeviceManager(cond)
+        self.tunnel = TunnelManager(cond)
+        self.member = MemberManager(cond)
+        self._cond = cond
+        cond.start()
     
     def _init_daemon(self):
         self._daemon = VDevDaemon(self)
@@ -219,20 +219,20 @@ class VDevManager(object):
     def _init_dev(self):
         if BLUETOOTH:
             from dev.bt import VDevBT
-            self._bt = VDevBT(self)
+            self._bt = VDevBT(self.uid, self.core)
             self.devices.append(self._bt)
         
         if LO:
             from dev.lo import VDevLo
-            self.lo = VDevLo(self)
+            self.lo = VDevLo(self.uid, self.core)
             self.devices.append(self.lo)
         
         name = dev_name(self.uid)
         self.device.add(name)
         self._log('dev: name=%s, node=%s' % (name, get_node()))
     
-    def _init_synchronizer(self):
-        self.synchronizer = VDevSynchronizer(self)
+    def _init_core(self):
+        self.core = VDevCore(self)
     
     def _get_password(self):
         path = os.path.join(LIB_PATH, 'user')
@@ -292,8 +292,8 @@ class VDevManager(object):
         if SANDBOX:
             self._init_sandbox()
         
-        self._init_synchronizer()
-        self._init_conductor()
+        self._init_core()
+        self._init_cond()
         self._init_dev()
         
         if VISIBLE:
@@ -344,9 +344,9 @@ class VDevManager(object):
         notifier.push(op, buf)
     
     def chkaddr(self, name):
-        if name and self._conductor:
-            token = self._conductor.get_token(name)
+        if name and self._cond:
+            token = self._cond.get_token(name)
             if token:
-                _, addr = self._conductor.get_device(name)
+                _, addr = self._cond.get_device(name)
                 return (addr, token)
     

@@ -49,17 +49,17 @@ def chkargs(func):
 
 class VDevUplink(object):
     def __init__(self, manager):
-        self.manager = manager
+        self._manager = manager
         self.operations = [OP_ADD, OP_DIFF, OP_SYNC]
     
     @chkargs
     def put(self, name, op, **args):
         if op == OP_DIFF:
-            return self.manager.device.diff(name, **args)
+            return self._manager.device.diff(name, **args)
         elif op == OP_SYNC:
-            return self.manager.device.sync(name, **args)
+            return self._manager.device.update(name, **args)
         elif op == OP_ADD:
-            return self.manager.device.add(name, **args)
+            return self._manager.device.add(name, **args)
 
 class VDevDownlinkQueue(VDevQueue):
     def __init__(self, downlink):
@@ -85,9 +85,9 @@ class VDevDownlinkQueue(VDevQueue):
 
 class VDevDownlink(object):
     def __init__(self, query):
-        self.query = query
-        self._devices = {}
         self._tokens = {}
+        self._devices = {}
+        self._query = query
         self._pool = VDevPool()
         for _ in range(POOL_SIZE):
             self._pool.add(VDevDownlinkQueue(self))
@@ -99,10 +99,10 @@ class VDevDownlink(object):
     
     def _try_get_token(self, uid, cache):
         if not cache:
-            return self.query.token.get(uid)
+            return self._query.token.get(uid)
         token = self._tokens.get(uid)
         if not token:
-            token = self.query.token.get(uid)
+            token = self._query.token.get(uid)
             if token:
                 self._tokens.update({uid:token})
         if not token:
@@ -122,13 +122,13 @@ class VDevDownlink(object):
     
     def _try_get_device(self, name, cache):
         if not cache:
-            res = self.query.device.get(name)
+            res = self._query.device.get(name)
             if res:
                 res = (res['uid'], res['addr'])
             return res
         res = self._devices.get(name)
         if not res:
-            res = self.query.device.get(name)
+            res = self._query.device.get(name)
             if res:
                 return self._add_device(res['uid'], name, res['addr'])
         else:
@@ -189,22 +189,22 @@ class VDevDownlink(object):
             if puid != uid:
                 log_err(self, 'failed to mount, invalid uid')
                 raise Exception(log_get(self, 'failed to mount'))
-            members = self.query.member.get(uid)
+            members = self._query.member.get(uid)
             if not members:
                 log_err(self, 'failed to mount, cannot get members')
                 raise Exception(log_get(self, 'failed to mount'))
             for i in members:
                 p, node = str2tuple(i)
                 if p == parent:
-                    token = self.query.token.get(uid)
+                    token = self._query.token.get(uid)
                     exist = self._touch(addr, token)
                     break
         else:
-            nodes = self.query.node.get(uid)
+            nodes = self._query.node.get(uid)
             if not nodes:
                 log_err(self, 'failed to mount, cannot find any node')
                 raise Exception(log_get(self, 'failed to mount'))    
-            token = self.query.token.get(uid)
+            token = self._query.token.get(uid)
             for i in nodes:
                 node, addr, _ = str2tuple(i)
                 exist = self._touch(addr, token)
@@ -223,7 +223,7 @@ class VDevDownlink(object):
         
         try:
             self.request(addr, OP_MOUNT, {'attr':str(attr)})
-            update_device(self.query, uid, node, addr, name)
+            update_device(self._query, uid, node, addr, name)
             self._add_device(uid, name, addr)
         finally:
             self.disconnect(addr)

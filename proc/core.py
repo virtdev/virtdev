@@ -1,4 +1,4 @@
-#      synchronizer.py
+#      core.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -34,18 +34,18 @@ LOG = True
 QUEUE_LEN = 4
 WAIT_TIME = 0.1 #second
 
-class VDevSynchronizer(object):
+class VDevCore(object):
     def __init__(self, manager):
         self._queue = {}
         self._members = {}
-        self.manager = manager
+        self._manager = manager
         self._lock = VDevLock()
         self._uid = manager.uid
         self._mode = VDevMode(self._uid)
         self._freq = VDevFreq(self._uid)
         self._filter = VDevFilter(self._uid)
         self._handler = VDevHandler(self._uid)
-        self._dispatcher = VDevDispatcher(manager)
+        self._dispatcher = VDevDispatcher(self._uid, manager.tunnel, self)
     
     def _log(self, s):
         if LOG:
@@ -218,7 +218,7 @@ class VDevSynchronizer(object):
             oper = self.get_oper(buf, mode)
             if not oper:
                 return
-            for device in self.manager.devices:
+            for device in self._manager.devices:
                 dev = device.find(name)
                 if dev:
                     self._log('default_callback, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))

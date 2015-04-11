@@ -50,7 +50,7 @@ class VDevAuthWorker(Thread):
     
     def _init_tasks(self, query):
         self._tasks = {}
-        self.query = query
+        self._query = query
         self._add_task(User(query))
         self._add_task(Node(query))
         self._add_task(Guest(query))
@@ -100,10 +100,10 @@ class VDevAuthWorker(Thread):
         token = None
         if buf[UID_SIZE - 1] == '*':
             user = self._get_user(buf)
-            uid, token = self.query.user.get({'user':user}, 'uid', 'password')
+            uid, token = self._query.user.get({'user':user}, 'uid', 'password')
         else:
             uid = buf[0:UID_SIZE]
-            token = self.query.token.get(uid)
+            token = self._query.token.get(uid)
         if uid and token:
             return (uid, token)
         else:

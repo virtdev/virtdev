@@ -89,9 +89,9 @@ class Temp(object):
     def open(self, uid, name, flags):
         path = self._check_path(uid, name)
         parent = self._parent.get_path(uid, name)
-        t = self._parent.file.mtime(uid, parent)
+        t = self._parent.get_mtime(uid, parent)
         if not t or t != self.mtime(uid, name):
-            self._parent.file.load(uid, parent, path)
+            self._parent.load_file(uid, parent, path)
             if t:
                 self.set_mtime(uid, name, t)
         mode = os.O_RDWR
@@ -114,7 +114,7 @@ class Temp(object):
             if not path:
                 path = self.get_path(uid, name)
             parent = self._parent.get_path(uid, name)
-            self._parent.file.save(uid, path, parent)
+            self._parent.save_file(uid, path, parent)
             return True
         return False
     

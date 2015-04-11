@@ -67,8 +67,8 @@ class VDevConductor(Thread):
         self.addr = addr
         self.token = token
         self.user = manager.user
+        self.core = manager.core
         self.devices = manager.devices
-        self.synchronizer = manager.synchronizer
         self.request = VDevRequest(uid, token)
     
     def get_device(self, name):

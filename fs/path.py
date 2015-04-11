@@ -52,19 +52,18 @@ def load(uid, name='', domain='', sort=False, passthrough=False):
         return sorted(os.listdir(path), key=key)
 
 class VDevPath(object):
-    def __init__(self, router=None, manager=None):
+    def __init__(self, router=None, core=None):
         if not os.path.exists(FS_PATH):
             os.mkdir(FS_PATH)
         name = self.__class__.__name__.lower()
         self._label = DOMAIN.get(name, '')
         if not router:
             from local import VDevLocalFile
-            self.file = VDevLocalFile()
+            self._file = VDevLocalFile()
         else:
             from remote import VDevRemoteFile
-            self.file = VDevRemoteFile(router)
-        self.router = router
-        self.manager = manager
+            self._file = VDevRemoteFile(router)
+        self._core = core
     
     def _undefined_op(self):
         log_err(self, 'undefined operation')
@@ -110,6 +109,15 @@ class VDevPath(object):
     def release(self, uid, name, fh):
         os.close(fh)
     
+    def get_mtime(self, uid, path):
+        return self._file.mtime(uid, path)
+    
+    def load_file(self, uid, src, dest):
+        return self._file.load(uid, src, dest)
+    
+    def save_file(self, uid, src, dest):
+        return self._file.save(uid, src, dest)
+    
     def parent(self, name):
         tmp = name.split('/')
         if len(tmp) >= 2:
@@ -142,10 +150,10 @@ class VDevPath(object):
     def check_path(self, uid, name='', parent=''):
         path = self.get_path(uid, name, parent)
         parent = os.path.dirname(path)
-        if not self.file.exists(uid, parent):
-            self.file.mkdir(uid, parent)
-        if not self.file.exists(uid, path):
-            self.file.touch(uid, path)
+        if not self._file.exists(uid, parent):
+            self._file.mkdir(uid, parent)
+        if not self._file.exists(uid, path):
+            self._file.touch(uid, path)
     
     def symlink(self, uid, name):
         child = self.child(name)
@@ -154,22 +162,22 @@ class VDevPath(object):
             log_err(self, 'failed to create symlink')
             raise FuseOSError(EINVAL) 
         path = os.path.join(self.get_path(uid, parent), child)
-        self.file.touch(uid, path)   
+        self._file.touch(uid, path)   
     
     def remove(self, uid, name):
         path = self.get_path(uid, name)
-        self.file.remove(uid, path)
+        self._file.remove(uid, path)
     
     def invalidate(self, uid, name):
         path = self.get_path(uid, name)
-        self.file.remove(uid, path)
+        self._file.remove(uid, path)
     
     def truncate(self, uid, name, length):
         pass
     
     def lsdir(self, uid, name):
         path = self.get_path(uid, name)
-        return self.file.lsdir(uid, path)
+        return self._file.lsdir(uid, path)
     
     def lslink(self, uid, name):
         child = self.child(name)
@@ -179,12 +187,12 @@ class VDevPath(object):
         st = None
         path = self.get_path(uid, name)
         
-        if self.file.exists(uid, path):
-            st = self.file.stat(uid, path)
+        if self._file.exists(uid, path):
+            st = self._file.stat(uid, path)
         elif self.can_invalidate():
             path = self.path2temp(path)
             try:
-                st = self.file.stat(uid, path)
+                st = self._file.stat(uid, path)
             except:
                 raise FuseOSError(ENOENT)
         

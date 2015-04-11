@@ -29,21 +29,21 @@ class User(VDevAuthTask):
         return uuid.uuid4().hex
     
     def login(self, uid, node, networks, mode):
-        token = self.query.token.get(uid)
+        token = self._query.token.get(uid)
         if not token:
-            self.query.token.put(uid, self._gen_token())
-            token = self.query.token.get(uid)
+            self._query.token.put(uid, self._gen_token())
+            token = self._query.token.get(uid)
             if not token:
                 log_err(self, 'no token')
                 raise Exception(log_get(self, 'no token'))
         addr = dhcp.allocate(uid, node, networks)
-        self.query.node.remove(uid, (node,))
-        self.query.node.put(uid, (node, addr, str(mode)))
+        self._query.node.remove(uid, (node,))
+        self._query.node.put(uid, (node, addr, str(mode)))
         return {'uid':uid, 'token':token, 'addr':addr}
     
     def logout(self, uid, node, addr):
-        self.query.node.remove(uid, (node,))
-        self.query.member.remove(uid, ('', node))
+        self._query.node.remove(uid, (node,))
+        self._query.member.remove(uid, ('', node))
         dhcp.free(addr)
         return True
     

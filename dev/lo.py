@@ -70,17 +70,17 @@ class VDevLo(VDevUDI):
         self._listener = Thread(target=self._listen)
         self._listener.start()
     
-    def __init__(self, manager):
-        VDevUDI.__init__(self, manager)
+    def __init__(self, uid, core):
+        VDevUDI.__init__(self, uid, core)
         self._lo = {}
         self._init_sock()
         self._init_listener()
-        self._loader = VDevLoader(manager.uid)
+        self._loader = VDevLoader(self._uid)
         self._active = False
         self._local = True
     
     def _get_device(self, name):
-        mode = self.manager.synchronizer.get_mode(name)
+        mode = self._core.get_mode(name)
         if not (mode & MODE_LO):
             return
         prof = self._loader.get_profile(name)
@@ -93,7 +93,7 @@ class VDevLo(VDevUDI):
         if self._active:
             return device_list
         self._active = True
-        uid = self.manager.uid
+        uid = self._uid
         names = load(uid, sort=True)
         if not names:
             return device_list

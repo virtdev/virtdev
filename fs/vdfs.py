@@ -37,7 +37,7 @@ from fuse import FuseOSError, Operations
 from lib.util import DIR_MODE, named_lock, load_driver
 from lib.mode import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK
 from attr import Attr, ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ
-from lib.op import OP_GET, OP_LOAD, OP_POLL, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
+from lib.op import OP_POLL, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
 
 _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
@@ -60,10 +60,10 @@ class VDevFS(Operations):
         if not query:
             self._shadow = True
             manager = VDevManager()
-            self._edge = Edge(manager=manager)
-            self._attr = Attr(manager=manager)
-            self._vertex = Vertex(manager=manager)
-            self._data = Data(self._vertex, self._edge, self._attr, watcher=watcher, manager=manager)
+            self._edge = Edge(core=manager.core)
+            self._attr = Attr(core=manager.core)
+            self._vertex = Vertex(core=manager.core)
+            self._data = Data(self._vertex, self._edge, self._attr, watcher=watcher, core=manager.core)
             
             from lib.link import VDevUplink
             self._link = VDevUplink(manager)
@@ -83,7 +83,7 @@ class VDevFS(Operations):
             self._query.link = link
             self._link = link
         
-        self.manager = manager
+        self._manager = manager
         self._lock = VDevLock()
         if manager:
             manager.start()
@@ -225,7 +225,7 @@ class VDevFS(Operations):
     def _initialize(self, uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ):
         lo = mode & MODE_LO
         if lo:
-            if not typ or (self._shadow and not self.manager.lo):
+            if not typ or (self._shadow and not self._manager.lo):
                 log_err(self, 'failed to mount device')
                 raise FuseOSError(EINVAL)
         
@@ -277,7 +277,7 @@ class VDevFS(Operations):
                     raise FuseOSError(EINVAL)
         else:
             if lo:
-                self.manager.lo.register(get_device(typ, name), init=False)
+                self._manager.lo.register(get_device(typ, name), init=False)
     
     def _mount_device(self, uid, name, mode, vertex, parent, freq=None, prof=None, hndl=None, filt=None, disp=None, typ=None):
         if not name:
@@ -468,7 +468,7 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to join, no object')
             raise FuseOSError(EINVAL)
-        self.manager.guest.join(name, target)
+        self._manager.guest.join(name, target)
     
     def _accept(self, path, target):
         if not self._shadow:
@@ -477,7 +477,7 @@ class VDevFS(Operations):
         if not obj:
             log_err(self, 'failed to accept, no object')
             raise FuseOSError(EINVAL)
-        self.manager.guest.accept(name, target)
+        self._manager.guest.accept(name, target)
     
     def setxattr(self, path, name, value, options, position=0):
         if name == OP_INVALIDATE:
@@ -541,18 +541,6 @@ class VDevFS(Operations):
                 self._set_event(uid, event)
         return event
     
-    def _load(self, path):
-        obj, _, name = self._parse(path)
-        if not obj or not obj.can_load():
-            log_err(self, 'failed to load')
-            raise FuseOSError(EINVAL)
-        if self.manager:
-            for device in self.manager:
-                d = device.find(name)
-                if d:
-                    return d.proc(name, OP_GET)
-        return ''
-    
     @named_lock
     def _get_result(self, path, op):
         if self._results.has_key(op):
@@ -570,9 +558,7 @@ class VDevFS(Operations):
             self._results.update({op:{path:result}})
     
     def getxattr(self, path, name, position=0):
-        if name == OP_LOAD:
-            op = 'load'
-        elif name == OP_POLL:
+        if name == OP_POLL:
             op = 'poll'
         elif name.startswith('scan:'):
             op = 'scan'
@@ -585,9 +571,7 @@ class VDevFS(Operations):
         res = self._get_result(path, op)
         if res:
             return res
-        if op == 'load':
-            res = self._load(path)
-        elif op == 'poll':
+        if op == 'poll':
             res = self._poll(path)
         elif op == 'scan':
             res = self._scan(path, name[len('scan:'):])

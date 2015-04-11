@@ -35,13 +35,13 @@ MOUNT_RESET_INTERVAL = 0.1 # sec
 DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
             
 class VDevUDI(object):
-    def __init__(self, manager):
-        self.manager = manager
-        self._uid = manager.uid
+    def __init__(self, uid, core):
         self._thread = None
         self._local = False
         self._lock = Lock()
         self._devices = {}
+        self._core = core
+        self._uid =uid
     
     def scan(self):
         pass
@@ -95,10 +95,10 @@ class VDevUDI(object):
                 child = self.get_name(parent, i)
                 devices.update({child:dev})
         except:
-            log_err(self, 'failed')
+            log_err(self, 'invalid info')
             return
         for i in devices:
-            devices[i].mount(self.manager, i)
+            devices[i].mount(self._uid, i, self._core)
         return devices
     
     def _mount(self, sock, device, init):
@@ -124,7 +124,7 @@ class VDevUDI(object):
             if not info:
                 return
             parent = self._create_device(info)
-        parent.mount(self.manager, name, sock=sock, init=init)
+        parent.mount(self._uid, name, self._core, sock=sock, init=init)
         self._devices.update({name:parent})
         return name
     
