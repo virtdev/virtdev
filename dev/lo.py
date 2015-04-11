@@ -74,10 +74,10 @@ class VDevLo(VDevUDI):
         VDevUDI.__init__(self, uid, core)
         self._lo = {}
         self._init_sock()
-        self._init_listener()
-        self._loader = VDevLoader(self._uid)
-        self._active = False
         self._local = True
+        self._active = False
+        self._init_listener()
+        self._loader = VDevLoader(uid)
     
     def _get_device(self, name):
         mode = self._core.get_mode(name)
@@ -93,8 +93,7 @@ class VDevLo(VDevUDI):
         if self._active:
             return device_list
         self._active = True
-        uid = self._uid
-        names = load(uid, sort=True)
+        names = load(self._uid, sort=True)
         if not names:
             return device_list
         for name in names:
