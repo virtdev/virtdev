@@ -17,9 +17,9 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from auth.task import VDevAuthTask
+from srv.service import Service
 
-class Token(VDevAuthTask):
+class Token(Service):
     def get(self, uid, name):
         device = self._query.device.get(name)
         if device:

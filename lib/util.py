@@ -18,6 +18,7 @@
 #      MA 02110-1301, USA.
 
 import os
+import ast
 import imp
 import uuid
 import xattr
@@ -33,29 +34,32 @@ UID_SIZE = 32
 TOKEN_SIZE = 32
 PASSWORD_SIZE = 32
 USERNAME_SIZE = UID_SIZE
-DEVNULL = open(os.devnull, 'wb')
 
+DEFAULT_NAME = '__anon__'
 DEFAULT_UID = '0' * UID_SIZE
 DEFAULT_TOKEN = '1' * TOKEN_SIZE
-DEFAULT_NAME = '__anon__'
+INFO_FIELDS = ['mode', 'type', 'freq', 'range']
 
 DIR_MODE = 0o755
 FILE_MODE = 0o644
 
-_default_addr = None
+DEVNULL = open(os.devnull, 'wb')
+DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
+
+_ifaddr = None
 
 def zmqaddr(addr, port):
     return 'tcp://%s:%d' % (str(addr), int(port))
 
 def ifaddr(ifname=IFNAME):
-    global _default_addr
-    if ifname == IFNAME and _default_addr:
-        return _default_addr
+    global _ifaddr
+    if ifname == IFNAME and _ifaddr:
+        return _ifaddr
     else:
         iface = ifaddresses(ifname)[AF_INET][0]
         addr = iface['addr']
         if ifname == IFNAME:
-            _default_addr = addr
+            _ifaddr = addr
         return addr
 
 def hash_name(name):
@@ -91,12 +95,12 @@ def netaddresses(mask=False):
     else:
         return map(maskaddr, ifaces())
 
-def service_start(*args):
-    for srv in args:
+def srv_start(srv_list):
+    for srv in srv_list:
         srv.start()
 
-def service_join(*args):
-    for srv in args:
+def srv_join(srv_list):
+    for srv in srv_list:
         srv.join()
 
 def str2tuple(s):
@@ -112,7 +116,7 @@ def send_pkt(sock, buf):
     if buf:
         sock.sendall(buf)
 
-def _recv(sock, length):
+def recv_bytes(sock, length):
     ret = []
     while length > 0:
         buf = sock.recv(min(length, 2048))
@@ -123,11 +127,11 @@ def _recv(sock, length):
     return ''.join(ret)
 
 def recv_pkt(sock):
-    head = _recv(sock, 4)
+    head = recv_bytes(sock, 4)
     if not head:
         return ''
     length = struct.unpack('I', head)[0]
-    return _recv(sock, length)
+    return recv_bytes(sock, length)
 
 def close_port(port):
     cmd = 'lsof -i:%d -Fp | cut -c2- | xargs --no-run-if-empty kill -9' % port
@@ -193,14 +197,33 @@ def update_device(query, uid, node, addr, name):
     query.member.remove(uid, (name,))
     query.member.put(uid, (name, node))
 
-DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
-
-def load_driver(typ, name=None, sock=None):
+def load_driver(typ, name=None):
     try:
         module = imp.load_source(typ, os.path.join(DRIVER_PATH, '%s.py' % typ.lower()))
         if module and hasattr(module, typ):
             driver = getattr(module, typ)
             if driver:
-                return driver(name, sock)
+                return driver(name=name)
+    except:
+        pass
+    
+def info(typ, mode=0, freq=None, rng=None):
+    ret = {'type':typ, 'mode':mode}
+    if freq:
+        ret.update({'freq':freq})
+    if range:
+        ret.update({'range':rng})
+    return ret
+
+def check_info(buf):
+    try:
+        info = ast.literal_eval(buf)
+        if type(info) != dict:
+            return
+        for i in info:
+            for j in info[i].keys():
+                if j not in INFO_FIELDS:
+                    return
+        return info
     except:
         pass

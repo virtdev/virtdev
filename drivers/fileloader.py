@@ -18,24 +18,24 @@
 #      MA 02110-1301, USA.
 
 import os
+from lib import mode
+from dev.driver import Driver
 from base64 import encodestring
-from dev.driver import VDevDriver
-from lib.mode import MODE_OUT, MODE_VISI, MODE_POLL, MODE_SWITCH
 
 PATH_FL = '/opt/fileloader'
 
-class FileLoader(VDevDriver):
-    def __init__(self, name=None, sock=None):
-        VDevDriver.__init__(self, name, sock)
-        if name:
+class FileLoader(Driver):
+    def setup(self):
+        if self.get_name():
             path = self._get_path()
             if not os.path.exists(path):
                 os.makedirs(path, 0o755)
         self._files = None
         self._active = False
+        self.set(mode=mode.OVP | mode.MODE_SWITCH, freq=1)
     
     def _get_path(self):
-        return os.path.join(PATH_FL, self._name)
+        return os.path.join(PATH_FL, self.get_name())
     
     def _load(self):
         path = self._get_path()
@@ -45,9 +45,6 @@ class FileLoader(VDevDriver):
                 buf = f.read()
             if buf:
                 yield {'Name':name, 'File':encodestring(buf)}
-    
-    def info(self):
-        return {'mode': MODE_OUT | MODE_VISI | MODE_POLL | MODE_SWITCH, 'freq':1}
     
     def get(self):
         if not self._active:

@@ -22,9 +22,9 @@ from random import randint
 from util import hash_name
 from log import log_err, log_get
 
-WAIT_TIME = 0.01
+WAIT_TIME = 0.01 # seconds
 
-class VDevPool(object):
+class Pool(object):
     def __init__(self):
         self._count = 0
         self._queues = []

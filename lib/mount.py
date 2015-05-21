@@ -22,8 +22,8 @@ import time
 import tunnel
 from lib.log import log
 from subprocess import call
-from lib.util import DEVNULL, service_start, service_join, close_port
-from conf.virtdev import LO, AUTH_WORKER, AUTH_BROKER, CACHE_SERVICE, EVENT_SERVICE, SUPERNODE_SERVICE, FILE_SERVICE, FILE_SHADOW, MOUNTPOINT, RUN_PATH, LIB_PATH
+from lib.util import DEVNULL, srv_start, srv_join, close_port
+from conf.virtdev import LO, FS, WORKER, BROKER, CACHE_SERVER, EVENT_SERVER, SUPERNODE, SHADOW, MOUNTPOINT, RUN_PATH, LIB_PATH
 
 LOG = True
 
@@ -34,7 +34,7 @@ def _log(text):
 def _clean():
     ports = []
     tunnel.clean()
-    if CACHE_SERVICE:
+    if CACHE_SERVER:
         from conf.virtdev import CACHE_PORTS
         for i in CACHE_PORTS:
             ports.append(CACHE_PORTS[i])
@@ -43,21 +43,21 @@ def _clean():
         from conf.virtdev import LO_PORT
         ports.append(LO_PORT)
     
-    if SUPERNODE_SERVICE:
+    if SUPERNODE:
         from conf.virtdev import SUPERNODE_PORT
         ports.append(SUPERNODE_PORT)
     
-    if AUTH_BROKER:
-        from conf.virtdev import AUTH_PORT, BROKER_PORT
-        ports.append(AUTH_PORT)
+    if BROKER:
+        from conf.virtdev import VDEV_PORT, BROKER_PORT
+        ports.append(VDEV_PORT)
         ports.append(BROKER_PORT)
     
-    if EVENT_SERVICE:
+    if EVENT_SERVER:
         from conf.virtdev import EVENT_RECEIVER_PORT, EVENT_COLLECTOR_PORT
         ports.append(EVENT_RECEIVER_PORT)
         ports.append(EVENT_COLLECTOR_PORT)
     
-    if FILE_SERVICE:
+    if FS:
         from conf.virtdev import CONDUCTOR_PORT, DAEMON_PORT, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
         ports.append(DAEMON_PORT)
         ports.append(FILTER_PORT)
@@ -70,7 +70,7 @@ def _clean():
 
 def _mount(query):
     from fuse import FUSE
-    from fs.vdfs import VDevFS
+    from fs.vdfs import VDFS
     
     call(['umount', '-lf', MOUNTPOINT], stderr=DEVNULL, stdout=DEVNULL)
     time.sleep(1)
@@ -84,33 +84,33 @@ def _mount(query):
     if not os.path.exists(LIB_PATH):
         os.makedirs(LIB_PATH, 0o755)
     
-    _log('mount vdfs ...')
-    FUSE(VDevFS(query), MOUNTPOINT, foreground=True)
+    _log('mounting vdfs ..')
+    FUSE(VDFS(query), MOUNTPOINT, foreground=True)
 
 def mount():
     _clean()
     query = None
-    services = []
-    if AUTH_WORKER or (FILE_SERVICE and not FILE_SHADOW):
-        from db.query import VDevQuery
-        query = VDevQuery()
+    srv = []
+    if WORKER or (FS and not SHADOW):
+        from db.query import Query
+        query = Query()
     
-    if AUTH_BROKER or AUTH_WORKER:
-        from auth.authd import VDevAuthD
-        services.append(VDevAuthD(query))
+    if BROKER or WORKER:
+        from srv.server import Server
+        srv.append(Server(query))
     
-    if CACHE_SERVICE:
-        from db.cached import VDevCacheD
-        services.append(VDevCacheD())
+    if CACHE_SERVER:
+        from db.cached import CacheD
+        srv.append(CacheD())
     
-    if SUPERNODE_SERVICE:
-        from supernode import VDevSupernode
-        services.append(VDevSupernode())
+    if SUPERNODE:
+        from supernode import Supernode
+        srv.append(Supernode())
     
-    if services:
-        service_start(*services)
+    if srv:
+        srv_start(srv)
     
-    if FILE_SERVICE:
+    if FS:
         _mount(query)
-    elif services:
-        service_join(*services)
+    elif srv:
+        srv_join(srv)

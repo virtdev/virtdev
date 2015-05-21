@@ -26,7 +26,7 @@ from inotify.watcher import AutoWatcher
 
 WATCHER_MAX = 4 # WATCHER_MAX < 65536
 
-class VDevWatcher(Thread):
+class WatcherItem(Thread):
     def __init__(self):
         self._results = {}
         Thread.__init__(self)
@@ -62,11 +62,11 @@ class VDevWatcher(Thread):
             except(OSError, select.error) as EINTR:
                 continue
 
-class VDevWatcherPool(object):
+class Watcher(object):
     def __init__(self):
         self._watchers = []
         for _ in range(WATCHER_MAX):
-            w = VDevWatcher()
+            w = WatcherItem()
             self._watchers.append(w)
             w.start()
     

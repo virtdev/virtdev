@@ -18,29 +18,17 @@
 #      MA 02110-1301, USA.
 
 import os
+import lo
 import bluetooth
-from udi import VDevUDI
-from lib.util import get_name
-from conf.virtdev import LIB_PATH
+from dev.udi import UDI
+from lib.bt import BluetoothSocket
+from conf.virtdev import LIB_PATH, LO
+from drivers.controller import Controller
 
-PORT = 1
 PIN = '1234'
 DEVICE_MAX = 32
 
-class VDevBT(VDevUDI):
-    def _connect(self, device):
-        sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-        sock.connect((device, PORT))
-        return sock
-    
-    def _prepare(self, device):
-        os.system('bluez-test-device remove %s' % device)
-        os.system('echo %s | bluez-simple-agent hci0 %s' % (PIN, device))
-    
-    def connect(self, device):
-        self._prepare(device)
-        return self._connect(device)
-    
+class Bluetooth(UDI):    
     def _get_devices(self):
         cnt = 0
         device_list = []
@@ -58,9 +46,6 @@ class VDevBT(VDevUDI):
                         break
         return device_list
     
-    def get_name(self, parent, child=None):
-        return get_name(self._uid, parent, child)
-    
     def scan(self):
         device_list = []
         devices = self._get_devices()
@@ -73,3 +58,15 @@ class VDevBT(VDevUDI):
                     device_list.append(i)
         return device_list
     
+    def _init(self, device):
+        os.system('bluez-test-device remove %s' % device)
+        os.system('echo %s | bluez-simple-agent hci0 %s' % (PIN, device))
+    
+    def connect(self, device):
+        self._init(device)
+        if LO: 
+            typ = str(Controller())
+            sock = lo.connect(lo.device_name(typ, device))
+            if sock:
+                return (sock, True)
+        return (BluetoothSocket(device), False)

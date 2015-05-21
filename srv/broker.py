@@ -21,20 +21,57 @@
 #      which is provided by Daniel Lundin <dln(at)eintr(dot)org>
 
 import time
-from ppp import *
 from lib import util
+from lib.ppp import *
 from lib.log import log_err
 from threading import Thread
-from queue import VDevAuthItem
-from queue import VDevAuthQueue
+from collections import OrderedDict
 from zmq import Poller, Context, ROUTER, POLLIN
-from conf.virtdev import AUTH_PORT, BROKER_PORT, IFBACK
+from conf.virtdev import VDEV_PORT, BROKER_PORT, IFBACK
 
-class VDevAuthBroker(Thread):
+class BrokerItem(object):
+    def __init__(self, identity):
+        self._identity = identity
+        self._time = time.time() + PPP_HEARTBEAT_INTERVAL * PPP_HEARTBEAT_LIVENESS
+    
+    @property
+    def identity(self):
+        return self._identity
+    
+    @property
+    def time(self):
+        return self._time
+
+class BrokerQueue(object):
+    def __init__(self):
+        self._queue = OrderedDict()
+    
+    def add(self, item):
+        self._queue.pop(item.identity, None)
+        self._queue[item.identity] = item
+    
+    def pop(self):
+        return self._queue.popitem(False)[0]
+    
+    def purge(self):
+        t = time.time()
+        expired = []
+        for identity, item in self._queue.iteritems():
+            if t < item.time:
+                break
+            expired.append(identity)
+        for identity in expired:
+            self._queue.pop(identity, None)
+    
+    @property
+    def queue(self):
+        return self._queue
+
+class Broker(Thread):
     def _init_frontend(self):
         addr = util.ifaddr()
         self._frontend = self._context.socket(ROUTER)
-        self._frontend.bind(util.zmqaddr(addr, AUTH_PORT))
+        self._frontend.bind(util.zmqaddr(addr, VDEV_PORT))
     
     def _init_backend(self):
         addr = util.ifaddr(IFBACK)
@@ -56,7 +93,7 @@ class VDevAuthBroker(Thread):
     
     def __init__(self):
         Thread.__init__(self)
-        self._queue = VDevAuthQueue()
+        self._queue = BrokerQueue()
         self._init_context()
         self._active = True
     
@@ -73,7 +110,7 @@ class VDevAuthBroker(Thread):
                 if not frames:
                     break
                 identity = frames[0]
-                self._queue.add(VDevAuthItem(identity))
+                self._queue.add(BrokerItem(identity))
                 msg = frames[1:]
                 if len(msg) == 1:
                     if msg[0] not in (PPP_READY, PPP_HEARTBEAT):

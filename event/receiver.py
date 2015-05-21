@@ -19,29 +19,29 @@
 
 import zerorpc
 from lib.log import log_err
-from lib.lock import VDevLock
+from lib.lock import NamedLock
 from threading import Thread, Event
 from lib.util import zmqaddr, ifaddr, named_lock
 from conf.virtdev import EVENT_COLLECTOR_PORT, EVENT_RECEIVER_PORT
 
-WAIT_TIME = 3600
+WAIT_TIME = 3600 # seconds
 
-class VDevEventReceiverD(object):
+class Receiver(object):
     def __init__(self, receiver):
         self._receiver = receiver
     
     def put(self, uid, events):
         self._receiver.put(uid, events)
 
-class VDevEventReceiver(Thread):
+class EventReceiver(Thread):
     def __init__(self, router):
         Thread.__init__(self)
         self._queue = {}
         self._events = {}
         self._results = {}
         self._router = router
-        self._lock = VDevLock()
-        self._recvd = VDevEventReceiverD(self)
+        self._lock = NamedLock()
+        self._recv = Receiver(self)
         self.start()
     
     @named_lock
@@ -109,7 +109,7 @@ class VDevEventReceiver(Thread):
         self._put_result(uid, buf)
     
     def run(self):
-        srv = zerorpc.Server(self._recvd)
+        srv = zerorpc.Server(self._recv)
         srv.bind(zmqaddr(ifaddr(), EVENT_RECEIVER_PORT))
         srv.run()
     

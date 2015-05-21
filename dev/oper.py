@@ -27,7 +27,7 @@ from lib.op import OP_MOUNT, OP_INVALIDATE
 
 RETRY_MAX = 2
 
-class VDevOperation(object):
+class Operation(object):
     def __init__(self, manager):
         self._manager = manager
         self.uid = manager.uid

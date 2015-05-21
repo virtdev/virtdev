@@ -17,17 +17,16 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import sandbox
+import proc
 from lib.log import log_err
-from loader import VDevLoader
-from base64 import encodestring
-from sandbox import SANDBOX_PUT
-from conf.virtdev import FILTER_PORT
+from lib.loader import Loader
+from conf.virtdev import PROC_ADDR, FILTER_PORT
 
-class VDevFilter(object):
-    def __init__(self, uid):
+class Filter(object):
+    def __init__(self, uid, addr=PROC_ADDR):
         self._filters = {}
-        self._loader = VDevLoader(uid)
+        self._loader = Loader(uid)
+        self._addr = (addr, FILTER_PORT)
     
     def _get_code(self, name):
         buf = self._filters.get(name)
@@ -55,7 +54,7 @@ class VDevFilter(object):
         try:
             code = self._get_code(name)
             if code:
-                return sandbox.request(FILTER_PORT, SANDBOX_PUT, code=encodestring(code), args=buf)
+                return proc.put(self._addr, code=code, args=buf)
         except:
             log_err(self, 'failed to put')
     

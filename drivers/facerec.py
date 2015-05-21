@@ -21,17 +21,15 @@ import cv2
 import numpy
 from PIL import Image
 from lib.log import log_err
+from dev.driver import Driver
 from StringIO import StringIO
 from base64 import decodestring
-from dev.driver import VDevDriver
-from lib.mode import MODE_IN, MODE_VISI
 
 RESIZE = False
 PATH_CASCADE = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml'
 
-class FaceRec(VDevDriver):
-    def __init__(self, name=None, sock=None):
-        VDevDriver.__init__(self, name, sock)
+class FaceRec(Driver):
+    def setup(self):
         self._cascade = cv2.CascadeClassifier(PATH_CASCADE)
     
     def _recognize(self, image):
@@ -52,9 +50,6 @@ class FaceRec(VDevDriver):
                     return True
         except:
             log_err(self, 'failed to recognize')
-    
-    def info(self):
-        return {'mode':MODE_IN | MODE_VISI}
     
     def put(self, buf):
         args = self.get_args(buf)

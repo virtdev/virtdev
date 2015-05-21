@@ -23,30 +23,30 @@
 import time
 import uuid
 import random
-from ppp import *
+from lib.ppp import *
 from random import randint
-from tasks.user import User
-from tasks.node import Node
 from threading import Thread
-from tasks.token import Token
-from tasks.guest import Guest
-from tasks.device import Device
+from services.user import User
+from services.node import Node
+from services.token import Token
+from services.guest import Guest
+from services.device import Device
 from lib.crypto import pack, unpack
 from lib.log import log_err, log_get
 from multiprocessing import TimeoutError
 from multiprocessing.pool import ThreadPool
-from conf.virtdev import AUTH_BROKERS, BROKER_PORT
+from conf.virtdev import BROKERS, BROKER_PORT
 from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
 
 POOL_SIZE = 64
-SLEEP_TIME = 10 # Seconds
-TASK_TIMEOUT = 60 # Seconds
+SLEEP_TIME = 10 # seconds
+TASK_TIMEOUT = 60 # seconds
 
-class VDevAuthWorker(Thread):
+class Worker(Thread):
     def _get_broker(self):
-        length = len(AUTH_BROKERS)
-        return AUTH_BROKERS[randint(0, length - 1)]
+        length = len(BROKERS)
+        return BROKERS[randint(0, length - 1)]
     
     def _init_tasks(self, query):
         self._tasks = {}

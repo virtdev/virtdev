@@ -23,12 +23,12 @@ import librsync
 from lib.log import log_err
 from StringIO import StringIO
 from lib.mode import MODE_LINK
-from auth.task import VDevAuthTask
+from srv.service import Service
 from conf.virtdev import MOUNTPOINT
 from base64 import encodestring, decodestring
 from lib.util import mount_device, update_device
 
-class Device(VDevAuthTask):
+class Device(Service):
     def get(self, uid, name):
         device = self._query.device.get(name)
         if device:

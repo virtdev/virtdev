@@ -26,7 +26,7 @@ POS_LOCK = 1
 LOCK_SIZE = 2
 LOCK_MAX = 65536
 
-class VDevLock(object):
+class NamedLock(object):
     def __init__(self):
         self._count = 0
         self._locks = {}

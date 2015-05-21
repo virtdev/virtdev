@@ -1,4 +1,4 @@
-#      mode.py
+#      usb.py
 #      
 #      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,18 +17,33 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-MODE_POLL = 0x00000010
-MODE_TRIG = 0x00000020
-MODE_SYNC = 0x00000040
-MODE_VISI = 0x00000080
-MODE_VIRT = 0x00000100
-MODE_SWITCH = 0x00000200
-MODE_IN   = 0x00000400
-MODE_OUT  = 0x00000800
-MODE_REFLECT = 0x00001000
-MODE_LO = 0x00002000
-MODE_LINK = 0x00004000
-MODE_PASSIVE =  0x00008000
+import os
+import lo
+from dev.udi import UDI
+from conf.virtdev import LO
+from lib.usb import USBSocket
+from drivers.controller import Controller
 
-IV = MODE_IN | MODE_VISI
-OVP = MODE_OUT | MODE_VISI | MODE_POLL
+PATH_DEV = '/dev'
+
+class USBSerial(UDI):
+    def setup(self):
+        self._usb = {}
+    
+    def scan(self):
+        devices = filter(lambda x:x.startswith('ttyACM'), os.listdir(PATH_DEV))
+        if devices:
+            names = map(lambda x: os.path.join(PATH_DEV, x), devices)
+            return filter(lambda x: x not in self._usb, names)
+    
+    def connect(self, device):
+        ret = None
+        if LO: 
+            typ = str(Controller())
+            sock = lo.connect(lo.device_name(typ, device))
+            if sock:
+                ret = (sock, True)
+        if not ret:
+            ret = (USBSocket(device), False)
+        self._usb.update({device:None})
+        return ret

@@ -20,36 +20,32 @@
 import os
 import shelve
 from datetime import datetime
-from dev.driver import VDevDriver
-from lib.mode import MODE_IN, MODE_VISI
+from dev.driver import Driver
 
-DEBUG_TIMER = False
+PRINT = False
 PATH_TIMER = '/opt/timer'
 
 def get_path(name):
     return os.path.join(PATH_TIMER, name) 
 
-class Timer(VDevDriver):
-    def __init__(self, name=None, sock=None):
-        VDevDriver.__init__(self, name, sock)
+class Timer(Driver):
+    def setup(self):
+        name = self.get_name()
         if name:
             path = get_path(name)
             if not os.path.exists(path):
                 os.makedirs(path, 0o755)
     
     def _create(self, name):
-        path = os.path.join(get_path(self._name), name)
+        path = os.path.join(get_path(self.get_name()), name)
         d = shelve.open(path)
         try:
             d['start'] =  str(datetime.utcnow())
-            if DEBUG_TIMER:
+            if PRINT:
                 print('Timer: name=%s, time=%s' % (name, d['start']))
             return True
         finally:
             d.close()
-    
-    def info(self):
-        return {'mode': MODE_IN | MODE_VISI}
     
     def put(self, buf):
         args = self.get_args(buf)
@@ -57,6 +53,6 @@ class Timer(VDevDriver):
             name = args.get('Name')
             if name:
                 if self._create(name):
-                    args.update({'Timer':self._name})
+                    args.update({'Timer':self.get_name()})
                     return args
     

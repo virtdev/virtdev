@@ -19,14 +19,13 @@
 
 import zbar
 import Image
+from dev.driver import Driver
 from StringIO import StringIO
 from base64 import decodestring
-from dev.driver import VDevDriver
-from lib.mode import MODE_IN, MODE_VISI
 
-DEBUG_QRDECODER = False
+PRINT = False
 
-class QRDecoder(VDevDriver):    
+class QRDecoder(Driver):    
     def _decode(self, image):
         buf = decodestring(image)
         if buf:
@@ -42,9 +41,6 @@ class QRDecoder(VDevDriver):
                 if str(symbol.type) == 'QRCODE':
                     return str(symbol.data).lower()
     
-    def info(self):
-        return {'mode': MODE_IN | MODE_VISI}
-    
     def put(self, buf):
         args = self.get_args(buf)
         if args and type(args) == dict:
@@ -52,7 +48,7 @@ class QRDecoder(VDevDriver):
             if image:
                 url = self._decode(image)
                 if url:
-                    if DEBUG_QRDECODER:
+                    if PRINT:
                         print('QRDecoder: url=%s' % url)
                     ret = {'URL':url}
                     name = args.get('Name')

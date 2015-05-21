@@ -22,26 +22,26 @@ import ast
 import req
 import time
 from lib import stream
+from lib.loader import Loader
 from datetime import datetime
-from proc.loader import VDevLoader
 from conf.virtdev import MOUNTPOINT
 from lib.util import lock, mount_device
 from threading import Thread, Event, Lock
 from lib.log import log, log_get, log_err
 from lib.op import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
-from lib.mode import MODE_POLL, MODE_VIRT, MODE_SWITCH, MODE_REFLECT, MODE_SYNC, MODE_TRIG
+from lib.mode import MODE_POLL, MODE_VIRT, MODE_SWITCH, MODE_REFLECT, MODE_SYNC, MODE_TRIG, MODE_PASSIVE
 
 LOG = True
 FREQ_MAX = 100
 FREQ_MIN = 0.01
 OUTPUT_MAX = 1 << 22
 
-class VDevUDO(object):
-    def __init__(self, children={}):
+class UDO(object):
+    def __init__(self, children={}, local=False):
         self._buf = {}
         self._event = {}
         self._lock = Lock()
-        self._local = False
+        self._local = local
         self._children = children
         self._thread_listen = None
         self._thread_poll = None
@@ -70,36 +70,35 @@ class VDevUDO(object):
             buf = stream.get(self._sock, self._local)
             if len(buf) > OUTPUT_MAX:
                 return empty
-        
+            
             if not buf and self._local:
                 return (self, '')
-        
+            
             output = ast.literal_eval(buf)
             if type(output) != dict:
                 log_err(self, 'failed to read, invalid type, name=%s' % self.d_name)
                 return empty
-        
+            
             if len(output) != 1:
                 log_err(self, 'failed to read, invalid output, name=%s' % self.d_name)
                 return empty
-        
-            if not output.has_key('None'):
-                index = output.keys()[0]
+            
+            device = None
+            index = output.keys()[0]
+            output = output[index]
+            if self._children:
                 for i in self._children:
                     if self._children[i].d_index == int(index):
                         device = self._children[i]
                         break
-                if not device:
-                    log_err(self, 'failed to read, invalid index, name=%s' % self.d_name)
-                    return empty
-                output = output[index]
-            else:
+            elif 0 == index:
                 device = self
-                output = output['None']
+            if not device:
+                log_err(self, 'failed to read, invalid index, name=%s' % self.d_name)
+                return empty
             buf = device.check_output(output)
             return (device, buf)
         except:
-            log_err(self, 'failed to read, name=%s' % self.d_name)
             return empty
     
     def _write(self, buf):
@@ -110,9 +109,9 @@ class VDevUDO(object):
             stream.put(self._sock, buf, self._local)
             return True
         except:
-            log_err(self, 'failed to write')
+            pass
     
-    def _mount(self):
+    def _init(self):
         if self.d_mode & MODE_VIRT or self.d_index == None:
             mode = None
             freq = None
@@ -123,7 +122,7 @@ class VDevUDO(object):
             prof = self.d_profile
             path = self._get_path()
             if os.path.exists(path):
-                loader = VDevLoader(self._uid)
+                loader = Loader(self._uid)
                 curr_prof = loader.get_profile(self._name)
                 if curr_prof['type'] == prof['type']:
                     curr_mode = loader.get_mode(self._name)
@@ -147,23 +146,24 @@ class VDevUDO(object):
                 index = 0
             self._write(req.req_get(index))
     
+    def _can_poll(self, mode):
+        return mode & MODE_POLL or (mode & MODE_TRIG and mode & MODE_PASSIVE)
+    
     def _poll(self):
-        if not self.d_mode & MODE_POLL or not self._sock:
+        if not self._can_poll(self.d_mode) or not self.d_intv or not self._sock:
             return
-        
-        while True:
-            try:
+        try:
+            while True:
                 time.sleep(self.d_intv)
                 if self._children:
                     for i in self._children:
                         child = self._children[i]
-                        if child.d_mode & MODE_POLL:
+                        if self._can_poll(child.d_mode):
                             self._check_device(child)
-                elif self.d_mode & MODE_POLL:
+                elif self._can_poll(self.d_mode):
                     self._check_device(self)
-            except:
-                log_err(self, 'failed to poll')
-                break
+        except:
+            log_err(self, 'failed to poll')
     
     @property
     def d_name(self):
@@ -210,8 +210,8 @@ class VDevUDO(object):
         if freq > 0:
             return 1.0 / freq
         else:
-            log_err(self, 'invalid frequency')
-            raise Exception(log_get(self, 'invalid frequency'))
+            log_err(self, 'invalid d_intv')
+            raise Exception(log_get(self, 'invalid d_intv'))
     
     @property
     def d_profile(self):
@@ -237,12 +237,9 @@ class VDevUDO(object):
     
     def set_index(self, val):
         self._index = int(val)
-        
+    
     def set_mode(self, val):
         self._mode = int(val)
-    
-    def set_local(self):
-        self._local = True
     
     def find(self, name):
         if self.d_name == name:
@@ -284,9 +281,12 @@ class VDevUDO(object):
                 f.write(buf)
             return True
     
-    def _register(self, name):
+    def _add_event(self, name):
         self._buf[name] = None
         self._event[name] = Event()
+    
+    def _del_event(self, name):
+        del self._event[name]
     
     def _set(self, device, buf):
         name = device.d_name
@@ -318,13 +318,17 @@ class VDevUDO(object):
             if dev.d_mode & MODE_SWITCH:
                 self._write(req.req_close(index))
         elif op == OP_GET:
-            self._register(name)
-            self._write(req.req_get(index))
-            return self._wait(name)
+            self._add_event(name)
+            if self._write(req.req_get(index)):
+                return self._wait(name)
+            else:
+                self._del_event(name)
         elif op == OP_PUT:
-            self._register(name)
-            self._write(req.req_put(index, str(buf[buf.keys()[0]])))
-            return self._wait(name) 
+            self._add_event(name)
+            if self._write(req.req_put(index, str(buf[buf.keys()[0]]))):
+                return self._wait(name)
+            else:
+                self._del_event(name) 
         else:
             log_err(self, 'failed to process, invalid operation')
     
@@ -339,7 +343,7 @@ class VDevUDO(object):
             if self._children:
                 poll = False
                 for i in self._children:
-                    if self._children[i].d_mode & MODE_POLL:
+                    if self._can_poll(self._children[i].d_mode):
                         poll = True
                         break
                 if poll:
@@ -347,8 +351,10 @@ class VDevUDO(object):
                     self._mode |= MODE_POLL
             elif self._mode & MODE_POLL:
                 self._freq = FREQ_MIN
+            else:
+                self._freq = FREQ_MAX
         if init:
-            self._mount()
+            self._init()
         self._thread_poll = Thread(target=self._poll)
         self._thread_poll.start()
         self._thread_listen = Thread(target=self._listen)
@@ -359,8 +365,8 @@ class VDevUDO(object):
         if not self._sock:
             return
         
-        while True:
-            try:
+        try:
+            while True:
                 device, buf = self._read()
                 if not device:
                     continue
@@ -389,11 +395,6 @@ class VDevUDO(object):
                         if mode & MODE_SYNC:
                             device.update(buf)
                         self._core.dispatch(name, buf)
-            except:
-                log_err(self, 'error, device=%s' % self.d_name)
-                try:
-                    self._sock.close()
-                except:
-                    pass
-                break
-    
+        except:
+            log_err(self, 'error, device=%s' % self.d_name)
+            self._sock.close()

@@ -17,17 +17,16 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import sandbox
+import proc
 from lib.log import log_err
-from loader import VDevLoader
-from base64 import encodestring
-from sandbox import SANDBOX_PUT
-from conf.virtdev import HANDLER_PORT
+from lib.loader import Loader
+from conf.virtdev import PROC_ADDR, HANDLER_PORT
 
-class VDevHandler(object):  
-    def __init__(self, uid):
+class Handler(object):  
+    def __init__(self, uid, addr=PROC_ADDR):
         self._handlers = {}
-        self._loader = VDevLoader(uid)
+        self._loader = Loader(uid)
+        self._addr = (addr, HANDLER_PORT)
     
     def _get_code(self, name):
         buf = self._handlers.get(name)
@@ -55,7 +54,7 @@ class VDevHandler(object):
         try:
             code = self._get_code(name)
             if code:
-                return sandbox.request(HANDLER_PORT, SANDBOX_PUT, code=encodestring(code), args=buf)
+                return proc.put(self._addr, code=code, args=buf)
         except:
             log_err(self, 'failed to put')
     

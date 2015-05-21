@@ -30,7 +30,7 @@ RETRY_MAX = 3
 GROUP_MAX = 32
 HOST_MAX = 255 * 255 * 8
 
-class VDevDHCP(object):
+class DHCP(object):
     def __init__(self):
         self._counter = CounterDB()
         self._address = AddressDB()

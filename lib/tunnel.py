@@ -23,9 +23,9 @@ import crypto
 import socket
 import psutil
 from log import log
-from lock import VDevLock
-from pool import VDevPool
-from queue import VDevQueue
+from pool import Pool
+from queue import Queue
+from lock import NamedLock
 from subprocess import Popen, call
 from conf.virtdev import SUPERNODE_PORT, SUPERNODES, CONDUCTOR_PORT, RUN_PATH
 from util import DEVNULL, DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split, named_lock
@@ -41,16 +41,16 @@ DHCP_CLEAN = True
 NETMASK = '255.255.255.224'
 PATH = '/etc/dhcp/dhcpd.conf'
 
-class TunnelQueue(VDevQueue):
+class TunnelQueue(Queue):
     def __init__(self):
-        VDevQueue.__init__(self, QUEUE_LEN)
+        Queue.__init__(self, QUEUE_LEN)
         
     def _proc(self, buf):
         put(*buf)
 
 class TunnelPool(object):
     def __init__(self):
-        self._pool = VDevPool()
+        self._pool = Pool()
         for _ in range(POOL_SIZE):
             self._pool.add(TunnelQueue())
     
@@ -60,7 +60,7 @@ class TunnelPool(object):
 class Tunnel(object):
     def __init__(self):
         self._tunnels = {}
-        self._lock = VDevLock()
+        self._lock = NamedLock()
     
     def _get_path(self, addr):
         return os.path.join(RUN_PATH, 'tunnel-%s.pid' % self._get_iface(addr))

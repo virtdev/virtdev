@@ -18,13 +18,13 @@
 #      MA 02110-1301, USA.
 
 import uuid
-from lib.dhcp import VDevDHCP
-from auth.task import VDevAuthTask
+from lib.dhcp import DHCP
+from srv.service import Service
 from lib.log import log_err, log_get
 
-dhcp = VDevDHCP()
+dhcp = DHCP()
 
-class User(VDevAuthTask):
+class User(Service):
     def _gen_token(self):
         return uuid.uuid4().hex
     

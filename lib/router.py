@@ -20,7 +20,7 @@
 from lib.util import lock
 from threading import Lock
 
-class VDevRouter(object):
+class Router(object):
     def __init__(self):
         self._servers = {}
         self._lock = Lock()

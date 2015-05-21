@@ -1,4 +1,4 @@
-#      ppp.py
+#      service.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,13 +17,25 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-PPP_FRAME_ID = 0
-PPP_FRAME_SEQ = 2
-PPP_FRAME_BUF = 3
-PPP_NR_FRAMES = 4
+from lib.log import log_err
 
-PPP_READY = "0x01"
-PPP_HEARTBEAT = "0x02"
-
-PPP_HEARTBEAT_LIVENESS = 3
-PPP_HEARTBEAT_INTERVAL = 10 # Seconds
+class Service(object):
+    def __init__(self, query):
+        self._query = query
+    
+    def __str__(self):
+        return self.__class__.__name__.lower()
+    
+    def proc(self, op, args):
+        try:
+            if op[0] == '_':
+                log_err(self, 'failed to process, invalid operation')
+                return
+            func = getattr(self, op)
+            if not func:
+                log_err(self, 'failed to process, invalid function')
+                return
+            return func(**args)
+        except:
+            log_err(self, 'failed to process')
+    

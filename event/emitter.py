@@ -22,7 +22,7 @@ from lib.log import log_err
 from lib.util import zmqaddr
 from conf.virtdev import EVENT_COLLECTOR_PORT
 
-class VDevEventEmitter(object):
+class EventEmitter(object):
     def __init__(self, router):
         self._router = router
     

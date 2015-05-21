@@ -20,8 +20,11 @@
 from util import lock
 from log import log_err
 from threading import Thread, Event, Lock
+from multiprocessing.pool import ThreadPool
 
-class VDevQueue(Thread):
+TIMEOUT = 60 # seconds
+
+class Queue(Thread):
     def __init__(self, queue_len):
         Thread.__init__(self)
         self._queue_len = queue_len
@@ -68,13 +71,21 @@ class VDevQueue(Thread):
     def _proc(self, buf):
         pass
     
+    def proc(self, buf):
+        pool = ThreadPool(processes=1)
+        result = pool.apply_async(self._proc, args=(buf,))
+        try:
+            result.get(timeout=TIMEOUT)
+        finally:
+            pool.terminate()
+    
     def run(self):
         while True:
             self._event.wait()
             buf = self.pop()
             if buf:
                 try:
-                    self._proc(buf)
+                    self.proc(buf)
                 except:
                     log_err(self, 'failed to process')
 

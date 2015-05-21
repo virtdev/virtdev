@@ -22,7 +22,7 @@ from threading import Thread
 from lib.util import DEVNULL
 from conf.virtdev import SUPERNODE_PORT
 
-class VDevSupernode(Thread):
+class Supernode(Thread):
     def __init__(self):
         Thread.__init__(self)
     

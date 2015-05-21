@@ -1,4 +1,4 @@
-#      authd.py
+#      server.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -19,25 +19,24 @@
 
 from threading import Thread
 from lib.log import log_err, log_get
-from lib.util import service_start, service_join
-from conf.virtdev import AUTH_BROKER, AUTH_WORKER
+from conf.virtdev import BROKER, WORKER
+from lib.util import srv_start, srv_join
 
-class VDevAuthD(Thread):
+class Server(Thread):
     def __init__(self, query=None):
         Thread.__init__(self)
-        self._services = []
-        if AUTH_WORKER:
-            if not query:
-                log_err(self, 'no query')
-                raise Exception(log_get(self, 'no query'))
-            from worker import VDevAuthWorker
-            self._services.append(VDevAuthWorker(query))
-        if AUTH_BROKER:
-            from broker import VDevAuthBroker
-            self._services.append(VDevAuthBroker())
+        self._query = query
     
     def run(self):
-        if self._services:
-            service_start(*self._services)
-            service_join(*self._services)
-    
+        srv = []
+        if WORKER:
+            if not self._query:
+                log_err(self, 'no query')
+                raise Exception(log_get(self, 'no query'))
+            from worker import Worker
+            srv.append(Worker(self._query))
+        if BROKER:
+            from broker import Broker
+            srv.append(Broker())
+        srv_start(srv)
+        srv_join(srv)

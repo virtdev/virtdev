@@ -1,6 +1,6 @@
-#      task.py
+#      usb.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,25 +17,37 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from lib.log import log_err
+import time
+import serial
 
-class VDevAuthTask(object):
-    def __init__(self, query):
-        self._query = query
+RATE = 9600
+WAIT_TIME = 2 # seconds
+TIMEOUT = 0.5 # seconds
+
+class USBSocket(object):
+    def __init__(self, name, rate=RATE, timeout=TIMEOUT):
+        self._serial = serial.Serial(name, rate, timeout=timeout)
+        time.sleep(WAIT_TIME)
     
-    def __str__(self):
-        return self.__class__.__name__.lower()
+    def sendall(self, buf):
+        if self._serial:
+            self._serial.write(buf)
     
-    def proc(self, op, args):
+    def send(self, buf):
+        if self._serial:
+            self._serial.write(buf)
+    
+    def recv(self, length):
+        if self._serial:
+            return self._serial.read(length)
+    
+    def close(self):
         try:
-            if op[0] == '_':
-                log_err(self, 'failed to process, invalid operation')
-                return
-            func = getattr(self, op)
-            if not func:
-                log_err(self, 'failed to process, invalid function')
-                return
-            return func(**args)
+            if self._serial:
+                self._serial.close()
+                self._serial = None
         except:
-            log_err(self, 'failed to process')
+            pass
     
+    def __del__(self):
+        self.close()

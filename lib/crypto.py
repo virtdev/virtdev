@@ -26,7 +26,7 @@ from binascii import b2a_hex, a2b_hex
 
 HEAD_SIZE = len(struct.pack('I', 0))
 
-class VDevCrypto():
+class TextCrypto():
     def __init__(self, key):
         self._key = key[0:16]
         self._iv = key[16:32]
@@ -50,13 +50,13 @@ class VDevCrypto():
         return buf[HEAD_SIZE:HEAD_SIZE + length]
 
 def pack(uid, buf, token):
-    crypto = VDevCrypto(token)
+    crypto = TextCrypto(token)
     return uid + crypto.encrypt(json.dumps(buf))
 
 def unpack(uid, buf, token):
     length = len(buf)
     if length <= UID_SIZE or (uid and buf[0:UID_SIZE] != uid):
         return
-    crypto = VDevCrypto(token)
+    crypto = TextCrypto(token)
     tmp = crypto.decrypt(buf[UID_SIZE:])
     return json.loads(tmp)

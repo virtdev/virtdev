@@ -21,7 +21,7 @@ import errno
 from lib.log import log_err
 from fuse import FuseOSError
 
-class VDevFile(object):
+class File(object):
     def _undefined_op(self):
         log_err(self, 'undefined operation')
         raise FuseOSError(errno.EINVAL)

@@ -19,19 +19,32 @@
 
 import socket
 from lib import stream
-from udi import VDevUDI
+from dev.udi import UDI
 from fs.path import load
+from random import randint
 from lib.log import log_err
 from threading import Thread
-from lib.mode import MODE_LO
+from lib.loader import Loader
 from lib.util import load_driver
-from proc.loader import VDevLoader
 from conf.virtdev import LO_ADDR, LO_PORT
+from lib.mode import MODE_LO, MODE_PASSIVE
 
-def get_device(typ, name):
+def device_name(typ, name):
     return '%s_%s' % (typ, name)
 
-class VDevLo(VDevUDI):
+def connect(device):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((LO_ADDR, LO_PORT))
+        stream.put(sock, device, local=True)
+        if device != stream.get(sock, local=True):
+            sock.close()
+        else:
+            return sock
+    except:
+        pass
+
+class Lo(UDI):
     def _get_type(self, device):
         res = device.split('_')
         if len(res) == 2:
@@ -46,38 +59,38 @@ class VDevLo(VDevUDI):
         while True:
             sock = self._sock.accept()[0]
             try:
-                buf = stream.get(sock, local=True)
-                name = self.get_name(buf)
-                typ = self._get_type(buf)
+                device = stream.get(sock, local=True)
+                if not device:
+                    sock.close()
+                    continue
+                name = self.get_name(device)
+                typ = self._get_type(device)
                 if name and typ:
-                    driver = load_driver(typ, name, sock)
+                    driver = load_driver(typ, name)
+                    self._lo.update({device:driver})
                     if driver:
-                        self._lo.update({str(driver):driver})
-                        driver.start()
+                        stream.put(sock, device, local=True)
+                        driver.start(sock)
                     else:
-                        log_err(self, 'failed to load device, type=%s' % typ)
+                        log_err(self, 'failed to load %s' % typ)
+                        sock.close()
             except:
                 log_err(self, 'failed to listen')
                 sock.close()
     
-    def _init_sock(self):
+    def _init_srv(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.bind((LO_ADDR, LO_PORT))
         self._sock.listen(5)
-    
-    def _init_listener(self):
         self._listener = Thread(target=self._listen)
         self._listener.start()
     
-    def __init__(self, uid, core):
-        VDevUDI.__init__(self, uid, core)
+    def setup(self):
         self._lo = {}
-        self._init_sock()
-        self._local = True
+        self._init_srv()
         self._active = False
-        self._init_listener()
-        self._loader = VDevLoader(uid)
+        self._loader = Loader(self.get_uid())
     
     def _get_device(self, name):
         mode = self._core.get_mode(name)
@@ -86,7 +99,7 @@ class VDevLo(VDevUDI):
         prof = self._loader.get_profile(name)
         if not prof:
             return
-        return get_device(prof['type'], name)
+        return device_name(prof['type'], name)
     
     def scan(self):
         device_list = []
@@ -105,8 +118,18 @@ class VDevLo(VDevUDI):
         return device_list
     
     def connect(self, device):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((LO_ADDR, LO_PORT))
-        stream.put(sock, device, local=True)
-        return sock
+        return (connect(device), True)
     
+    def get_passive(self):
+        if not self._lo:
+            return
+        keys = self._lo.keys()
+        length = len(keys)
+        i = randint(0, length - 1)
+        for _ in range(length):
+            device = self._lo[keys[i]]
+            if device.get_mode() & MODE_PASSIVE:
+                return device
+            i += 1
+            if i == length:
+                i = 0

@@ -17,17 +17,13 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from dev.driver import Driver
 from textblob import TextBlob
 from base64 import decodestring
-from dev.driver import VDevDriver
-from lib.mode import MODE_IN, MODE_VISI
 
-DEBUG_BLOB = False
+PRINT = False
 
-class Blob(VDevDriver):
-    def info(self):
-        return {'mode':MODE_IN | MODE_VISI}
-    
+class Blob(Driver):    
     def _get_sentiment(self, text):
         buf = decodestring(text)
         if buf:
@@ -43,7 +39,7 @@ class Blob(VDevDriver):
             if text:
                 polarity, subjectivity = self._get_sentiment(text)
                 if polarity != None and subjectivity != None:
-                    if DEBUG_BLOB:
+                    if PRINT:
                         print('Blob: polarity=%f, subjectivity=%f' % (polarity, subjectivity))
                     ret = {'Polarity':polarity, 'Subjectivity':subjectivity}
                     name = args.get('Name')
@@ -53,4 +49,3 @@ class Blob(VDevDriver):
                     if timer:
                         ret.update({'Timer':timer})
                     return ret
-    

@@ -18,28 +18,28 @@
 #      MA 02110-1301, USA.
 
 import socket
-from lib.pool import VDevPool
-from oper import VDevOperation
+from lib.pool import Pool
+from oper import Operation
+from lib.queue import Queue
 from lib import tunnel, crypto
-from lib.queue import VDevQueue
-from lib.request import VDevRequest
+from lib.request import Request
 from threading import Thread, Event
 from lib.log import log_err, log_get
 from conf.virtdev import CONDUCTOR_PORT
 from lib.util import DEFAULT_UID, DEFAULT_TOKEN, UID_SIZE
 
 QUEUE_LEN = 2
-POOL_SIZE = 64
+POOL_SIZE = 32
 
-class VDevConductorQueue(VDevQueue):
+class ConductorQueue(Queue):
     def __init__(self, srv):
-        VDevQueue.__init__(self, QUEUE_LEN)
+        Queue.__init__(self, QUEUE_LEN)
         self._srv = srv
     
     def _proc(self, buf):
         self._srv.proc(buf)
         
-class VDevConductor(Thread):
+class Conductor(Thread):
     def _init_sock(self, addr):
         addr = tunnel.addr2ip(addr)
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -54,14 +54,14 @@ class VDevConductor(Thread):
         token = manager.token
         tunnel.create(addr, token)
         
+        self._pool = Pool()
         self._addr_list = {}
         self._event = Event()
-        self._pool = VDevPool()
-        self._op = VDevOperation(manager)
+        self._op = Operation(manager)
         self._tokens = {uid:token, DEFAULT_UID:DEFAULT_TOKEN}
         self._init_sock(manager.addr)
         for _ in range(POOL_SIZE):
-            self._pool.add(VDevConductorQueue(self))
+            self._pool.add(ConductorQueue(self))
         
         self.uid = uid
         self.addr = addr
@@ -69,7 +69,7 @@ class VDevConductor(Thread):
         self.user = manager.user
         self.core = manager.core
         self.devices = manager.devices
-        self.request = VDevRequest(uid, token)
+        self.request = Request(uid, token)
     
     def get_device(self, name):
         addr = self._addr_list.get(name)

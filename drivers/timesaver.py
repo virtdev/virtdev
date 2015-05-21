@@ -20,13 +20,12 @@
 import os
 import shelve
 from datetime import datetime
-from dev.driver import VDevDriver
+from dev.driver import Driver
 from drivers.timer import get_path
-from lib.mode import MODE_IN, MODE_VISI
 
-DEBUG_TIMESAVER = False
+PRINT = False
 
-class TimeSaver(VDevDriver):
+class TimeSaver(Driver):
     def _save(self, timer, name):
         path = os.path.join(get_path(timer), name)
         if not os.path.exists(path):
@@ -37,14 +36,11 @@ class TimeSaver(VDevDriver):
             t_start = datetime.strptime(d['start'], "%Y-%m-%d %H:%M:%S.%f")
             t = (t_end - t_start).total_seconds()
             d['time'] = t
-            if DEBUG_TIMESAVER:
+            if PRINT:
                 print('TimeSaver: name=%s, time=%f' % (name, t))
             return t
         finally:
             d.close()
-    
-    def info(self):
-        return {'mode': MODE_IN | MODE_VISI}
     
     def put(self, buf):
         args = self.get_args(buf)

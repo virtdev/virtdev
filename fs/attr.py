@@ -20,7 +20,7 @@
 import os
 import librsync
 from temp import Temp
-from path import VDevPath
+from path import Path
 from StringIO import StringIO
 from lib.log import log_err, log_get
 from base64 import encodestring, decodestring
@@ -33,9 +33,9 @@ ATTR_PROFILE = 'profile'
 ATTR_DISPATCHER = 'dispatcher'
 ATTRIBUTES = [ATTR_MODE, ATTR_FREQ, ATTR_FILTER, ATTR_HANDLER, ATTR_PROFILE, ATTR_DISPATCHER]
 
-class Attr(VDevPath):
+class Attr(Path):
     def __init__(self, watcher=None, router=None, core=None):
-        VDevPath.__init__(self, router, core)
+        Path.__init__(self, router, core)
         self._temp = Temp(self, watcher)
     
     def can_invalidate(self):

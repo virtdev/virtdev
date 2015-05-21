@@ -18,12 +18,12 @@
 #      MA 02110-1301, USA.
 
 import pygame
+from lib import mode
 from PIL import Image
 from pygame import camera
+from dev.driver import Driver
 from StringIO import StringIO
 from base64 import encodestring
-from dev.driver import VDevDriver
-from lib.mode import MODE_OUT, MODE_VISI, MODE_POLL, MODE_SYNC
 
 CAMERA_WIDTH = 640
 CAMERA_HEIGHT = 480
@@ -32,19 +32,17 @@ pygame.init()
 pygame.camera.init()
 _camera_index = 0
 
-class Camera(VDevDriver):
-    def info(self):
-        return {'mode':MODE_OUT | MODE_VISI | MODE_POLL | MODE_SYNC}
-    
-    def __init__(self, name=None, sock=None):
+class Camera(Driver):    
+    def setup(self):
         global _camera_index
-        VDevDriver.__init__(self, name, sock)
+        
         cameras = camera.list_cameras()
         if _camera_index >= len(cameras):
             raise Exception('no camera')
         self._cam = camera.Camera(cameras[_camera_index], (CAMERA_WIDTH, CAMERA_HEIGHT))
-        self._cam.start()
         _camera_index += 1
+        self._cam.start()
+        self.set(mode=mode.OVP | mode.MODE_SYNC)
     
     def get(self):
         res = StringIO()
@@ -53,4 +51,4 @@ class Camera(VDevDriver):
         img = Image.fromstring('RGBA', (CAMERA_WIDTH, CAMERA_HEIGHT), buf)
         img.save(res, 'JPEG')
         return {'File':encodestring(res.getvalue())}
-    
+

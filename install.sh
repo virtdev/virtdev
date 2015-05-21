@@ -42,3 +42,4 @@ pip install pycrypto
 pip install python-inotify==0.6-test
 pip install html2text
 pip install textblob
+pip install pyserial

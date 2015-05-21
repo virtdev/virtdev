@@ -23,26 +23,25 @@ import time
 import shelve
 from lib import tunnel
 from lib import notifier
-from daemon import VDevDaemon
-from lib.lock import VDevLock
-from proc.core import VDevCore
+from daemon import Daemon
+from proc.core import Core
+from proc.proc import Proc
+from lib.lock import NamedLock
+from conductor import Conductor
+from lib.request import Request
 from threading import Lock, Thread
-from lib.request import VDevRequest
-from conductor import VDevConductor
-from proc.sandbox import VDevSandbox
 from lib.op import OP_OPEN, OP_CLOSE
 from lib.log import log, log_err, log_get
-from lib.mode import MODE_SYNC, MODE_VISI
-from conf.virtdev import LIB_PATH, RUN_PATH, FILE_SERVICE, FILE_SHADOW, VISIBLE, MOUNTPOINT
-from conf.virtdev import LO, BLUETOOTH, SANDBOX, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
+from lib.mode import MODE_SYNC, MODE_VISI 
 from lib.util import USERNAME_SIZE, PASSWORD_SIZE, netaddresses, get_node, dev_name, cat, lock, named_lock
+from conf.virtdev import LO, BT, USB, FS, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT, LIB_PATH, RUN_PATH, SHADOW, VISIBLE, MOUNTPOINT
 
 LOG=True
 
 class DeviceManager(object):
     def __init__(self, cond): 
         self._cond = cond
-        self._lock = VDevLock()
+        self._lock = NamedLock()
     
     @named_lock
     def open(self, name):
@@ -114,7 +113,7 @@ class NodeManager(object):
 class TunnelManager(object):
     def __init__(self, cond):
         self._cond = cond
-        self._lock = VDevLock()
+        self._lock = NamedLock()
     
     @named_lock
     def open(self, name):
@@ -189,21 +188,21 @@ class MemberManager(object):
         finally:
             d.close()
 
-class VDevManager(object):
+class Manager(object):
     def _log(self, text):
         if LOG:
             log(text)
     
-    def _init_sandbox(self):
-        self._filter = VDevSandbox(FILTER_PORT)
-        self._handler = VDevSandbox(HANDLER_PORT)
-        self._dispatcher = VDevSandbox(DISPATCHER_PORT)
+    def _init_proc(self):
+        self._filter = Proc(self, (PROC_ADDR, FILTER_PORT))
+        self._handler = Proc(self, (PROC_ADDR, HANDLER_PORT))
+        self._dispatcher = Proc(self, (PROC_ADDR, DISPATCHER_PORT))
         self._filter.start()
         self._handler.start()
         self._dispatcher.start()
     
     def _init_cond(self):
-        cond = VDevConductor(self)
+        cond = Conductor(self)
         self.node = NodeManager(cond)
         self.guest = GuestManager(cond)
         self.device = DeviceManager(cond)
@@ -213,26 +212,31 @@ class VDevManager(object):
         cond.start()
     
     def _init_daemon(self):
-        self._daemon = VDevDaemon(self)
+        self._daemon = Daemon(self)
         self._daemon.start()
     
     def _init_dev(self):
-        if BLUETOOTH:
-            from dev.bt import VDevBT
-            self._bt = VDevBT(self.uid, self.core)
+        if BT:
+            from interfaces.bt import Bluetooth
+            self._bt = Bluetooth(self.uid, self.core)
             self.devices.append(self._bt)
         
         if LO:
-            from dev.lo import VDevLo
-            self.lo = VDevLo(self.uid, self.core)
-            self.devices.append(self.lo)
+            from interfaces.lo import Lo
+            self._lo = Lo(self.uid, self.core)
+            self.devices.append(self._lo)
+        
+        if USB:
+            from interfaces.usb import USBSerial
+            self._usb = USBSerial(self.uid, self.core)
+            self.devices.append(self._usb)
         
         name = dev_name(self.uid)
         self.device.add(name)
         self._log('dev: name=%s, node=%s' % (name, get_node()))
     
     def _init_core(self):
-        self.core = VDevCore(self)
+        self.core = Core(self)
     
     def _get_password(self):
         path = os.path.join(LIB_PATH, 'user')
@@ -244,7 +248,7 @@ class VDevManager(object):
             d.close()
         return (user, password)
     
-    def _check_user(self, user, password):
+    def _login(self, user, password):
         length = len(user)
         if length > 0 and length < USERNAME_SIZE and re.match('^[0-9a-zA-Z]+$', user):
             name = user + (USERNAME_SIZE - length) * '*'
@@ -260,7 +264,7 @@ class VDevManager(object):
         if VISIBLE:
             mode |= MODE_VISI
         
-        req = VDevRequest(name, password)
+        req = Request(name, password)
         res = req.user.login(node=get_node(), networks=netaddresses(mask=True), mode=mode)
         if not res:
             log_err(self, 'failed to login')
@@ -273,10 +277,15 @@ class VDevManager(object):
             log_err(self, 'failed to get password')
             raise Exception(log_get(self, 'failed to get password'))
         
-        uid, addr, token = self._check_user(user, password)
+        try:
+            uid, addr, token = self._login(user, password)
+        except:
+            log_err(self, 'failed to login')
+            raise Exception(log_get(self, 'failed to login'))
+        
         if not uid:
-            log_err(self, 'failed to check user')
-            raise Exception(log_get(self, 'failed to check user'))
+            log_err(self, 'invalid uid')
+            raise Exception(log_get(self, 'invalid uid'))
         
         self.token = token
         self.user = user
@@ -284,14 +293,11 @@ class VDevManager(object):
         self.uid = uid
     
     def _initialize(self):
-        if not FILE_SERVICE or not FILE_SHADOW:
+        if not FS or not SHADOW:
             return
         
         self._init_user()
-        
-        if SANDBOX:
-            self._init_sandbox()
-        
+        self._init_proc()    
         self._init_core()
         self._init_cond()
         self._init_dev()
@@ -300,9 +306,10 @@ class VDevManager(object):
             self._init_daemon()
     
     def __init__(self):
-        self.lo = None
+        self._lo = None
         self._bt = None
         self.uid = None
+        self._usb = None
         self.addr = None
         self.guest = None
         self.token = None
@@ -340,9 +347,6 @@ class VDevManager(object):
             self._save_addr()
             self._active = True
     
-    def notify(self, op, buf):
-        notifier.push(op, buf)
-    
     def chkaddr(self, name):
         if name and self._cond:
             token = self._cond.get_token(name)
@@ -350,3 +354,16 @@ class VDevManager(object):
                 _, addr = self._cond.get_device(name)
                 return (addr, token)
     
+    def notify(self, op, buf):
+        notifier.push(op, buf)
+    
+    def has_lo(self):
+        return self._lo != None
+    
+    def create(self, device, init):
+        if self._lo:
+            return self._lo.create(device, init)
+    
+    def get_passive(self):
+        if self._lo:
+            return self._lo.get_passive()

@@ -17,22 +17,22 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from emitter import VDevEventEmitter
-from receiver import VDevEventReceiver
-from collector import VDevEventCollector
-from conf.virtdev import EVENT_SERVICE
+from emitter import EventEmitter
+from receiver import EventReceiver
+from collector import EventCollector
+from conf.virtdev import EVENT_SERVER
 
-class VDevEvent(object):
+
+class DeviceEvent(object):
     def __init__(self, router):
         self._collector = None
-        self._emitter = VDevEventEmitter(router)
-        self._receiver = VDevEventReceiver(router)
-        if EVENT_SERVICE:
-            self._collector = VDevEventCollector()
+        self._emitter = EventEmitter(router)
+        self._receiver = EventReceiver(router)
+        if EVENT_SERVER:
+            self._collector = EventCollector()
     
     def put(self, uid, name):
         return self._emitter.put(uid, name)
     
     def get(self, uid):
         return self._receiver.get(uid)
-    

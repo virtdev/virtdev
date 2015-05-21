@@ -21,22 +21,20 @@ import os
 import wget
 from lib.log import log_err
 from threading import Thread
-from dev.driver import VDevDriver
-from lib.mode import MODE_IN, MODE_VISI
+from dev.driver import Driver
 
-DEBUG_DOWNLOADER = False
+PRINT = False
 PATH_DOWNLOADER = "/opt/downloads"
 
-class Downloader(VDevDriver):
-    def __init__(self, name=None, sock=None):
-        VDevDriver.__init__(self, name, sock)
+class Downloader(Driver):
+    def setup(self):
         if not os.path.exists(PATH_DOWNLOADER):
             os.makedirs(PATH_DOWNLOADER, 0o755)
     
     def _do_download(self, url):
         try:
             filename = wget.download(url, out=PATH_DOWNLOADER, bar=None)
-            if DEBUG_DOWNLOADER:
+            if PRINT:
                 print('Downloader: filename=%s' % str(filename))
         except:
             log_err(self, 'failed to download')
@@ -44,9 +42,6 @@ class Downloader(VDevDriver):
     def _download(self, url):
         Thread(target=self._do_download, args=(url,)).start()
         return True
-    
-    def info(self):
-        return {'mode':MODE_IN | MODE_VISI}
     
     def put(self, buf):
         args = self.get_args(buf)
@@ -65,5 +60,5 @@ class Downloader(VDevDriver):
                     return ret
                     
         else:
-            if DEBUG_DOWNLOADER:
+            if PRINT:
                 print('Downloader: invalid args')

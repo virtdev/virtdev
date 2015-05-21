@@ -20,19 +20,17 @@
 from subprocess import call
 from threading import Thread
 from conf.virtdev import CACHE_PORTS
-from lib.util import service_start, service_join
+from lib.util import srv_start, srv_join
 
-class VDevCacheD(Thread):
-    def __init__(self):
-        Thread.__init__(self)
-        self._services = []
-        for i in CACHE_PORTS:
-            self._services.append(Thread(target=self._create, args=(CACHE_PORTS[i],)))
-    
+class CacheD(Thread):
     def _create(self, port):
         call(['memcached', '-u', 'root', '-m', '10', '-p', str(port)])
     
     def run(self):
-        if self._services:
-            service_start(*self._services)
-            service_join(*self._services)
+        srv = []
+        for i in CACHE_PORTS:
+            srv.append(Thread(target=self._create, args=(CACHE_PORTS[i],)))
+        
+        if srv:
+            srv_start(srv)
+            srv_join(srv)

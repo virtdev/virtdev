@@ -18,64 +18,28 @@
 #      MA 02110-1301, USA.
 
 import ast
+from lib import mode
 from lib import stream
+from lib.util import info
 from lib.log import log_err
-from lib.mode import MODE_LO
 from threading import Thread
 from dev.req import REQ_OPEN, REQ_CLOSE, REQ_GET, REQ_PUT, REQ_MOUNT, parse
 
-class VDevDriver(object):
-    def __init__(self, name=None, sock=None):
-        if not name:
-            name = str(self)
-        self._thread = None
-        self._name = name
-        self._sock = sock
+class Driver(object):
+    def __init__(self, name=None, mode=mode.IV, rng=None, freq=None):
+        self.__name = name
+        self.__mode = mode
+        self.__freq = freq
+        self.__range = rng
+        self.__sock = None
+        self.__index = None
+        self.__thread = None
+        self.setup()
     
     def __str__(self):
         return self.__class__.__name__
     
-    def _get_info(self):
-        ret = {}
-        try:
-            mode = self.mode
-            if mode:
-                ret.update({'mode':mode})
-            freq = self.freq
-            if freq:
-                ret.update({'freq':freq})
-            prof = self.profile
-            if prof:
-                ret.update(prof)
-            return ret
-        except:
-            log_err(self, 'invalid device, type=%s' % str(self))
-    
-    @property
-    def profile(self):
-        info = self.info()
-        if not info:
-            return
-        prof = {'type':str(self)}
-        if info.has_key('range'):
-            prof.update({'range':dict(info['range'])})
-        return prof
-    
-    @property
-    def freq(self):
-        info = self.info()
-        if not info or not info.has_key('freq'):
-            return
-        return float(info['freq'])
-    
-    @property
-    def mode(self):
-        info = self.info()
-        if not info or not info.has_key('mode'):
-            return
-        return int(info['mode']) | MODE_LO
-    
-    def info(self):
+    def setup(self):
         pass
     
     def open(self):
@@ -90,6 +54,37 @@ class VDevDriver(object):
     def get(self):
         pass
     
+    def evaluate(self):
+        pass
+    
+    def set(self, mode=mode.IV, rng=None, freq=None):
+        self.__mode = mode
+        self.__freq = freq
+        self.__range = rng
+    
+    def get_type(self):
+        return str(self)
+    
+    def get_profile(self):
+        typ = self.get_type()
+        rng = self.get_range()
+        prof = {'type':typ}
+        if rng:
+            prof.update({'range':rng})
+        return prof
+    
+    def get_freq(self):
+        return self.__freq
+    
+    def get_range(self):
+        return self.__range
+    
+    def get_mode(self):
+        return self.__mode | mode.MODE_LO
+    
+    def get_info(self):
+        return {'None':info(self.get_type(), self.get_mode(), self.get_freq(), self.get_range())}
+    
     def get_args(self, buf):
         try:
             args = ast.literal_eval(buf)
@@ -99,46 +94,53 @@ class VDevDriver(object):
         except:
             pass
     
-    def start(self):
-        self._thread = Thread(target=self._proc)
-        self._thread.start()
+    def get_index(self):
+        return self.__index
     
-    def _reply(self, buf):
-        stream.put(self._sock, str({'None':buf}), local=True)
+    def get_name(self):
+        return self.__name
     
-    def _proc(self):
-        if not self._sock:
+    def start(self, sock):
+        self.__sock = sock
+        self.__thread = Thread(target=self.__proc)
+        self.__thread.start()
+    
+    def __reply(self, buf):
+        stream.put(self.__sock, str({self.__index:buf}), local=True)
+    
+    def __proc(self):
+        if not self.__sock:
             return
-        while True:
-            try:
+        try:
+            while True:
                 ret = ''
-                req = stream.get(self._sock, local=True)
-                _, flags, buf = parse(req)
+                req = stream.get(self.__sock, local=True)
+                self.__index, flags, buf = parse(req)
                 if flags & REQ_OPEN:
                     ret = self.open()
                     if ret:
-                        self._reply(ret)
+                        self.__reply(ret)
                 elif flags & REQ_CLOSE:
                     ret = self.close()
                     if ret:
-                        self._reply(ret)
+                        self.__reply(ret)
                 elif flags & REQ_GET:
                     try:
                         res = self.get()
                         if res:
                             ret = res
                     finally:
-                        self._reply(ret)
+                        self.__reply(ret)
                 elif flags & REQ_PUT:
                     try:
                         res = self.put(buf)
                         if res:
                             ret = res
                     finally:
-                        self._reply(ret)
+                        self.__reply(ret)
                 elif flags & REQ_MOUNT:
-                    self._reply(self._get_info())
-            except:
-                log_err(self, 'failed to process')
-                return
-    
+                    stream.put(self.__sock, str(self.get_info()), local=True)
+        except:
+            log_err(self, 'failed to process')
+        finally:
+            self.__sock.close()

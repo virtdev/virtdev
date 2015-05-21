@@ -24,7 +24,6 @@ REQ_PUT   = 0x0002
 REQ_OPEN  = 0x0004
 REQ_CLOSE = 0x0008
 REQ_MOUNT = 0x0010
-REQ_RESET = 0x0020
 REQ_SECRET = 'VIRTDEVLOGIN'
 
 def parse(buf):
@@ -34,25 +33,22 @@ def parse(buf):
     flags = struct.unpack('I', buf[4:8])[0]
     return (index, flags, buf[8:])
 
-def _req_new(index, flags, buf=''):
+def _req(index, flags, buf=''):
     if index == None:
         index = 0
     return struct.pack('I', index) + struct.pack('I', flags) + buf
 
 def req_get(index):
-    return _req_new(index, REQ_GET)
-
-def req_reset():
-    return _req_new(None, REQ_RESET)
+    return _req(index, REQ_GET)
 
 def req_open(index):
-    return _req_new(index, REQ_OPEN)
+    return _req(index, REQ_OPEN)
 
 def req_close(index):
-    return _req_new(index, REQ_CLOSE)
+    return _req(index, REQ_CLOSE)
 
 def req_put(index, buf):
-    return _req_new(index, REQ_PUT, buf)
+    return _req(index, REQ_PUT, buf)
 
 def req_mount():
-    return _req_new(None, REQ_MOUNT, REQ_SECRET)
+    return _req(None, REQ_MOUNT, REQ_SECRET)

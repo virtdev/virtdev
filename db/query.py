@@ -18,9 +18,9 @@
 #      MA 02110-1301, USA.
 
 from history import HistoryDB
+from lib.router import Router
 from lib.util import tuple2str
-from event.event import VDevEvent
-from lib.router import VDevRouter
+from event.event import DeviceEvent
 from conf.virtdev import META_SERVERS, EVENT_SERVERS, DATA_SERVERS
 from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB
 
@@ -133,7 +133,7 @@ class HistoryQuery(object):
 
 class EventQuery(object):
     def __init__(self, router):
-        self._event = VDevEvent(router)
+        self._event = DeviceEvent(router)
         for i in EVENT_SERVERS:
             router.add_server('event', i)
     
@@ -143,10 +143,10 @@ class EventQuery(object):
     def put(self, key, value):
         return self._event.put(key, value)
 
-class VDevQuery(object):
+class Query(object):
     def __init__(self):
         self.link = None
-        router = VDevRouter()
+        router = Router()
         self.router = router
         self.user = UserQuery(router)
         self.node = NodeQuery(router)

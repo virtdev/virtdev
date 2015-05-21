@@ -51,18 +51,18 @@ def load(uid, name='', domain='', sort=False, passthrough=False):
         key = lambda f: os.stat(os.path.join(path, f)).st_mtime
         return sorted(os.listdir(path), key=key)
 
-class VDevPath(object):
+class Path(object):
     def __init__(self, router=None, core=None):
         if not os.path.exists(FS_PATH):
             os.mkdir(FS_PATH)
         name = self.__class__.__name__.lower()
         self._label = DOMAIN.get(name, '')
         if not router:
-            from local import VDevLocalFile
-            self._file = VDevLocalFile()
+            from local import LocalFile
+            self._file = LocalFile()
         else:
-            from remote import VDevRemoteFile
-            self._file = VDevRemoteFile(router)
+            from remote import RemoteFile
+            self._file = RemoteFile(router)
         self._core = core
     
     def _undefined_op(self):

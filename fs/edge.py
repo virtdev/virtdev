@@ -18,12 +18,12 @@
 #      MA 02110-1301, USA.
 
 import os
+from path import Path
 from  errno import EINVAL
-from path import VDevPath
 from lib.log import log_err
 from fuse import FuseOSError
 
-class Edge(VDevPath):
+class Edge(Path):
     def can_touch(self):
         return True
     

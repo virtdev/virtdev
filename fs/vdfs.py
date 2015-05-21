@@ -24,16 +24,16 @@ import time
 import stat
 from edge import Edge
 from data import Data
+from dev.udo import UDO
 from errno import EINVAL
 from vertex import Vertex
-from dev.udo import VDevUDO
-from dev.lo import get_device
-from lib.lock import VDevLock
+from watcher import Watcher
+from lib.lock import NamedLock
+from dev.manager import Manager
 from lib.log import log_err, log
-from dev.manager import VDevManager
-from watcher import VDevWatcherPool
 from conf.virtdev import DATA_SERVERS
 from fuse import FuseOSError, Operations
+from dev.interfaces.lo import device_name
 from lib.util import DIR_MODE, named_lock, load_driver
 from lib.mode import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK
 from attr import Attr, ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ
@@ -51,22 +51,22 @@ def show_path(func):
         return func(*args, **kwargs)
     return _show_path
 
-class VDevFS(Operations):    
+class VDFS(Operations):
     def __init__(self, query=None):
         self._events = {}
         self._results = {}
         self._query = query
-        watcher = VDevWatcherPool()
+        watcher = Watcher()
         if not query:
             self._shadow = True
-            manager = VDevManager()
+            manager = Manager()
             self._edge = Edge(core=manager.core)
             self._attr = Attr(core=manager.core)
             self._vertex = Vertex(core=manager.core)
             self._data = Data(self._vertex, self._edge, self._attr, watcher=watcher, core=manager.core)
             
-            from lib.link import VDevUplink
-            self._link = VDevUplink(manager)
+            from lib.link import Uplink
+            self._link = Uplink(manager)
         else:
             manager = None
             self._shadow = False
@@ -78,13 +78,13 @@ class VDevFS(Operations):
             self._attr = Attr(watcher=watcher, router=router)
             self._data = Data(self._vertex, self._edge, self._attr, watcher=watcher, router=router)
             
-            from lib.link import VDevDownlink
-            link = VDevDownlink(query)
+            from lib.link import Downlink
+            link = Downlink(query)
             self._query.link = link
             self._link = link
         
         self._manager = manager
-        self._lock = VDevLock()
+        self._lock = NamedLock()
         if manager:
             manager.start()
     
@@ -225,7 +225,7 @@ class VDevFS(Operations):
     def _initialize(self, uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ):
         lo = mode & MODE_LO
         if lo:
-            if not typ or (self._shadow and not self._manager.lo):
+            if not typ or (self._shadow and not self._manager.has_lo()):
                 log_err(self, 'failed to mount device')
                 raise FuseOSError(EINVAL)
         
@@ -239,11 +239,11 @@ class VDevFS(Operations):
                 if not driver:
                     log_err(self, 'failed to mount device, invalid device')
                     raise FuseOSError(EINVAL)
-                mode = driver.mode
-                freq = driver.freq
-                prof = driver.profile
+                mode = driver.get_mode()
+                freq = driver.get_freq()
+                prof = driver.get_profile()
             elif mode & MODE_VIRT:
-                prof = VDevUDO().d_profile
+                prof = UDO().d_profile
         
         self._data.initialize(uid, name)
         self._attr.initialize(uid, name, {ATTR_MODE:mode})
@@ -277,7 +277,7 @@ class VDevFS(Operations):
                     raise FuseOSError(EINVAL)
         else:
             if lo:
-                self._manager.lo.register(get_device(typ, name), init=False)
+                self._manager.create(device_name(typ, name), init=False)
     
     def _mount_device(self, uid, name, mode, vertex, parent, freq=None, prof=None, hndl=None, filt=None, disp=None, typ=None):
         if not name:

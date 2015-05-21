@@ -19,11 +19,11 @@
 
 import zerorpc
 from threading import Thread
-from lib.lock import VDevLock
+from lib.lock import NamedLock
 from lib.util import zmqaddr, ifaddr, named_lock
 from conf.virtdev import EVENT_COLLECTOR_PORT, EVENT_RECEIVER_PORT
 
-class VDevEventCollectorD(object):
+class Collector(object):
     def __init__(self, collector):
         self._collector = collector
     
@@ -33,13 +33,13 @@ class VDevEventCollectorD(object):
     def get(self, uid, addr):
         return self._collector.get(uid, addr)
 
-class VDevEventCollector(Thread):
+class EventCollector(Thread):
     def __init__(self):
         Thread.__init__(self)
         self._queue = {}
         self._events = {}
-        self._lock = VDevLock()
-        self._cold = VDevEventCollectorD(self)
+        self._lock = NamedLock()
+        self._collector = Collector(self)
         self.start()
     
     def _push(self, uid, addr):
@@ -86,7 +86,7 @@ class VDevEventCollector(Thread):
                 return events
     
     def run(self):
-        srv = zerorpc.Server(self._cold)
+        srv = zerorpc.Server(self._collector)
         srv.bind(zmqaddr(ifaddr(), EVENT_COLLECTOR_PORT))
         srv.run()
     

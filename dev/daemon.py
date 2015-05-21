@@ -24,7 +24,7 @@ from lib.util import cat, zmqaddr, dev_name
 
 NODE_MAX = 8
 
-class VDevDaemonRequest(object):
+class DaemonRequest(object):
     def __init__(self, manager):
         self._manager = manager
         self._name = dev_name(manager.uid)
@@ -71,10 +71,10 @@ class VDevDaemonRequest(object):
     def list(self):
         return self._manager.member.list()
 
-class VDevDaemon(Thread):
+class Daemon(Thread):
     def __init__(self, manager):
         Thread.__init__(self)
-        self._request = VDevDaemonRequest(manager)
+        self._request = DaemonRequest(manager)
     
     def run(self):
         srv = zerorpc.Server(self._request)

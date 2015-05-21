@@ -20,11 +20,11 @@
 from random import randint
 from lib.util import str2tuple
 from lib.mode import MODE_VISI
-from auth.task import VDevAuthTask
+from srv.service import Service
 
 NODE_MAX = 256
 
-class Node(VDevAuthTask):
+class Node(Service):
     def _get_uid(self, user):
         return self._query.user.get({'user':user}, 'uid')
     

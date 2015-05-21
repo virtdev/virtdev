@@ -19,11 +19,11 @@
 
 import os
 import shutil
-from file import VDevFile
+from file import File
 from subprocess import call
 from lib.util import DEVNULL, DIR_MODE
 
-class VDevLocalFile(VDevFile):
+class LocalFile(File):
     def load(self, uid, src, dest):
         call(['rsync', '-a', src, dest], stderr=DEVNULL, stdout=DEVNULL)
         return True

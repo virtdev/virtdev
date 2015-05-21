@@ -17,26 +17,24 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import sandbox
+import proc
 from lib.util import lock
+from lib.pool import Pool
 from threading import Lock
+from lib.queue import Queue
 from fs.path import is_local
-from loader import VDevLoader
-from lib.pool import VDevPool
-from lib.queue import VDevQueue
-from base64 import encodestring
-from sandbox import SANDBOX_PUT
+from lib.loader import Loader
 from lib.mode import MODE_REFLECT
-from conf.virtdev import DISPATCHER_PORT
 from lib.log import log, log_get, log_err
+from conf.virtdev import PROC_ADDR, DISPATCHER_PORT
 
 LOG = True
 QUEUE_LEN = 2
 POOL_SIZE = 64
 
-class VDevDispatcherQueue(VDevQueue):
+class DispatcherQueue(Queue):
     def __init__(self, dispatcher, core):
-        VDevQueue.__init__(self, QUEUE_LEN)
+        Queue.__init__(self, QUEUE_LEN)
         self._dispatcher = dispatcher
         self._core = core
     
@@ -50,8 +48,8 @@ class VDevDispatcherQueue(VDevQueue):
         self._dispatcher.remove_source(buf[0])
         self._core.put(*buf)
 
-class VDevDispatcher(object):
-    def __init__(self, uid, tunnel, core):
+class Dispatcher(object):
+    def __init__(self, uid, tunnel, core, addr=PROC_ADDR):
         self._uid = uid
         self._queue = []
         self._input = {}
@@ -61,12 +59,13 @@ class VDevDispatcher(object):
         self._source = {}
         self._core = core
         self._lock = Lock()
+        self._pool = Pool()
         self._tunnel = tunnel
         self._dispatchers = {}
-        self._pool = VDevPool()
-        self._loader = VDevLoader(self._uid)
+        self._loader = Loader(self._uid)
+        self._addr = (addr, DISPATCHER_PORT)
         for _ in range(POOL_SIZE):
-            self._pool.add(VDevDispatcherQueue(self, self._core))
+            self._pool.add(DispatcherQueue(self, self._core))
     
     def _log(self, s):
         if LOG:
@@ -247,7 +246,7 @@ class VDevDispatcher(object):
         try:
             code = self._get_code(name)
             if code:
-                return sandbox.request(DISPATCHER_PORT, SANDBOX_PUT, code=encodestring(code), args=buf)
+                return proc.put(self._addr, code=code, args=buf)
         except:
             log_err(self, 'failed to put')
     

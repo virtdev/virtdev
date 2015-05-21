@@ -19,8 +19,8 @@
 
 import pymongo
 import datetime
+from cache import Cache
 from threading import Lock
-from cache import VDevDBCache
 from lib.log import log_err, log_get
 from conf.virtdev import META_SERVERS, META_SERVER_PORT
 
@@ -73,7 +73,7 @@ def ttlmode(func):
         return func(*args, **kwargs)
     return _ttlmode
 
-class VDevDB(object):
+class DB(object):
     def __str__(self):
         return self.__class__.__name__.lower()
     
@@ -92,7 +92,7 @@ class VDevDB(object):
             if ttl:
                 log_err(self, 'invalid parameters')
                 raise Exception(log_get(self, 'invalid parameters'))
-            self._cache = VDevDBCache(cache_port)
+            self._cache = Cache(cache_port)
         if self._router:
             self._db = {}
         else:
@@ -233,34 +233,34 @@ class VDevDB(object):
                 db.update({'k':key}, {'$unset':{'v':''}})
                 return key
     
-class TokenDB(VDevDB):
+class TokenDB(DB):
     def __init__(self, router):
-        VDevDB.__init__(self, router, multi=True)
+        DB.__init__(self, router, multi=True)
 
-class DeviceDB(VDevDB):
+class DeviceDB(DB):
     def __init__(self, router):
-        VDevDB.__init__(self, router)
+        DB.__init__(self, router)
 
-class UserDB(VDevDB):
+class UserDB(DB):
     def __init__(self, router):
-        VDevDB.__init__(self, router, readOnly=True)
+        DB.__init__(self, router, readOnly=True)
 
-class GuestDB(VDevDB):
+class GuestDB(DB):
     def __init__(self, router):
-        VDevDB.__init__(self, router, multi=True)
+        DB.__init__(self, router, multi=True)
 
-class NodeDB(VDevDB):
+class NodeDB(DB):
     def __init__(self, router):
-        VDevDB.__init__(self, router, multi=True)
+        DB.__init__(self, router, multi=True)
 
-class MemberDB(VDevDB):
+class MemberDB(DB):
     def __init__(self, router):
-        VDevDB.__init__(self, router, multi=True)
+        DB.__init__(self, router, multi=True)
 
-class AddressDB(VDevDB):
+class AddressDB(DB):
     def __init__(self):
-        VDevDB.__init__(self, multi=True, ttl=TTL)
+        DB.__init__(self, multi=True, ttl=TTL)
 
-class CounterDB(VDevDB):
+class CounterDB(DB):
     def __init__(self):
-        VDevDB.__init__(self, increase=True)
+        DB.__init__(self, increase=True)

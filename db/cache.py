@@ -22,7 +22,7 @@ from lib.log import log
 from hash_ring import HashRing
 from conf.virtdev import CACHE_SERVERS
 
-class VDevDBCache(object):
+class Cache(object):
     def __init__(self, port):
         self._port = port
     

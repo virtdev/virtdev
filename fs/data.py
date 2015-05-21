@@ -18,11 +18,11 @@
 #      MA 02110-1301, USA.
 
 from temp import Temp
-from path import VDevPath
+from path import Path
 
-class Data(VDevPath):
+class Data(Path):
     def __init__(self, vertex, edge, attr, watcher=None, router=None, core=None):
-        VDevPath.__init__(self, router, core)
+        Path.__init__(self, router, core)
         self._temp = Temp(self, watcher)
         self._vertex = vertex
         self._edge = edge

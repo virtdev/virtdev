@@ -20,16 +20,14 @@
 import os
 import shelve
 from threading import Lock
-from dev.driver import VDevDriver
-from lib.mode import MODE_IN, MODE_VISI
+from dev.driver import Driver
 
-DEBUG_TIMECALC = False
+PRINT = False
 TIMECALC_TOTAL = 1000
 PATH_TIMECALC = '/opt/timecalc'
 
-class TimeCalc(VDevDriver):
-    def __init__(self, name=None, sock=None):
-        VDevDriver.__init__(self, name, sock)
+class TimeCalc(Driver):
+    def setup(self):
         if not os.path.exists(PATH_TIMECALC):
             os.makedirs(PATH_TIMECALC, 0o755)
         self._lock = Lock()
@@ -37,7 +35,7 @@ class TimeCalc(VDevDriver):
         self._cnt = 0
     
     def _get_path(self):
-        return os.path.join(PATH_TIMECALC, self._name)
+        return os.path.join(PATH_TIMECALC, self.get_name())
     
     def _save_time(self, time):
         path = self._get_path()
@@ -58,14 +56,11 @@ class TimeCalc(VDevDriver):
                     self._time = 0
                     self._cnt = 0
                     self._save_time(t)
-                    if DEBUG_TIMECALC:
+                    if PRINT:
                         print('TimeCalc: time=%f' % t)
                     return t
         finally:
             self._lock.release()
-    
-    def info(self):
-        return {'mode': MODE_IN | MODE_VISI}
     
     def put(self, buf):
         args = self.get_args(buf)

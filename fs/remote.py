@@ -19,7 +19,7 @@
 
 import os
 import stat
-from file import VDevFile
+from file import File
 from lib.log import log_get, log_err
 from lib.util import DIR_MODE, FILE_MODE
 from hdfs.client import Client as HTTPClient
@@ -30,7 +30,7 @@ HTTP_TOUCH = True
 HTTP_EXISTS = True
 FILE_SIZE = 1000000
 
-class VDevRemoteFile(VDevFile):
+class RemoteFile(File):
     def __init__(self, router):
         self._router = router
         

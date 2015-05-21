@@ -17,35 +17,35 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from freq import Freq
+from mode import Mode
 from fs.path import load
-from mode import VDevMode
-from freq import VDevFreq
+from filter import Filter
 from threading import Event
-from filter import VDevFilter
-from lib.lock import VDevLock
-from handler import VDevHandler
+from handler import Handler
+from lib.lock import NamedLock
 from lib.util import named_lock
 from lib.log import log_get, log
-from dispatcher import VDevDispatcher
+from dispatcher import Dispatcher
 from lib.op import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
 from lib.mode import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT
 
 LOG = True
 QUEUE_LEN = 4
-WAIT_TIME = 0.1 #second
+WAIT_TIME = 0.1 #seconds
 
-class VDevCore(object):
+class Core(object):
     def __init__(self, manager):
         self._queue = {}
         self._members = {}
         self._manager = manager
-        self._lock = VDevLock()
         self._uid = manager.uid
-        self._mode = VDevMode(self._uid)
-        self._freq = VDevFreq(self._uid)
-        self._filter = VDevFilter(self._uid)
-        self._handler = VDevHandler(self._uid)
-        self._dispatcher = VDevDispatcher(self._uid, manager.tunnel, self)
+        self._lock = NamedLock()
+        self._mode = Mode(self._uid)
+        self._freq = Freq(self._uid)
+        self._filter = Filter(self._uid)
+        self._handler = Handler(self._uid)
+        self._dispatcher = Dispatcher(self._uid, manager.tunnel, self)
     
     def _log(self, s):
         if LOG:

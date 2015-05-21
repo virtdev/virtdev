@@ -18,11 +18,11 @@
 #      MA 02110-1301, USA.
 
 from lib.log import log_err
+from srv.service import Service
 from lib.util import DEFAULT_NAME
-from auth.task import VDevAuthTask
 from lib.op import OP_JOIN, OP_ACCEPT
 
-class Guest(VDevAuthTask):
+class Guest(Service):
     def join(self, uid, dest, src):
         device = self._query.device.get(src)
         if not device or device.get('uid') != uid:

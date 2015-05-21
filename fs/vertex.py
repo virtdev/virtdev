@@ -18,12 +18,12 @@
 #      MA 02110-1301, USA.
 
 import os
+from path import Path
 from  errno import EINVAL
-from path import VDevPath
 from lib.log import log_err
 from fuse import FuseOSError
 
-class Vertex(VDevPath):
+class Vertex(Path):
     def getattr(self, uid, name):
         return self.lsattr(uid, name, symlink=True)
     

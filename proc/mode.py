@@ -17,12 +17,12 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from loader import VDevLoader
+from lib.loader import Loader
 
-class VDevMode(object):
+class Mode(object):
     def __init__(self, uid):
         self._mode = {}
-        self._loader = VDevLoader(uid)
+        self._loader = Loader(uid)
     
     def get(self, name):
         if self._mode.has_key(name):

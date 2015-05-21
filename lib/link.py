@@ -19,9 +19,9 @@
 
 import time
 import tunnel
-from pool import VDevPool
+from pool import Pool
+from queue import Queue
 from mode import MODE_LINK
-from queue import VDevQueue
 from log import log_err, log_get
 from util import DEFAULT_NAME, str2tuple, update_device
 from op import OP_ADD, OP_DIFF, OP_SYNC, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
@@ -47,7 +47,7 @@ def chkargs(func):
         return func(self, name, op, **args)
     return _chkargs
 
-class VDevUplink(object):
+class Uplink(object):
     def __init__(self, manager):
         self._manager = manager
         self.operations = [OP_ADD, OP_DIFF, OP_SYNC]
@@ -61,9 +61,9 @@ class VDevUplink(object):
         elif op == OP_ADD:
             return self._manager.device.add(name, **args)
 
-class VDevDownlinkQueue(VDevQueue):
+class DownlinkQueue(Queue):
     def __init__(self, downlink):
-        VDevQueue.__init__(self, QUEUE_LEN)
+        Queue.__init__(self, QUEUE_LEN)
         self.operations = [OP_MOUNT, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
         self._downlink = downlink
     
@@ -83,14 +83,14 @@ class VDevDownlinkQueue(VDevQueue):
     def _proc(self, buf):
         self._request(**buf)
 
-class VDevDownlink(object):
+class Downlink(object):
     def __init__(self, query):
         self._tokens = {}
         self._devices = {}
         self._query = query
-        self._pool = VDevPool()
+        self._pool = Pool()
         for _ in range(POOL_SIZE):
-            self._pool.add(VDevDownlinkQueue(self))
+            self._pool.add(DownlinkQueue(self))
     
     def _add_device(self, uid, name, addr):
         res = (uid, addr)

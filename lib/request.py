@@ -24,17 +24,17 @@ from log import log_err
 from util import zmqaddr
 from random import randint
 from threading import Lock
-from conf.virtdev import AUTH_SERVERS, AUTH_PORT
+from conf.virtdev import VDEV_SERVERS, VDEV_PORT
 from zmq import REQ, IDENTITY, POLLIN, SNDMORE, LINGER
 
-TIMEOUT = 30 # Seconds
+TIMEOUT = 30 # seconds
 RETRY_MAX = 3
 
 class Packet(object):
     def _get_addr(self):
-        length = len(AUTH_SERVERS)
+        length = len(VDEV_SERVERS)
         n = randint(0, length - 1)
-        return zmqaddr(AUTH_SERVERS[n], AUTH_PORT)
+        return zmqaddr(VDEV_SERVERS[n], VDEV_PORT)
     
     def _set_sock(self):
         self._sock = self._context.socket(REQ)
@@ -117,7 +117,7 @@ class Client(object):
         except:
             log_err(self, "failed to request")
 
-class VDevRequest(object):
+class Request(object):
     def __init__(self, uid, token, timeout=None):
         self._uid = uid
         self._token = token

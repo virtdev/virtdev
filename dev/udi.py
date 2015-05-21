@@ -18,30 +18,32 @@
 #      MA 02110-1301, USA.
 
 import os
-import ast
 import req
 import time
 import copy
+from udo import UDO
 from lib import stream
-from udo import VDevUDO
 from threading import Lock, Thread
 from lib.log import log_get, log_err
+from lib.util import get_name, check_info
 from multiprocessing.pool import ThreadPool
 
-PAIR_INTERVAL = 7 # sec
-SCAN_INTERVAL = 7 # sec
-MOUNT_TIMEOUT = 15 # sec
-MOUNT_RESET_INTERVAL = 0.1 # sec
+PAIR_INTERVAL = 7 # seconds
+SCAN_INTERVAL = 7 # seconds
+MOUNT_TIMEOUT = 15 # seconds
 DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
             
-class VDevUDI(object):
+class UDI(object):
     def __init__(self, uid, core):
         self._thread = None
-        self._local = False
         self._lock = Lock()
         self._devices = {}
         self._core = core
-        self._uid =uid
+        self._uid = uid
+        self.setup()
+    
+    def setup(self):
+        pass
     
     def scan(self):
         pass
@@ -49,49 +51,39 @@ class VDevUDI(object):
     def connect(self, device):
         pass
     
+    def get_uid(self):
+        return self._uid
+    
     def get_name(self, parent, child=None):
-        pass
+        return get_name(self._uid, parent, child)
     
-    def _get_info(self, buf):
-        try:
-            info = ast.literal_eval(buf)
-            if type(info) != dict:
-                log_err(self, 'invalid info')
-                return
-            return info
-        except:
-            log_err(self, 'invalid info')
-    
-    def _create_device(self, info, index=None):
+    def _create_device(self, info, local, index=None):
         if not info.has_key('type'):
             log_err(self, 'cannot get type')
             raise Exception(log_get(self, 'cannot get type'))
         
-        dev = VDevUDO()
+        dev = UDO(local=local)
         if index != None:
             dev.set_index(int(index))
         dev.set_type(str(info['type']))
         
-        if info.has_key('freq'):
+        if info.get('freq'):
             dev.set_freq(float(info['freq']))
         
-        if info.has_key('mode'):
+        if info.get('mode'):
             mode = int(info['mode'])
             dev.set_mode(mode)
         
-        if info.has_key('range'):
+        if info.get('range'):
             dev.set_range(dict(info['range']))
-        
-        if self._local:
-            dev.set_local()
         
         return dev
     
-    def _get_children(self, parent, info):
+    def _get_children(self, parent, info, local):
         devices = {}
         try:
             for i in info:
-                dev = self._create_device(info[i], i)
+                dev = self._create_device(info[i], local, i)
                 child = self.get_name(parent, i)
                 devices.update({child:dev})
         except:
@@ -101,29 +93,35 @@ class VDevUDI(object):
             devices[i].mount(self._uid, i, self._core)
         return devices
     
-    def _mount(self, sock, device, init):
-        info = None
-        if not self._local:
-            stream.put(sock, req.req_reset(), local=self._local)
-            time.sleep(MOUNT_RESET_INTERVAL)
-        stream.put(sock, req.req_mount(), local=self._local)
-        buf = stream.get(sock, local=self._local)
+    def _get_info(self, sock, local):
+        stream.put(sock, req.req_mount(), local=local)
+        buf = stream.get(sock, local=local)
         if buf:
-            info = self._get_info(buf)
+            return check_info(buf)
+    
+    def _mount(self, sock, local, device, init):
+        info = self._get_info(sock, local)
         if not info:
             log_err(self, 'no info')
             return
         name = self.get_name(device)
-        if not self._local:
-            children = self._get_children(name, info)
-            if not children:
-                return
-            parent = VDevUDO(children)
-        else:
+        if info.has_key('None'):
             info = info['None']
             if not info:
+                log_err(self, 'invalid info')
                 return
-            parent = self._create_device(info)
+            if local:
+                parent = self._create_device(info, local)
+            else:
+                log_err(self, 'invalid device')
+                return
+        else:
+            children = self._get_children(name, info, local)
+            if not children:
+                log_err(self, 'no device')
+                return
+            parent = UDO(children, local)
+            init = False
         parent.mount(self._uid, name, self._core, sock=sock, init=init)
         self._devices.update({name:parent})
         return name
@@ -137,18 +135,18 @@ class VDevUDI(object):
         except:
             pool.terminate()
     
-    def _register(self, device, init=True):
-        sock = self._proc(self.connect, (device,), PAIR_INTERVAL)
+    def _create(self, device, init=True):
+        sock, local = self._proc(self.connect, (device,), PAIR_INTERVAL)
         if sock:
-            name = self._proc(self._mount, (sock, device, init), MOUNT_TIMEOUT)
+            name = self._proc(self._mount, (sock, local, device, init), MOUNT_TIMEOUT)
             if not name:
-                log_err(self, 'failed to mount')
+                log_err(self, 'cannot mount')
                 sock.close()
             else:
                 return name
     
-    def register(self, device, init=True):
-        return self._register(device, init)
+    def create(self, device, init=True):
+        return self._create(device, init)
     
     def find(self, name):
         devices = copy.copy(self._devices)
@@ -157,18 +155,14 @@ class VDevUDI(object):
             if d:
                 return d
     
-    def _check(self, devices):
-        for d in devices:
-            self._register(d)
-    
-    def start(self):
-        self._thread = Thread(target=self._run)
-        self._thread.start()
-    
-    def _run(self):
+    def _start(self):
         while True:
             devices = self.scan()
             if devices:
-                self._check(devices)
+                for d in devices:
+                    self._create(d)
             time.sleep(SCAN_INTERVAL)
     
+    def start(self):
+        self._thread = Thread(target=self._start)
+        self._thread.start()
