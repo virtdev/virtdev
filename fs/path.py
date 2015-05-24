@@ -211,4 +211,3 @@ class Path(object):
                     st['st_mode'] = mode
                     st['st_nlink'] = 2
         return st
-    

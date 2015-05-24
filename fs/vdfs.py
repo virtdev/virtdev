@@ -24,7 +24,6 @@ import time
 import stat
 from edge import Edge
 from data import Data
-from dev.udo import UDO
 from errno import EINVAL
 from vertex import Vertex
 from watcher import Watcher
@@ -34,15 +33,17 @@ from lib.log import log_err, log
 from conf.virtdev import DATA_SERVERS
 from fuse import FuseOSError, Operations
 from dev.interfaces.lo import device_name
+from dev.udo import UDO, FREQ_MAX, TIMEOUT_MAX
 from lib.util import DIR_MODE, named_lock, load_driver
-from lib.mode import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK
-from attr import Attr, ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ
-from lib.op import OP_POLL, OP_MOUNT, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
+from lib.mode import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK, MODE_CLONE
+from attr import Attr, ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PARENT, ATTR_TIMEOUT
+from lib.op import OP_POLL, OP_MOUNT, OP_CLONE, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
 
 _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
 
 PATH_MAX = 1024
+TYPE_VDEV = 'VDev'
 
 def show_path(func):
     def _show_path(*args, **kwargs):
@@ -218,74 +219,92 @@ class VDFS(Operations):
     def _invalidate(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
-            log_err(self, 'failed to invalidate, no object')
+            log_err(self, 'failed to invalidate, cannot get obj')
             raise FuseOSError(EINVAL)
         obj.invalidate(uid, name)
     
-    def _initialize(self, uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ):
+    def _initialize(self, uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ, timeout):
         lo = mode & MODE_LO
         if lo:
             if not typ or (self._shadow and not self._manager.has_lo()):
-                log_err(self, 'failed to mount device')
+                log_err(self, 'failed to initialize device')
                 raise FuseOSError(EINVAL)
         
         link = mode & MODE_LINK
         if link:
             mode &= ~MODE_LINK
-                
+            
+        if mode & MODE_CLONE and not parent:
+            log_err(self, 'failed to initialize device, no parent')
+            raise FuseOSError(EINVAL)
+        
+        if not mode & MODE_VIRT:
+            timeout = None
+        
+        if mode & MODE_VIRT:
+            typ = TYPE_VDEV
+        
         if not prof:
-            if lo:
+            if typ:
                 driver = load_driver(typ)
                 if not driver:
-                    log_err(self, 'failed to mount device, invalid device')
+                    log_err(self, 'failed to initialize device')
                     raise FuseOSError(EINVAL)
-                mode = driver.get_mode()
+                if mode & MODE_CLONE:
+                    mode = driver.get_mode() | MODE_CLONE
+                else:
+                    mode = driver.get_mode()
                 freq = driver.get_freq()
                 prof = driver.get_profile()
-            elif mode & MODE_VIRT:
-                prof = UDO().d_profile
         
         self._data.initialize(uid, name)
-        self._attr.initialize(uid, name, {ATTR_MODE:mode})
+        self._attr.initialize(uid, name, ATTR_MODE, mode)
         
         if freq:
-            self._attr.initialize(uid, name, {ATTR_FREQ:freq})
+            self._attr.initialize(uid, name, ATTR_FREQ, freq)
         
         if filt:
-            self._attr.initialize(uid, name, {ATTR_FILTER:filt})
+            self._attr.initialize(uid, name, ATTR_FILTER, filt)
         
         if hndl:
-            self._attr.initialize(uid, name, {ATTR_HANDLER:hndl})
+            self._attr.initialize(uid, name, ATTR_HANDLER, hndl)
         
         if prof:
-            self._attr.initialize(uid, name, {ATTR_PROFILE:prof})
+            self._attr.initialize(uid, name, ATTR_PROFILE, prof)
+        
+        if mode & MODE_CLONE:
+            self._attr.initialize(uid, name, ATTR_PARENT, parent)
         
         if disp:
-            self._attr.initialize(uid, name, {ATTR_DISPATCHER:disp})
+            self._attr.initialize(uid, name, ATTR_DISPATCHER, disp)
+        
+        if timeout:
+            self._attr.initialize(uid, name, ATTR_TIMEOUT, timeout)
         
         if vertex:
+            if mode & MODE_CLONE:
+                log_err(self, 'failed to initialize device, invalid vertex')
+                raise FuseOSError(EINVAL)
             self._vertex.initialize(uid, name, vertex)
             for v in vertex:
                 self._edge.initialize(uid, (v, name), hidden=True)
         
         if not self._shadow:
-            if vertex and not parent:
-                parent = vertex[0]
             if not link:
-                if not self._link.mount(uid, name, mode, vertex, typ, parent):
-                    log_err(self, 'failed to mount device, cannot link')
+                if not self._link.mount(uid, name, mode, vertex, typ, parent, timeout):
+                    log_err(self, 'failed to initialize device, cannot mount')
                     raise FuseOSError(EINVAL)
         else:
-            if lo:
-                self._manager.create(device_name(typ, name), init=False)
+            if lo and not mode & MODE_CLONE:
+                self._manager.create(device_name(typ, name, mode), init=False)
     
-    def _mount_device(self, uid, name, mode, vertex, parent, freq=None, prof=None, hndl=None, filt=None, disp=None, typ=None):
+    def _mount_device(self, uid, name, mode, vertex, parent, freq=None, prof=None, hndl=None, filt=None, disp=None, typ=None, timeout=None):
         if not name:
             name = uuid.uuid4().hex
         
         if mode != None:
             link = mode & MODE_LINK
-            self._initialize(uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ)
+            self._initialize(uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ, timeout)
         else:
             link = None
         
@@ -314,10 +333,22 @@ class VDFS(Operations):
         typ = args.get('type')
         freq = args.get('freq')
         name = args.get('name')
+        mode = args.get('mode')
+        prof = args.get('prof')
         filt = args.get('filter')
         hndl = args.get('handler')
         vertex = args.get('vertex')
+        parent = args.get('parent')
+        timeout = args.get('timeout')
         disp = args.get('dispatcher')
+        
+        if freq and float(freq) > FREQ_MAX:
+            log_err(self, 'failed to mount, invalid frequency')
+            raise FuseOSError(EINVAL)
+        
+        if prof and type(prof) != dict:
+            log_err(self, 'failed to mount, invalid profile')
+            raise FuseOSError(EINVAL)
         
         if vertex:
             if type(vertex) != list:
@@ -328,13 +359,11 @@ class VDFS(Operations):
                     log_err(self, 'failed to mount')
                     raise FuseOSError(EINVAL)
         
-        prof = args.get('prof')
-        if prof and type(prof) != dict:
-            log_err(self, 'failed to mount, invalid profile')
+        if timeout and float(timeout) > TIMEOUT_MAX:
+            log_err(self, 'failed to mount, invalid timeout')
             raise FuseOSError(EINVAL)
         
-        mode = args.get('mode')
-        self._mount_device(uid, name, mode, vertex, None, freq, prof, hndl, filt, disp, typ)
+        self._mount_device(uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ, timeout)
     
     @named_lock
     def getattr(self, path, fh=None):
@@ -357,7 +386,7 @@ class VDFS(Operations):
         return obj.create(uid, name)
     
     @named_lock
-    @show_path  
+    @show_path
     def readdir(self, path, fh):
         obj, uid, name = self._parse(path)
         res = []
@@ -411,7 +440,7 @@ class VDFS(Operations):
         
         uid = self._get_uid(path)
         if not uid:
-            log_err(self, 'failed to create device, invalid path')
+            log_err(self, 'failed to create device, invalid uid')
             raise FuseOSError(EINVAL)
         
         args = ast.literal_eval(attr)
@@ -421,6 +450,16 @@ class VDFS(Operations):
         
         typ = args.get('type')
         mode = args.get('mode')
+        parent = args.get('parent')
+        timeout = args.get('timeout')
+        
+        if op == OP_CLONE:
+            if not parent:
+                log_err(self, 'failed to create device, no parent')
+                raise FuseOSError(EINVAL)
+            prof = self._attr.get_profile(uid, parent)
+            typ = prof['type']
+        
         if None == mode:
             if not typ:
                 mode = MODE_VIRT
@@ -428,10 +467,16 @@ class VDFS(Operations):
                 mode = MODE_LO
         
         if op == OP_CREATE:
-            mode |= MODE_VISI
+            if typ:
+                mode |= MODE_VISI
+        elif op == OP_CLONE:
+            mode |= MODE_CLONE
         
         vertex = args.get('vertex')
         if vertex:
+            if mode & MODE_CLONE:
+                log_err(self, 'failed to create device, any cloned device does not have vertex')
+                raise FuseOSError(EINVAL)
             if type(vertex) != list:
                 log_err(self, 'failed to create device, invalid vertex')
                 raise FuseOSError(EINVAL)
@@ -439,13 +484,12 @@ class VDFS(Operations):
                 if not self._check_uid(i):
                     log_err(self, 'failed to create device, invalid vertex')
                     raise FuseOSError(EINVAL)
-                    
-        parent = args.get('parent')
+        
         if parent and not self._check_uid(parent):
-            log_err(self, 'failed to create device, cannot get parent')
+            log_err(self, 'failed to create device, invalid parent')
             raise FuseOSError(EINVAL)
-
-        return self._mount_device(uid, None, mode, vertex, parent, typ=typ)
+        
+        return self._mount_device(uid, None, mode, vertex, parent, typ=typ, timeout=timeout)
     
     def _enable(self, path):
         obj, uid, name = self._parse(path)
@@ -562,19 +606,25 @@ class VDFS(Operations):
             op = 'poll'
         elif name.startswith('scan:'):
             op = 'scan'
+        elif name.startswith('clone:'):
+            op = 'clone'
         elif name.startswith('create:'):
             op = 'create'
         elif name.startswith('combine:'):
             op = 'combine'
         else:
             return ''
+        
         res = self._get_result(path, op)
         if res:
             return res
+        
         if op == 'poll':
             res = self._poll(path)
         elif op == 'scan':
             res = self._scan(path, name[len('scan:'):])
+        elif op == 'clone':
+            res = self._create_device(path, OP_CLONE, name[len('clone:'):])
         elif op == 'create':
             res = self._create_device(path, OP_CREATE, name[len('create:'):])
         elif op == 'combine':
@@ -596,4 +646,3 @@ class VDFS(Operations):
     def readlink(self, path):
         obj, uid, name = self._parse(path)
         return obj.readlink(uid, name)
-    

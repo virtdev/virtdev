@@ -89,4 +89,3 @@ class EventCollector(Thread):
         srv = zerorpc.Server(self._collector)
         srv.bind(zmqaddr(ifaddr(), EVENT_COLLECTOR_PORT))
         srv.run()
-    

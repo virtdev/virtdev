@@ -115,36 +115,47 @@ class TunnelManager(object):
         self._cond = cond
         self._lock = NamedLock()
     
+    def _try_open(self, name):
+        uid, node, addr = self._cond.get_device(name)
+        if not uid:
+            log_err(self, 'failed to open, no uid')
+            raise Exception(log_get(self, 'failed to open'))
+        if not tunnel.exist(addr):
+            key = self._cond.get_key(uid, node)
+            if not key:
+                log_err(self, 'failed to open, no token')
+                raise Exception(log_get(self, 'failed to open'))
+            try:
+                tunnel.connect(addr, key)
+            except:
+                self._cond.remove_device(name)
+                self._cond.remove_key(uid, node)
+        return True
+    
     @named_lock
     def open(self, name):
-        uid, addr = self._cond.get_device(name)
-        if not uid:
-            log_err(self, 'failed to create, no uid')
-            raise Exception(log_get(self, 'failed to create'))
-        if not tunnel.exist(addr):
-            token = self._cond.get_token(uid)
-            if not token:
-                log_err(self, 'failed to create, no token')
-                raise Exception(log_get(self, 'failed to create'))
-            tunnel.connect(addr, token)
+        if not self._try_open(name):
+            if not self._try_open(name):
+                log_err(self, 'failed to open')
+                raise Exception(log_get(self, 'failed to open'))
     
     @named_lock
     def close(self, name):
-        addr = self._cond.get_device(name)[1]
+        _, _, addr = self._cond.get_device(name)
         if tunnel.exist(addr):
             tunnel.disconnect(addr)
     
     @named_lock
     def put(self, name, **args):
-        dev = self._cond.get_device(name)
-        addr = tunnel.addr2ip(dev[1])
-        tunnel.put(addr, 'put', args, self._cond.uid, self._cond.token)
+        _, _, addr = self._cond.get_device(name)
+        ip_addr = tunnel.addr2ip(addr)
+        tunnel.put(ip_addr, 'put', args, self._cond.uid, self._cond.token)
     
     @named_lock
     def push(self, name, **args):
-        dev = self._cond.get_device(name)
-        addr = tunnel.addr2ip(dev[1])
-        tunnel.push(addr, 'put', args, self._cond.uid, self._cond.token)
+        _, _, addr = self._cond.get_device(name)
+        ip_addr = tunnel.addr2ip(addr)
+        tunnel.push(ip_addr, 'put', args, self._cond.uid, self._cond.token)
 
 class MemberManager(object):
     def __init__(self, cond):
@@ -269,7 +280,7 @@ class Manager(object):
         if not res:
             log_err(self, 'failed to login')
             return
-        return (res['uid'], res['addr'], res['token'])
+        return (res['uid'], res['addr'], res['token'], res['key'])
     
     def _init_user(self):
         user, password = self._get_password()
@@ -278,7 +289,7 @@ class Manager(object):
             raise Exception(log_get(self, 'failed to get password'))
         
         try:
-            uid, addr, token = self._login(user, password)
+            uid, addr, token, key = self._login(user, password)
         except:
             log_err(self, 'failed to login')
             raise Exception(log_get(self, 'failed to login'))
@@ -287,10 +298,11 @@ class Manager(object):
             log_err(self, 'invalid uid')
             raise Exception(log_get(self, 'invalid uid'))
         
-        self.token = token
-        self.user = user
-        self.addr = addr
         self.uid = uid
+        self.key = key
+        self.addr = addr
+        self.user = user
+        self.token = token
     
     def _initialize(self):
         if not FS or not SHADOW:
@@ -309,6 +321,7 @@ class Manager(object):
         self._lo = None
         self._bt = None
         self.uid = None
+        self.key = None
         self._usb = None
         self.addr = None
         self.guest = None
@@ -349,10 +362,10 @@ class Manager(object):
     
     def chkaddr(self, name):
         if name and self._cond:
-            token = self._cond.get_token(name)
-            if token:
-                _, addr = self._cond.get_device(name)
-                return (addr, token)
+            uid, node, addr = self._cond.get_device(name)
+            key = self._cond.get_key(uid, node)
+            if key:
+                return (addr, key)
     
     def notify(self, op, buf):
         notifier.push(op, buf)

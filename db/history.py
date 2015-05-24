@@ -140,4 +140,3 @@ class HistoryDB(object):
             return ''
         
         return ret
-    

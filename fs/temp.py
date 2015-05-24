@@ -117,4 +117,3 @@ class Temp(object):
             self._parent.save_file(uid, path, parent)
             return True
         return False
-    

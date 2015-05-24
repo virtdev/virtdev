@@ -32,12 +32,12 @@ class Pool(object):
     
     def add(self, queue):
         if 0 == self._queue_len:
-            self._queue_len = queue.get_capacity()
+            self._queue_len = queue.capacity
             if not self._queue_len:
                 log_err(self, 'failed to initialize')
                 raise Exception(log_get(self, 'failed to initialize'))
         else:
-            if self._queue_len != queue.get_capacity():
+            if self._queue_len != queue.capacity:
                 log_err(self, 'invalid queue')
                 raise Exception(log_get(self, 'invalid queue'))
         self._queues.append(queue)
@@ -50,7 +50,7 @@ class Pool(object):
         length = self._queue_len
         i = randint(0, self._count - 1)
         for _ in range(self._count):
-            l = self._queues[i].get_length()
+            l = self._queues[i].length
             if l == 0:
                 length = 0
                 n = i
@@ -78,4 +78,3 @@ class Pool(object):
             else:
                 if queue.push(buf):
                     return
-    

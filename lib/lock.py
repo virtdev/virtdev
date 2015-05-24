@@ -72,4 +72,3 @@ class NamedLock(object):
     def release(self, name):
         l = self._put(name)
         l.release()
-    

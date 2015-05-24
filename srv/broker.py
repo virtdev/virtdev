@@ -84,7 +84,7 @@ class Broker(Thread):
         self._poller1.register(self._backend, POLLIN)
         self._poller2.register(self._backend, POLLIN)
         self._poller2.register(self._frontend, POLLIN)
-        
+    
     def _init_context(self):
         self._context = Context(1)
         self._init_frontend()
@@ -135,4 +135,3 @@ class Broker(Thread):
     
     def stop(self):
         self._active = False
-    

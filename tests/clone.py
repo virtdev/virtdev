@@ -1,6 +1,6 @@
-#      combine.py
+#      clone.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -19,32 +19,22 @@
 
 import os
 import xattr
-import argparse
 
 import sys
 sys.path.append('..')
 from conf.virtdev import MOUNTPOINT
 
 def usage():
-    print 'combine.py -u uid -t timeout -d device1 device2 ...'
+    print 'clone.py uid parent'
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-u', dest='uid', default=None)
-    parser.add_argument('-t', dest='timeout', default=None)
-    parser.add_argument('-d', nargs='*', dest='devices', default=None)
-    res = parser.parse_args(sys.argv[1:])
-    uid = res.uid
-    timeout = res.timeout
-    devices = res.devices
-    if not uid or not devices or len(devices) < 2:
+    argc = len(sys.argv)
+    if argc != 3:
         usage()
         sys.exit()
-    attr = {}
-    uid = uid
-    if timeout:
-        attr['timeout'] = timeout
-    attr['vertex'] = devices
+    
+    uid = sys.argv[1]
+    attr = {'parent':sys.argv[2]}
     path = os.path.join(MOUNTPOINT, uid)
-    name = xattr.getxattr(path, 'combine:%s' % str(attr))
-    print 'combine: name=' + name
+    name = xattr.getxattr(path, 'clone:%s' % str(attr))
+    print 'clone: name=' + name

@@ -18,6 +18,7 @@
 #      MA 02110-1301, USA.
 
 from lib.loader import Loader
+from fs.attr import ATTR_MODE
 
 class Mode(object):
     def __init__(self, uid):
@@ -28,11 +29,10 @@ class Mode(object):
         if self._mode.has_key(name):
             return self._mode[name]
         else:
-            mode = self._loader.get_mode(name)
+            mode = self._loader.get_attr(name, ATTR_MODE, int)
             self._mode[name] = mode
             return mode
     
     def remove(self, name):
         if self._mode.has_key(name):
             del self._mode[name]
-    

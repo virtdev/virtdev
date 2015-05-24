@@ -52,3 +52,5 @@ class Vertex(Path):
             v = os.path.join(name, i)
             self.create(uid, v)
     
+    def release(self, uid, name, fh):
+        pass

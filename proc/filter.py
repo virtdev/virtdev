@@ -20,6 +20,7 @@
 import proc
 from lib.log import log_err
 from lib.loader import Loader
+from fs.attr import ATTR_FILTER
 from conf.virtdev import PROC_ADDR, FILTER_PORT
 
 class Filter(object):
@@ -31,7 +32,7 @@ class Filter(object):
     def _get_code(self, name):
         buf = self._filters.get(name)
         if not buf:
-            buf = self._loader.get_filter(name)
+            buf = self._loader.get_attr(name, ATTR_FILTER, str)
             self._filters.update({name:buf})
         return buf
     
@@ -40,7 +41,7 @@ class Filter(object):
             if self._filters[name]:
                 return True
         else:
-            buf = self._loader.get_filter(name)
+            buf = self._loader.get_attr(name, ATTR_FILTER, str)
             self._filters.update({name:buf})
             if buf:
                 return True
@@ -57,4 +58,3 @@ class Filter(object):
                 return proc.put(self._addr, code=code, args=buf)
         except:
             log_err(self, 'failed to put')
-    

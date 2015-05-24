@@ -84,7 +84,7 @@ def _mount(query):
     if not os.path.exists(LIB_PATH):
         os.makedirs(LIB_PATH, 0o755)
     
-    _log('mounting vdfs ..')
+    _log('mounting vdfs ...')
     FUSE(VDFS(query), MOUNTPOINT, foreground=True)
 
 def mount():

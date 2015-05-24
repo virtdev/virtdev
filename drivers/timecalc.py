@@ -44,7 +44,7 @@ class TimeCalc(Driver):
             d['time'] = time
         finally:
             d.close()
-            
+    
     def _calc(self, time):
         self._lock.acquire()
         try:

@@ -26,6 +26,7 @@ from lib.loader import Loader
 from datetime import datetime
 from conf.virtdev import MOUNTPOINT
 from lib.util import lock, mount_device
+from fs.attr import ATTR_MODE, ATTR_FREQ
 from threading import Thread, Event, Lock
 from lib.log import log, log_get, log_err
 from lib.op import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
@@ -34,7 +35,8 @@ from lib.mode import MODE_POLL, MODE_VIRT, MODE_SWITCH, MODE_REFLECT, MODE_SYNC,
 LOG = True
 FREQ_MAX = 100
 FREQ_MIN = 0.01
-OUTPUT_MAX = 1 << 22
+TIMEOUT_MAX = 600 # seconds
+OUTPUT_MAX = 1 << 24
 
 class UDO(object):
     def __init__(self, children={}, local=False):
@@ -80,7 +82,7 @@ class UDO(object):
                 return empty
             
             if len(output) != 1:
-                log_err(self, 'failed to read, invalid output, name=%s' % self.d_name)
+                log_err(self, 'failed to read, invalid length, name=%s' % self.d_name)
                 return empty
             
             device = None
@@ -112,6 +114,24 @@ class UDO(object):
             pass
     
     def _init(self):
+        if self._children:
+            self._mode |= MODE_VIRT
+        
+        if not self.d_freq:
+            if self._children:
+                poll = False
+                for i in self._children:
+                    if self._can_poll(self._children[i].d_mode):
+                        poll = True
+                        break
+                if poll:
+                    self._freq = FREQ_MAX
+                    self._mode |= MODE_POLL
+            elif self._mode & MODE_POLL:
+                self._freq = FREQ_MAX
+            else:
+                self._freq = FREQ_MIN
+        
         if self.d_mode & MODE_VIRT or self.d_index == None:
             mode = None
             freq = None
@@ -125,7 +145,7 @@ class UDO(object):
                 loader = Loader(self._uid)
                 curr_prof = loader.get_profile(self._name)
                 if curr_prof['type'] == prof['type']:
-                    curr_mode = loader.get_mode(self._name)
+                    curr_mode = loader.get_attr(self._name, ATTR_MODE, int)
                     if ((curr_mode | MODE_SYNC) == (mode | MODE_SYNC)) and curr_prof.get('range') == prof.get('range'):
                         mode = None
                         freq = None
@@ -135,7 +155,7 @@ class UDO(object):
                             mode &= ~MODE_SYNC
                         else:
                             mode |= MODE_SYNC
-                        freq = loader.get_freq(self._name)
+                        freq = loader.get_attr(self._name, ATTR_FREQ, float)
         mount_device(self._uid, self.d_name, mode, freq, prof)
     
     @lock
@@ -210,8 +230,8 @@ class UDO(object):
         if freq > 0:
             return 1.0 / freq
         else:
-            log_err(self, 'invalid d_intv')
-            raise Exception(log_get(self, 'invalid d_intv'))
+            log_err(self, 'invalid intv')
+            raise Exception(log_get(self, 'invalid intv'))
     
     @property
     def d_profile(self):
@@ -265,10 +285,10 @@ class UDO(object):
             try:
                 val = output[i]
                 if (type(val) == int or type(val) == float) and (val < r[0] or val > r[1]):
-                    log_err(self, 'invalid output, out of range')
+                    log_err(self, 'failed to check output, out of range')
                     return
             except:
-                log_err(self, 'invalid output')
+                log_err(self, 'failed to check output')
                 return
         return output
     
@@ -306,10 +326,14 @@ class UDO(object):
     
     @lock
     def proc(self, name, op, buf=None):
+        if not self._sock:
+            return
+        
         dev = self.find(name)
         if not dev:
             log_err(self, 'failed to process, cannot find device')
             return
+        
         index = dev.d_index
         if op == OP_OPEN:
             if dev.d_mode & MODE_SWITCH:
@@ -332,39 +356,25 @@ class UDO(object):
         else:
             log_err(self, 'failed to process, invalid operation')
     
+    def _start(self):
+        self._thread_poll = Thread(target=self._poll)
+        self._thread_poll.start()
+        self._thread_listen = Thread(target=self._listen)
+        self._thread_listen.start()
+    
     def mount(self, uid, name, core, sock=None, init=True):
         self._uid = uid
         self._name = name
         self._core = core
         self._sock = sock
-        if self._children:
-            self._mode |= MODE_VIRT
-        if not self.d_freq:
-            if self._children:
-                poll = False
-                for i in self._children:
-                    if self._can_poll(self._children[i].d_mode):
-                        poll = True
-                        break
-                if poll:
-                    self._freq = FREQ_MAX
-                    self._mode |= MODE_POLL
-            elif self._mode & MODE_POLL:
-                self._freq = FREQ_MIN
-            else:
-                self._freq = FREQ_MAX
         if init:
             self._init()
-        self._thread_poll = Thread(target=self._poll)
-        self._thread_poll.start()
-        self._thread_listen = Thread(target=self._listen)
-        self._thread_listen.start()
+        self._start()
         self._log('mount: type=%s [%s*]' % (self.d_type, self.d_name[:8]))
     
     def _listen(self):
         if not self._sock:
             return
-        
         try:
             while True:
                 device, buf = self._read()
@@ -372,21 +382,21 @@ class UDO(object):
                     continue
                 
                 name = device.d_name
-                if self._core.has_callback(name):
-                    output = self._core.callback(name, {name:buf})
+                if self._core.has_handler(name):
+                    output = self._core.handle(name, {name:buf})
                     if not output:
                         continue
                     
                     buf = ast.literal_eval(output)
                     if type(buf) != dict:
-                        log_err(self, 'invalid result of callback function')
+                        log_err(self, 'invalid output')
                         continue
                     
                     if buf:
                         mode = device.d_mode
                         if mode & MODE_REFLECT:
                             op = self._core.get_oper({name:buf}, mode)
-                            if op != None:
+                            if op:
                                 buf = self.proc(name, op)
                 
                 if not self._set(device, buf) and buf:

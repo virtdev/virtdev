@@ -17,6 +17,7 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from fs.attr import ATTR_FREQ
 from lib.loader import Loader
 
 class Freq(object):
@@ -28,7 +29,7 @@ class Freq(object):
         if self._freq.has_key(name):
             return self._freq[name]
         else:
-            freq = self._loader.get_freq(name)
+            freq = self._loader.get_attr(name, ATTR_FREQ, float)
             self._freq[name] = freq
             return freq
     

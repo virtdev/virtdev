@@ -74,7 +74,7 @@ class Controller(Driver):
     
     def _set_func(self, code):
         self._pyb.enter(self._mangle(code))
-        
+    
     def _set_args(self, args):
         self._pyb.enter('__args = ' + str(args))
     

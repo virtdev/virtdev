@@ -119,7 +119,7 @@ class Worker(Thread):
     
     def _proc(self, identity, seq, buf):
         try:
-            uid, token= self._get_token(buf)
+            uid, token = self._get_token(buf)
             if not uid or not token:
                 log_err(self, 'failed to process, uid=%s, token=%s' % (str(uid), str(token)))
                 return
@@ -181,4 +181,3 @@ class Worker(Thread):
             if time.time() > timeout:
                 timeout = time.time() + PPP_HEARTBEAT_INTERVAL
                 self._sock.send(PPP_HEARTBEAT)
-    

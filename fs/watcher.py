@@ -84,4 +84,3 @@ class Watcher(object):
     def pop(self, path):
         n = self._hash(path)
         return self._watchers[n].pop(path)
-    

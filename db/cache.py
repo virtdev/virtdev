@@ -56,4 +56,3 @@ class Cache(object):
             cli.delete(key)        
         except:
             log(self, 'failed to remove, key=%s' % key)
-    

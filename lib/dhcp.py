@@ -106,4 +106,3 @@ class DHCP(object):
     
     def refresh(self, address):
         self._address.refresh(address)
-    

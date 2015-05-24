@@ -25,6 +25,9 @@ from base64 import encodestring
 PATH_FL = '/opt/fileloader'
 
 class FileLoader(Driver):
+    def __init__(self, name=None, setup=True):
+        Driver.__init__(self, name=name, mode=mode.OVP | mode.MODE_SWITCH, freq=1, setup=setup)
+    
     def setup(self):
         if self.get_name():
             path = self._get_path()
@@ -32,7 +35,6 @@ class FileLoader(Driver):
                 os.makedirs(path, 0o755)
         self._files = None
         self._active = False
-        self.set(mode=mode.OVP | mode.MODE_SWITCH, freq=1)
     
     def _get_path(self):
         return os.path.join(PATH_FL, self.get_name())

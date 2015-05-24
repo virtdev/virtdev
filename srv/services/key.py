@@ -1,6 +1,6 @@
-#      emitter.py
+#      key.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,22 +17,14 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import zerorpc
-from lib.log import log_err
-from lib.util import zmqaddr
-from conf.virtdev import EVENT_COLLECTOR_PORT
+from srv.service import Service
 
-class EventEmitter(object):
-    def __init__(self, router):
-        self._router = router
-    
-    def put(self, uid, name):
-        addr = self._router.get('event', uid)
-        cli = zerorpc.Client()
-        cli.connect(zmqaddr(addr, EVENT_COLLECTOR_PORT))
-        try:
-            cli.put(uid, name)
-        except:
-            log_err(self, 'failed to put')
-        finally:
-            cli.close()
+class Key(Service):
+    def get(self, uid, name):
+        device = self._query.device.get(name)
+        if device:
+            if uid != device['uid']:
+                guests = self._query.guest.get(uid)
+                if not guests or name not in guests:
+                    return 
+            return self._query.key.get(device['uid'] + device['node'])

@@ -55,4 +55,3 @@ class Timer(Driver):
                 if self._create(name):
                     args.update({'Timer':self.get_name()})
                     return args
-    

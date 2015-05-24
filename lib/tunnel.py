@@ -27,8 +27,8 @@ from pool import Pool
 from queue import Queue
 from lock import NamedLock
 from subprocess import Popen, call
+from util import DEVNULL, ifaddr, send_pkt, recv_pkt, split, named_lock
 from conf.virtdev import SUPERNODE_PORT, SUPERNODES, CONDUCTOR_PORT, RUN_PATH
-from util import DEVNULL, DEFAULT_UID, DEFAULT_TOKEN, ifaddr, send_pkt, recv_pkt, split, named_lock
 
 NETSIZE = 30
 QUEUE_LEN = 2
@@ -45,7 +45,7 @@ class TunnelQueue(Queue):
     def __init__(self):
         Queue.__init__(self, QUEUE_LEN)
         
-    def _proc(self, buf):
+    def proc(self, buf):
         put(*buf)
 
 class TunnelPool(object):
@@ -226,7 +226,7 @@ class Tunnel(object):
             call(['killall', '-9', 'dhcpd'], stderr=DEVNULL, stdout=DEVNULL)
         call(['dhcpd', '-q'], stderr=DEVNULL, stdout=DEVNULL)
         return pid
-
+    
     @named_lock
     def create(self, addr, key):
         for _ in range(CREATE_MAX):
@@ -266,9 +266,9 @@ def disconnect(addr, force=False):
 def exist(addr):
     tunnel.exists(addr)
 
-def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
+def put(ip_addr, op, args, uid, token):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((ip, CONDUCTOR_PORT))
+    sock.connect((ip_addr, CONDUCTOR_PORT))
     try:
         req = {'op':op, 'args':args}
         msg = crypto.pack(uid, req, token)
@@ -276,8 +276,8 @@ def put(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
     finally:
         sock.close()
 
-def push(ip, op, args, uid=DEFAULT_UID, token=DEFAULT_TOKEN):
-    pool.push((ip, op, args, uid, token))
+def push(ip_addr, op, args, uid, token):
+    pool.push((ip_addr, op, args, uid, token))
     
 def clean():
     path = os.path.join(RUN_PATH, 'tunnel-*')

@@ -1,4 +1,4 @@
-#      emitter.py
+#      vdev.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,22 +17,9 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import zerorpc
-from lib.log import log_err
-from lib.util import zmqaddr
-from conf.virtdev import EVENT_COLLECTOR_PORT
+from dev.driver import Driver
+from lib.mode import MODE_VIRT
 
-class EventEmitter(object):
-    def __init__(self, router):
-        self._router = router
-    
-    def put(self, uid, name):
-        addr = self._router.get('event', uid)
-        cli = zerorpc.Client()
-        cli.connect(zmqaddr(addr, EVENT_COLLECTOR_PORT))
-        try:
-            cli.put(uid, name)
-        except:
-            log_err(self, 'failed to put')
-        finally:
-            cli.close()
+class VDev(Driver):
+    def __init__(self, name=None, setup=True):
+        Driver.__init__(self, name=name, mode=MODE_VIRT, setup=setup)

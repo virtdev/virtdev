@@ -21,10 +21,11 @@ import proc
 from lib.util import lock
 from lib.pool import Pool
 from threading import Lock
+from random import randint
 from lib.queue import Queue
 from fs.path import is_local
 from lib.loader import Loader
-from lib.mode import MODE_REFLECT
+from fs.attr import ATTR_DISPATCHER
 from lib.log import log, log_get, log_err
 from conf.virtdev import PROC_ADDR, DISPATCHER_PORT
 
@@ -38,13 +39,13 @@ class DispatcherQueue(Queue):
         self._dispatcher = dispatcher
         self._core = core
     
-    def _insert(self, buf):
+    def preinsert(self, buf):
         self._dispatcher.add_source(buf[0])
     
-    def _push(self, buf):
+    def prepush(self, buf):
         self._dispatcher.add_source(buf[0])
     
-    def _proc(self, buf):
+    def proc(self, buf):
         self._dispatcher.remove_source(buf[0])
         self._core.put(*buf)
 
@@ -52,9 +53,8 @@ class Dispatcher(object):
     def __init__(self, uid, tunnel, core, addr=PROC_ADDR):
         self._uid = uid
         self._queue = []
-        self._input = {}
         self._paths = {}
-        self._output = {}
+        self._shown = {}
         self._hidden = {}
         self._source = {}
         self._core = core
@@ -74,7 +74,7 @@ class Dispatcher(object):
     def _get_code(self, name):
         buf = self._dispatchers.get(name)
         if not buf:
-            buf = self._loader.get_dispatcher(name)
+            buf = self._loader.get_attr(name, ATTR_DISPATCHER, str)
             self._dispatchers.update({name:buf})
         return buf
     
@@ -105,47 +105,40 @@ class Dispatcher(object):
         else:
             self._pool.push((dest, src, buf, flags))
     
-    def add(self, edge, output=True, hidden=False):
+    def add(self, edge, hidden=False):
         src = edge[0]
         dest = edge[1]
         if hidden:
             paths = self._hidden
-            if paths.has_key(src) and paths[src].has_key(dest):
-                return
         else:
-            if output:
-                paths = self._output
-            else:
-                paths = self._input
-            
+            paths = self._shown
+        if paths.has_key(src) and paths[src].has_key(dest):
+            return
+        
         if not paths.has_key(src):
             paths[src] = {}
         
         if not self._paths.has_key(src):
             self._paths[src] = {}
         
-        if not paths[src].has_key(dest):
-            local = is_local(self._uid, dest)
-            paths[src].update({dest:local})
-            if not self._paths[src].has_key(dest):
-                self._paths[src].update({dest:1})
-                if not local:
-                    self._tunnel.open(dest)
-            else:
-                self._paths[src][dest] += 1
-            self._log('add, edge=%s, local=%s' % (str(edge), str(local)))
+        local = is_local(self._uid, dest)
+        paths[src].update({dest:local})
+        if not self._paths[src].has_key(dest):
+            self._paths[src].update({dest:1})
+            if not local:
+                self._tunnel.open(dest)
+        else:
+            self._paths[src][dest] += 1
+        self._log('add, edge=%s, local=%s' % (str(edge), str(local)))
     
-    def remove(self, edge, output=True, hidden=False):
+    def remove(self, edge, hidden=False):
         src = edge[0]
         dest = edge[1]
         if hidden:
             paths = self._hidden
         else:
-            if output:
-                paths = self._output
-            else:
-                paths = self._input
-        if not paths.has_key(src):
+            paths = self._shown
+        if not paths.has_key(src) or not paths[src].has_key(dest):
             return
         local = paths[src][dest]
         del paths[src][dest]
@@ -154,54 +147,38 @@ class Dispatcher(object):
             del self._paths[src][dest]
             if not local:
                 self._tunnel.close(dest)
+        self._log('remove, edge=%s, local=%s' % (str(edge), str(local)))
     
     def remove_all(self, name):
-        paths = self._output.get(name)
+        paths = self._shown.get(name)
         for i in paths:
             self.remove((name, i))
-        paths = self._input.get(name)
-        for i in paths:
-            self.remove((name, i), output=False)
         paths = self._hidden.get(name)
         for i in paths:
             self.remove((name, i), hidden=True)
         if self._dispatchers.has_key(name):
             del self._dispatchers[name]
     
-    def sendto(self, dest, src, buf, output=True, hidden=False):
+    def sendto(self, dest, src, buf, hidden=False, flags=0):
+        if not buf:
+            return
+        self.add((src, dest), hidden=hidden)
         if self._hidden:
-            flags = 0
             local = self._hidden[src][dest]
         else:
-            if output:
-                flags = 0
-                paths = self._output.get(src)
-            else:
-                flags = MODE_REFLECT
-                paths = self._input.get(src)
-            if not paths:
-                return
-            local = paths[dest]
+            local = self._shown[src][dest]
         if not local:
             self._log('sendto->push, dest=%s, src=%s' % (dest, src))
             self._tunnel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
         else:
             self._send(dest, src, buf, flags)
     
-    def send(self, name, buf, mode, output=True):
+    def send(self, name, buf, flags=0):
         if not buf:
             return
-        
-        if output:
-            flags = 0
-            dest = self._output.get(name)
-        else:
-            flags = MODE_REFLECT
-            dest = self._input.get(name)
-        
+        dest = self._shown.get(name)
         if not dest:
             return
-    
         for i in dest:
             if not dest[i]:
                 self._log('send->push, dest=%s, src=%s' % (i, name))
@@ -209,35 +186,52 @@ class Dispatcher(object):
             else:
                 self._send(i, name, buf, flags)
     
-    def has_input(self, name):
-        return self._input.has_key(name)
-    
-    def has_output(self, name):
-        return self._output.has_key(name)
-    
-    def update_input(self, name, buf):
-        if not buf:
-            self._input[name] = {}
+    def send_blocks(self, name, blocks):
+        if not blocks:
             return
-        for i in buf:
-            self.add((name, i), output=False)
-    
-    def update_output(self, name, items):
-        if not items:
-            self._output[name] = {}
+        dest = self._shown.get(name)
+        if not dest:
             return
-        for dest in items:
-            if not dest.startswith('.'):
+        cnt = 0
+        keys = dest.keys()
+        keys_len = len(keys)
+        blks_len = len(blocks)
+        window = (blks_len + keys_len - 1) / keys_len
+        start = randint(0, keys_len - 1)
+        for _ in range(keys_len):
+            i = keys[start]
+            for _ in range(window):
+                if blocks[cnt]:
+                    if not dest[i]:
+                        self._log('send_blocks->push, dest=%s, src=%s' % (i, name))
+                        self._tunnel.push(i, dest=i, src=name, buf=blocks[cnt], flags=0)
+                    else:
+                        self._send(i, name, blocks[cnt], 0)
+                cnt += 1
+                if cnt == blks_len:
+                    return
+            start += 1
+            if start == keys_len:
+                start = 0
+    
+    def has_path(self, name):
+        return self._shown.has_key(name)
+    
+    def update_paths(self, name, edges):
+        if not edges:
+            return
+        for dest in edges:
+            if dest.startswith('.'):
+                dest = dest[1:]
+            if dest != name:
                 self.add((name, dest))
-            else:
-                self.add((name, dest[1:]), hidden=True)
     
     def check(self, name):
         if self._dispatchers.has_key(name):
             if self._dispatchers[name]:
                 return True
         else:
-            buf = self._loader.get_dispatcher(name)
+            buf = self._loader.get_attr(name, ATTR_DISPATCHER, str)
             self._dispatchers.update({name:buf})
             if buf:
                 return True
@@ -249,4 +243,3 @@ class Dispatcher(object):
                 return proc.put(self._addr, code=code, args=buf)
         except:
             log_err(self, 'failed to put')
-    

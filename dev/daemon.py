@@ -67,7 +67,7 @@ class DaemonRequest(object):
     
     def remove(self, name):
         self._manager.member.remove(name)
-
+    
     def list(self):
         return self._manager.member.list()
 

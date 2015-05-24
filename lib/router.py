@@ -46,4 +46,3 @@ class Router(object):
     def get(self, namespace, identity, path=''):
         n = self._map(namespace, identity, path)
         return self._servers[namespace][n][0]
-    

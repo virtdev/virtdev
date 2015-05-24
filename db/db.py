@@ -232,7 +232,7 @@ class DB(object):
             if key:
                 db.update({'k':key}, {'$unset':{'v':''}})
                 return key
-    
+
 class TokenDB(DB):
     def __init__(self, router):
         DB.__init__(self, router, multi=True)
@@ -264,3 +264,7 @@ class AddressDB(DB):
 class CounterDB(DB):
     def __init__(self):
         DB.__init__(self, increase=True)
+
+class KeyDB(DB):
+    def __init__(self, router):
+        DB.__init__(self, router)

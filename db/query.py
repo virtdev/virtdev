@@ -22,7 +22,7 @@ from lib.router import Router
 from lib.util import tuple2str
 from event.event import DeviceEvent
 from conf.virtdev import META_SERVERS, EVENT_SERVERS, DATA_SERVERS
-from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB
+from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB, KeyDB
 
 def tuplevalue(func):
     def _tuplevalue(*args, **kwargs):
@@ -143,11 +143,27 @@ class EventQuery(object):
     def put(self, key, value):
         return self._event.put(key, value)
 
+class KeyQuery(object):
+    def __init__(self, router):
+        self._key = KeyDB(router)
+        for i in META_SERVERS:
+            router.add_server(str(self._key), i)
+    
+    def get(self, key):
+        return self._key.get(key)
+    
+    def put(self, key, value):
+        self._key.put(key, value)
+    
+    def remove(self, key):
+        self._key.remove(key)
+
 class Query(object):
     def __init__(self):
         self.link = None
         router = Router()
         self.router = router
+        self.key = KeyQuery(router)
         self.user = UserQuery(router)
         self.node = NodeQuery(router)
         self.event = EventQuery(router)

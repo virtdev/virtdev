@@ -56,7 +56,5 @@ class File(object):
     def truncate(self, uid, path, length):
         self._undefined_op()
     
-    #modification time (ms)
     def mtime(self, uid, path):
         self._undefined_op()
-    

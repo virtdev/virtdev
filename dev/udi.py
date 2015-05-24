@@ -26,6 +26,7 @@ from lib import stream
 from threading import Lock, Thread
 from lib.log import log_get, log_err
 from lib.util import get_name, check_info
+from lib.mode import MODE_CLONE, MODE_VIRT
 from multiprocessing.pool import ThreadPool
 
 PAIR_INTERVAL = 7 # seconds
@@ -57,10 +58,13 @@ class UDI(object):
     def get_name(self, parent, child=None):
         return get_name(self._uid, parent, child)
     
+    def get_mode(self, device):
+        return 0
+    
     def _create_device(self, info, local, index=None):
         if not info.has_key('type'):
-            log_err(self, 'cannot get type')
-            raise Exception(log_get(self, 'cannot get type'))
+            log_err(self, 'failed to create device, no type')
+            raise Exception(log_get(self, 'failed to create device, no type'))
         
         dev = UDO(local=local)
         if index != None:
@@ -87,7 +91,7 @@ class UDI(object):
                 child = self.get_name(parent, i)
                 devices.update({child:dev})
         except:
-            log_err(self, 'invalid info')
+            log_err(self, 'failed to get children, invalid info')
             return
         for i in devices:
             devices[i].mount(self._uid, i, self._core)
@@ -102,26 +106,28 @@ class UDI(object):
     def _mount(self, sock, local, device, init):
         info = self._get_info(sock, local)
         if not info:
-            log_err(self, 'no info')
+            log_err(self, 'failed to mount, no info')
             return
         name = self.get_name(device)
         if info.has_key('None'):
             info = info['None']
             if not info:
-                log_err(self, 'invalid info')
+                log_err(self, 'failed to mount, invalid info')
                 return
             if local:
                 parent = self._create_device(info, local)
             else:
-                log_err(self, 'invalid device')
+                log_err(self, 'failed to mount, invalid device')
                 return
         else:
             children = self._get_children(name, info, local)
             if not children:
-                log_err(self, 'no device')
+                log_err(self, 'failed to mount, no device')
                 return
             parent = UDO(children, local)
             init = False
+        if self.get_mode(device) & MODE_CLONE:
+            sock = None
         parent.mount(self._uid, name, self._core, sock=sock, init=init)
         self._devices.update({name:parent})
         return name
@@ -140,9 +146,12 @@ class UDI(object):
         if sock:
             name = self._proc(self._mount, (sock, local, device, init), MOUNT_TIMEOUT)
             if not name:
-                log_err(self, 'cannot mount')
+                log_err(self, 'failed to create, cannot mount')
                 sock.close()
             else:
+                mode = self.get_mode(device)
+                if mode & MODE_CLONE or mode & MODE_VIRT:
+                    sock.close()
                 return name
     
     def create(self, device, init=True):

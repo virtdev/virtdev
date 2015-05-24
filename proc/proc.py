@@ -17,6 +17,7 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import ast
 import json
 import socket
 from lib.pool import Pool
@@ -36,13 +37,14 @@ def put(addr, **args):
     try:
         buf = json.dumps(args)
         send_pkt(sock, buf)
-        return recv_pkt(sock)
+        res = recv_pkt(sock)
+        return ast.literal_eval(res)
     finally:
         sock.close()
 
 def _getattr_(obj, attr):
     t = type(obj)
-    if t in [dict, list, tuple, int, float]:
+    if t in [dict, list, tuple, int, float, str, unicode]:
         return getattr(obj, attr)
     else:
         raise RuntimeError('invalid object')
@@ -58,14 +60,21 @@ def _getitem_(obj, item):
     else:
         raise RuntimeError('invalid object')
 
+def _getiter_(obj):
+    t = type(obj)
+    if t in [dict, list, tuple]:
+        return iter(obj)
+    else:
+        raise RuntimeError('invalid object')
+
 def _exec(device, code, args):
     try:
         if device:
             return device.execute(code, args)
         else:
             func = None
-            code = compile_restricted(code, '<string>', 'exec')
-            exec(code)
+            res = compile_restricted(code, '<string>', 'exec')
+            exec(res)
             if func:
                 return func(args)
     except:
@@ -76,7 +85,7 @@ class ProcQueue(Queue):
         Queue.__init__(self, QUEUE_LEN)
         self._srv = srv
     
-    def _proc(self, buf):
+    def proc(self, buf):
         self._srv.proc(buf)
 
 class Proc(Thread):

@@ -125,4 +125,3 @@ class Request(object):
     
     def __getattr__(self, task):
         return Client(task, self._uid, self._token, self._timeout)
-    

@@ -38,4 +38,3 @@ class Service(object):
             return func(**args)
         except:
             log_err(self, 'failed to process')
-    

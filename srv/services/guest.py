@@ -19,7 +19,6 @@
 
 from lib.log import log_err
 from srv.service import Service
-from lib.util import DEFAULT_NAME
 from lib.op import OP_JOIN, OP_ACCEPT
 
 class Guest(Service):
@@ -37,7 +36,7 @@ class Guest(Service):
         if not device or device['uid'] == uid:
             log_err(self, 'failed to join, invalid dest, guest=%s, host=%s' % (str(dest), str(src)))
             return  False
-        self._query.link.put(name=DEFAULT_NAME, op=OP_JOIN, addr=device['addr'], uid=device['uid'], dest=dest, src={'uid':uid, 'user':user, 'node':node, 'name':src})
+        self._query.link.put(name='', op=OP_JOIN, uid=device['uid'], node=device['node'], addr=device['addr'], dest=dest, src={'uid':uid, 'user':user, 'node':node, 'name':src})
         return True
     
     def accept(self, uid, dest, src):
@@ -54,7 +53,7 @@ class Guest(Service):
         if not device or device.get('uid') == uid:
             log_err(self, 'failed to accept, invalid dest, dest=%s, src=%s' % (str(dest), str(src)))
             return False
-        self._query.link.put(name=DEFAULT_NAME, op=OP_ACCEPT, addr=device['addr'], uid=device['uid'], dest=dest, src={'uid':uid, 'user':user, 'node':node, 'name':src})
+        self._query.link.put(name='', op=OP_ACCEPT, uid=device['uid'], node=device['node'], addr=device['addr'], dest=dest, src={'uid':uid, 'user':user, 'node':node, 'name':src})
         self._query.guest.put(device['uid'], src)
         return True
     
@@ -69,4 +68,3 @@ class Guest(Service):
             return False
         self._query.guest.remove(device['uid'], src)
         return True
-    

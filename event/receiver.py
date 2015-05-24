@@ -112,4 +112,3 @@ class EventReceiver(Thread):
         srv = zerorpc.Server(self._recv)
         srv.bind(zmqaddr(ifaddr(), EVENT_RECEIVER_PORT))
         srv.run()
-    

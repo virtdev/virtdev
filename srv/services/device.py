@@ -73,4 +73,3 @@ class Device(Service):
         with open(path, 'r') as f:
             delta = librsync.delta(f, sig)
         return encodestring(delta.read())
-    

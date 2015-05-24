@@ -20,8 +20,8 @@
 import os
 import json
 import xattr
-from lib.util import cat
-from lib.log import log_err
+from subprocess import call
+from lib.util import DEVNULL, cat
 from conf.virtdev import MOUNTPOINT
 from lib.op import OP_MOUNT, OP_INVALIDATE
 
@@ -38,74 +38,48 @@ class Operation(object):
         else:
             return os.path.join(MOUNTPOINT, self.uid)
     
+    def _touch(self, path):
+        call(['touch', path], stderr=DEVNULL, stdout=DEVNULL)
+    
     def mount(self, attr):
-        try:
-            path = self._get_path()
-            xattr.setxattr(path, OP_MOUNT, str(attr))
-            return True
-        except:
-            log_err(self, 'failed to mount, path=%s' % path)
+        path = self._get_path()
+        xattr.setxattr(path, OP_MOUNT, str(attr))
+        return True
     
     def invalidate(self, path):
-        try:
-            path = self._get_path(path)
-            if not os.path.exists(path):
-                with open(path, 'w') as _:
-                    pass
-            xattr.setxattr(path, OP_INVALIDATE, "", symlink=True)
-            return True
-        except:
-            log_err(self, 'failed to invalidate, path=%s' % path)
+        path = self._get_path(path)
+        if not os.path.exists(path):
+            self._touch(path)
+        xattr.setxattr(path, OP_INVALIDATE, "", symlink=True)
+        return True
     
     def touch(self, path):
-        try:
-            path = self._get_path(path)
-            with open(path, 'w') as _:
-                pass
-            return True
-        except:
-            log_err(self, 'failed to touch, path=%s' % path)
+        path = self._get_path(path)
+        self._touch(path)
+        return True
     
     def put(self, dest, src, buf, flags):
-        i = 0
-        try:
-            while i < RETRY_MAX:
-                if self._manager.core.put(dest, src, buf, flags):
-                    return True
-                i += 1
-        except:
-            log_err(self, 'failed to put, dest=%s, src=%s' % (dest, src))
+        for _ in range(RETRY_MAX):
+            if self._manager.core.put(dest, src, buf, flags):
+                return True
     
     def enable(self, path):
-        try:
-            self._manager.device.open(path)
-            return True
-        except:
-            log_err(self, 'failed to enable, path=%s' % path)
+        self._manager.device.open(path)
+        return True
     
     def disable(self, path):
-        try:
-            self._manager.device.close(path)
-            return True
-        except:
-            log_err(self, 'failed to disable, path=%s' % path)
+        self._manager.device.close(path)
+        return True
     
     def join(self, dest, src):
-        try:
-            self._manager.notify('wait', json.dumps({'dest':dest, 'src':src}))
-            return True
-        except:
-            log_err(self, 'failed to join, dest=%s, src=%s' % (str(dest), str(src)))
+        self._manager.notify('wait', json.dumps({'dest':dest, 'src':src}))
+        return True
     
     def accept(self, dest, src):
-        try:
-            uid = str(src['uid'])
-            name = str(src['name'])
-            user = str(src['user'])
-            node = str(src['node'])
-            self._manager.member.update({name:{'uid':uid, 'user':user, 'node':node, 'state':'join'}})
-            self._manager.notify('list', cat(name, 'join'))
-            return True
-        except:
-            log_err(self, 'failed to accept, dest=%s, src=%s' % (str(dest), str(src)))
-    
+        uid = str(src['uid'])
+        name = str(src['name'])
+        user = str(src['user'])
+        node = str(src['node'])
+        self._manager.member.update({name:{'uid':uid, 'user':user, 'node':node, 'state':'join'}})
+        self._manager.notify('list', cat(name, 'join'))
+        return True

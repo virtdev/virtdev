@@ -62,4 +62,3 @@ class Node(Service):
                 res = node_list
         if res:
             return {'node':res, 'uid':uid}
-    

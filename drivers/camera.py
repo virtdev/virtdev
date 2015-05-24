@@ -32,7 +32,10 @@ pygame.init()
 pygame.camera.init()
 _camera_index = 0
 
-class Camera(Driver):    
+class Camera(Driver):
+    def __init__(self, name=None, setup=True):
+        Driver.__init__(self, name=name, mode=mode.OVP | mode.MODE_SYNC, setup=setup)
+    
     def setup(self):
         global _camera_index
         
@@ -42,7 +45,6 @@ class Camera(Driver):
         self._cam = camera.Camera(cameras[_camera_index], (CAMERA_WIDTH, CAMERA_HEIGHT))
         _camera_index += 1
         self._cam.start()
-        self.set(mode=mode.OVP | mode.MODE_SYNC)
     
     def get(self):
         res = StringIO()
@@ -51,4 +53,3 @@ class Camera(Driver):
         img = Image.fromstring('RGBA', (CAMERA_WIDTH, CAMERA_HEIGHT), buf)
         img.save(res, 'JPEG')
         return {'File':encodestring(res.getvalue())}
-

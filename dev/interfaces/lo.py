@@ -27,10 +27,10 @@ from threading import Thread
 from lib.loader import Loader
 from lib.util import load_driver
 from conf.virtdev import LO_ADDR, LO_PORT
-from lib.mode import MODE_LO, MODE_PASSIVE
+from lib.mode import MODE_LO, MODE_PASSIVE, MODE_CLONE, MODE_VIRT
 
-def device_name(typ, name):
-    return '%s_%s' % (typ, name)
+def device_name(typ, name, mode):
+    return '%s_%s_%d' % (typ, name, mode)
 
 def connect(device):
     try:
@@ -47,13 +47,18 @@ def connect(device):
 class Lo(UDI):
     def _get_type(self, device):
         res = device.split('_')
-        if len(res) == 2:
+        if len(res) == 3:
             return res[0]
     
     def get_name(self, device, child=None):
         res = device.split('_')
-        if len(res) == 2:
+        if len(res) == 3:
             return res[1]
+    
+    def get_mode(self, device):
+        res = device.split('_')
+        if len(res) == 3:
+            return int(res[2])
     
     def _listen(self):
         while True:
@@ -63,10 +68,18 @@ class Lo(UDI):
                 if not device:
                     sock.close()
                     continue
-                name = self.get_name(device)
+                
                 typ = self._get_type(device)
-                if name and typ:
-                    driver = load_driver(typ, name)
+                name = self.get_name(device)
+                mode = self.get_mode(device)
+                
+                if mode & MODE_CLONE:
+                    setup = False
+                else:
+                    setup = True
+                
+                if typ and name:
+                    driver = load_driver(typ, name, setup)
                     self._lo.update({device:driver})
                     if driver:
                         stream.put(sock, device, local=True)
@@ -94,27 +107,21 @@ class Lo(UDI):
     
     def _get_device(self, name):
         mode = self._core.get_mode(name)
-        if not (mode & MODE_LO):
-            return
-        prof = self._loader.get_profile(name)
-        if not prof:
-            return
-        return device_name(prof['type'], name)
+        if mode & MODE_LO or mode & MODE_VIRT:
+            prof = self._loader.get_profile(name)
+            if prof:
+                return device_name(prof['type'], name, mode)
     
     def scan(self):
         device_list = []
-        if self._active:
-            return device_list
-        self._active = True
-        names = load(self._uid, sort=True)
-        if not names:
-            return device_list
-        for name in names:
-            device = self._get_device(name)
-            if not device:
-                continue
-            if device not in self._lo:
-                device_list.append(device)
+        if not self._active:
+            self._active = True
+            names = load(self._uid, sort=True)
+            if names:
+                for name in names:
+                    device = self._get_device(name)
+                    if device and device not in self._lo:
+                        device_list.append(device)
         return device_list
     
     def connect(self, device):

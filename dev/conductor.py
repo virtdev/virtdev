@@ -21,12 +21,12 @@ import socket
 from lib.pool import Pool
 from oper import Operation
 from lib.queue import Queue
+from lib.util import UID_SIZE
 from lib import tunnel, crypto
 from lib.request import Request
 from threading import Thread, Event
 from lib.log import log_err, log_get
 from conf.virtdev import CONDUCTOR_PORT
-from lib.util import DEFAULT_UID, DEFAULT_TOKEN, UID_SIZE
 
 QUEUE_LEN = 2
 POOL_SIZE = 32
@@ -36,9 +36,9 @@ class ConductorQueue(Queue):
         Queue.__init__(self, QUEUE_LEN)
         self._srv = srv
     
-    def _proc(self, buf):
+    def proc(self, buf):
         self._srv.proc(buf)
-        
+
 class Conductor(Thread):
     def _init_sock(self, addr):
         addr = tunnel.addr2ip(addr)
@@ -49,16 +49,18 @@ class Conductor(Thread):
     
     def __init__(self, manager):
         Thread.__init__(self)
+        key = manager.key
         uid = manager.uid
         addr = manager.addr
         token = manager.token
-        tunnel.create(addr, token)
+        tunnel.create(addr, key)
         
+        self._keys = {}
+        self._devices = {}
         self._pool = Pool()
-        self._addr_list = {}
         self._event = Event()
+        self._tokens = {uid:token}
         self._op = Operation(manager)
-        self._tokens = {uid:token, DEFAULT_UID:DEFAULT_TOKEN}
         self._init_sock(manager.addr)
         for _ in range(POOL_SIZE):
             self._pool.add(ConductorQueue(self))
@@ -71,59 +73,91 @@ class Conductor(Thread):
         self.devices = manager.devices
         self.request = Request(uid, token)
     
-    def get_device(self, name):
-        addr = self._addr_list.get(name)
-        if not addr:
-            res = self.request.device.get(name=name)
-            if res:
-                addr = (res['uid'], res['addr'])
-                self._addr_list.update({name:addr})
-        if not addr:
-            log_err(self, 'failed to get device')
-            raise Exception(log_get(self, 'failed to get device'))
-        return addr
-    
-    def get_token(self, name):
-        token = self._tokens.get(name)
+    def _get_token(self, uid, update=False):
+        token = None
+        if not update:
+            token = self._tokens.get(uid)
         if not token:
-            if name == self.uid:
+            if uid == self.uid:
                 log_err(self, 'failed to get token, invalid uid')
                 raise Exception(log_get(self, 'failed to get token'))
-            token = self.request.token.get(name=name)
+            token = self.request.token.get(name=uid)
             if token:
-                self._tokens.update({name:token})
+                self._tokens.update({uid:token})
         if not token:
             log_err(self, 'failed to get token')
             raise Exception(log_get(self, 'failed to get token'))
         return token
     
+    def get_device(self, name):
+        res = self._devices.get(name)
+        if not res:
+            res = self.request.device.get(name=name)
+            if res:
+                res = (res['uid'], res['node'], res['addr'])
+                self._devices.update({name:res})
+        if not res:
+            log_err(self, 'failed to get device')
+            raise Exception(log_get(self, 'failed to get device'))
+        return res
+    
+    def remove_device(self, name):
+        if self._devices.has_key(name):
+            del self._devices[name]
+    
+    def get_key(self, uid, node):
+        name = uid + node
+        key = self._keys.get(name)
+        if not key:
+            key = self.requst.key.get(name)
+            if key:
+                self._keys.update({name:key})
+        if not key:
+            log_err(self, 'failed to get key')
+            raise Exception(log_get(self, 'failed to get key'))
+        return key
+    
+    def remove_key(self, uid, node):
+        name = uid + node
+        if self._keys.get(name):
+            del self._keys[name]
+    
     def proc(self, sock):
         if not sock:
             return
+        op = None
         try:
             buf = tunnel.recv(sock)
             if len(buf) <= UID_SIZE:
                 log_err(self, 'failed to process, invalid request')
                 return
             uid = buf[0:UID_SIZE]
-            token = self.get_token(uid)
+            token = self._get_token(uid)
             if not token:
                 log_err(self, 'failed to process, no token')
                 return
-            req = crypto.unpack(uid, buf, token)
+            try:
+                req = crypto.unpack(uid, buf, token)
+            except:
+                token = self._get_token(uid, update=True)
+                if not token:
+                    log_err(self, 'failed to process, no token')
+                    return
+                req = crypto.unpack(uid, buf, token)
             if req:
                 op = req.get('op')
                 args = req.get('args')
                 if not op or op[0] == '_' or type(args) != dict:
                     log_err(self, 'failed to process, invalid request, op=%s' % str(op))
-                    return           
+                    return
                 func = getattr(self._op, op)
                 if func:
                     func(**args)
                 else:
                     log_err(self, 'failed to process, invalid operation %s' % str(op))
         except:
-            pass
+            if op:
+                log_err(self, 'failed to process, op=%s' % str(op))
         finally:
             sock.close()
     
@@ -134,4 +168,3 @@ class Conductor(Thread):
                 self._pool.push(sock)
             except:
                 log_err(self, 'failed to push')
-    

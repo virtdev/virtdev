@@ -18,11 +18,10 @@
 #      MA 02110-1301, USA.
 
 import os
-import ast
 from fs.path import DOMAIN
+from util import check_profile
+from fs.attr import ATTR_PROFILE
 from conf.virtdev import MOUNTPOINT
-from lib.log import log_get, log_err
-from fs.attr import ATTR_MODE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PROFILE
 
 class Loader(object):
     def __init__(self, uid):
@@ -47,45 +46,12 @@ class Loader(object):
             lines = f.readlines()
         return lines
     
-    def get_filter(self, name):
-        return self._read(name, ATTR_FILTER)
-    
-    def get_handler(self, name):
-        return self._read(name, ATTR_HANDLER)
-    
-    def get_dispatcher(self, name):
-        return self._read(name, ATTR_DISPATCHER)
-    
-    def get_freq(self, name):
-        return float(self._read(name, ATTR_FREQ))
-    
-    def get_mode(self, name):
-        return int(self._read(name, ATTR_MODE))
+    def get_attr(self, name, attr, typ):
+        buf = self._read(name, attr)
+        if buf:
+            return typ(buf)
     
     def get_profile(self, name):
-        prof = {}
-        lines = self._readlines(name, ATTR_PROFILE)
-        if not lines:
-            return prof
-        for l in lines:
-            pair = l.strip().split('=')
-            if len(pair) != 2:
-                log_err(self, 'invalid profile, profile=%s' % ''.join(lines))
-                raise Exception(log_get(self, 'invalid profile'))
-            if pair[0] == 'type':
-                prof.update({'type':str(pair[1])})
-            elif pair[0] == 'range':
-                r = ast.literal_eval(pair[1])
-                if type(r) != dict:
-                    log_err(self, 'invalid range')
-                    raise Exception(log_get(self, 'invalid range'))
-                prof.update({'range':r})
-            elif pair[0] == 'index':
-                if pair[1] == 'None':
-                    prof.update({'index':None})
-                else:
-                    prof.update({'index':int(pair[1])})
-        if not prof.has_key('type'):
-            log_err(self, 'invalid profile, profile=%s' % ''.join(lines))
-            raise Exception(log_get(self, 'invalid profile'))
-        return prof
+        buf = self._readlines(name, ATTR_PROFILE)
+        if buf:
+            return check_profile(buf)

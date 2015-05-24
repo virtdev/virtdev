@@ -82,4 +82,3 @@ class Data(Path):
     def initialize(self, uid, name):
         f = self.create(uid, name)
         self.release(uid, name, f)
-    

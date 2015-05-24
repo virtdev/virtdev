@@ -25,13 +25,14 @@ from lib.log import log_err, log_get
 dhcp = DHCP()
 
 class User(Service):
-    def _gen_token(self):
+    def _gen_uuid(self):
         return uuid.uuid4().hex
     
     def login(self, uid, node, networks, mode):
+        key = self._gen_uuid()
         token = self._query.token.get(uid)
         if not token:
-            self._query.token.put(uid, self._gen_token())
+            self._query.token.put(uid, self._gen_uuid())
             token = self._query.token.get(uid)
             if not token:
                 log_err(self, 'no token')
@@ -39,11 +40,11 @@ class User(Service):
         addr = dhcp.allocate(uid, node, networks)
         self._query.node.remove(uid, (node,))
         self._query.node.put(uid, (node, addr, str(mode)))
-        return {'uid':uid, 'token':token, 'addr':addr}
+        self._query.key.put(uid + node, key)
+        return {'uid':uid, 'addr':addr, 'token':token, 'key':key}
     
     def logout(self, uid, node, addr):
         self._query.node.remove(uid, (node,))
         self._query.member.remove(uid, ('', node))
         dhcp.free(addr)
         return True
-    

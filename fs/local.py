@@ -68,4 +68,3 @@ class LocalFile(File):
     
     def mtime(self, uid, path):
         return 0
-    

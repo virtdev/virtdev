@@ -17,76 +17,85 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from util import lock
 from log import log_err
 from threading import Thread, Event, Lock
 from multiprocessing.pool import ThreadPool
 
 TIMEOUT = 60 # seconds
 
-class Queue(Thread):
-    def __init__(self, queue_len):
-        Thread.__init__(self)
-        self._queue_len = queue_len
-        self._event = Event()
-        self._lock = Lock()
-        self._queue = []
-        self.start()
-    
-    def _insert(self, buf):
-        pass
-    
-    @lock
-    def insert(self, buf):
-        self._insert(buf)
-        self._queue.insert(0, buf)
-        self._event.set()
-    
-    def _push(self, buf):
-        pass
-    
-    @lock
-    def push(self, buf):
-        if len(self._queue) < self._queue_len:
-            self._push(buf)
-            self._queue.append(buf)
-            self._event.set()
-            return True
-    
-    def get_length(self):
-        return len(self._queue)
-    
-    def get_capacity(self):
-        return self._queue_len
-    
-    @lock
-    def pop(self):
-        buf = None
-        if len(self._queue) > 0:
-            buf = self._queue.pop(0)
-            if len(self._queue) == 0:
-                self._event.clear()
-        return buf
-    
-    def _proc(self, buf):
-        pass
+class Queue(object):
+    def __init__(self, capacity, timeout=TIMEOUT):
+        self.__thread = Thread(target=self.__run)
+        self.__capacity = capacity
+        self.__timeout = timeout
+        self.__event = Event()
+        self.__lock = Lock()
+        self.__queue = []
+        self.__thread.start()
     
     def proc(self, buf):
-        pool = ThreadPool(processes=1)
-        result = pool.apply_async(self._proc, args=(buf,))
+        pass
+    
+    def prepush(self, buf):
+        pass
+    
+    def preinsert(self, buf):
+        pass
+    
+    def insert(self, buf):
+        self.__lock.acquire()
         try:
-            result.get(timeout=TIMEOUT)
+            self.preinsert(buf)
+            self.__queue.insert(0, buf)
+            self.__event.set()
+        finally:
+            self.__lock.release()
+    
+    def push(self, buf):
+        self.__lock.acquire()
+        try:
+            if len(self.__queue) < self.__capacity:
+                self.prepush(buf)
+                self.__queue.append(buf)
+                self.__event.set()
+                return True
+        finally:
+            self.__lock.release()
+    
+    @property
+    def length(self):
+        return len(self.__queue)
+    
+    @property
+    def capacity(self):
+        return self.__capacity
+    
+    def __pop(self):
+        self.__lock.acquire()
+        try:
+            buf = None
+            if len(self.__queue) > 0:
+                buf = self.__queue.pop(0)
+                if len(self.__queue) == 0:
+                    self.__event.clear()
+            return buf
+        finally:
+            self.__lock.release()
+    
+    def __proc(self, buf):
+        pool = ThreadPool(processes=1)
+        result = pool.apply_async(self.proc, args=(buf,))
+        try:
+            result.get(timeout=self.__timeout)
         finally:
             pool.terminate()
     
-    def run(self):
+    def __run(self):
         while True:
-            self._event.wait()
-            buf = self.pop()
+            self.__event.wait()
+            buf = self.__pop()
             if buf:
                 try:
-                    self.proc(buf)
+                    self.__proc(buf)
                 except:
                     log_err(self, 'failed to process')
-
-    

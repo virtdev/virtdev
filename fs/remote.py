@@ -33,7 +33,7 @@ FILE_SIZE = 1000000
 class RemoteFile(File):
     def __init__(self, router):
         self._router = router
-        
+    
     def _get_dfs_cli(self, uid):
         addr = self._router.get('fs', uid)
         return DFSClient(addr, DATA_SERVER_PORT, use_trash=False)
@@ -91,7 +91,7 @@ class RemoteFile(File):
             return True
         except:
             pass
-        
+    
     def _dfs_exists(self, uid, path):
         cli = self._get_dfs_cli(uid)
         return cli.test(path, exists=True)
@@ -156,4 +156,3 @@ class RemoteFile(File):
         st = cli.stat([path])
         if st:
             return st['modification_time']
-    

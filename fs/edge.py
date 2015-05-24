@@ -86,3 +86,5 @@ class Edge(Path):
     def getattr(self, uid, name):
         return self.lsattr(uid, name, symlink=True)
     
+    def release(self, uid, name, fh):
+        pass

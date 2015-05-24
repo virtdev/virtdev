@@ -21,12 +21,11 @@ import ast
 from lib import mode
 from lib import stream
 from lib.util import info
-from lib.log import log_err
 from threading import Thread
 from dev.req import REQ_OPEN, REQ_CLOSE, REQ_GET, REQ_PUT, REQ_MOUNT, parse
 
 class Driver(object):
-    def __init__(self, name=None, mode=mode.IV, rng=None, freq=None):
+    def __init__(self, name=None, mode=mode.IV, rng=None, freq=None, setup=True):
         self.__name = name
         self.__mode = mode
         self.__freq = freq
@@ -34,7 +33,8 @@ class Driver(object):
         self.__sock = None
         self.__index = None
         self.__thread = None
-        self.setup()
+        if setup:
+            self.setup()
     
     def __str__(self):
         return self.__class__.__name__
@@ -56,11 +56,6 @@ class Driver(object):
     
     def evaluate(self):
         pass
-    
-    def set(self, mode=mode.IV, rng=None, freq=None):
-        self.__mode = mode
-        self.__freq = freq
-        self.__range = rng
     
     def get_type(self):
         return str(self)
@@ -88,7 +83,7 @@ class Driver(object):
     def get_args(self, buf):
         try:
             args = ast.literal_eval(buf)
-            if type(args) != dict:
+            if type(args) not in [dict, list]:
                 return
             return args
         except:
@@ -140,7 +135,5 @@ class Driver(object):
                         self.__reply(ret)
                 elif flags & REQ_MOUNT:
                     stream.put(self.__sock, str(self.get_info()), local=True)
-        except:
-            log_err(self, 'failed to process')
         finally:
             self.__sock.close()
