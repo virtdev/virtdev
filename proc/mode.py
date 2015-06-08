@@ -30,8 +30,9 @@ class Mode(object):
             return self._mode[name]
         else:
             mode = self._loader.get_attr(name, ATTR_MODE, int)
-            self._mode[name] = mode
-            return mode
+            if mode != None:
+                self._mode[name] = mode
+                return mode
     
     def remove(self, name):
         if self._mode.has_key(name):

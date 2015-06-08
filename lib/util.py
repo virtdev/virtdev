@@ -193,13 +193,13 @@ def update_device(query, uid, node, addr, name):
     query.member.remove(uid, (name,))
     query.member.put(uid, (name, node))
 
-def load_driver(typ, name=None, setup=False):
+def load_driver(typ, name=None):
     try:
         module = imp.load_source(typ, os.path.join(DRIVER_PATH, '%s.py' % typ.lower()))
         if module and hasattr(module, typ):
             driver = getattr(module, typ)
             if driver:
-                return driver(name=name, setup=setup)
+                return driver(name=name)
     except:
         pass
 

@@ -194,20 +194,20 @@ class UDO(object):
         if not self._core or self._children:
             return self._mode
         else:
-            try:
-                return self._core.get_mode(self.d_name)
-            except:
-                return self._mode
+            mode = self._core.get_mode(self.d_name)
+            if mode == None:
+                mode = self._mode
+            return mode
     
     @property
     def d_freq(self):
         if not self._core or self._children:
             return self._freq
         else:
-            try:
-                return self._core.get_freq(self.d_name)
-            except:
-                return self._freq
+            freq = self._core.get_freq(self.d_name)
+            if freq == None:
+                freq = self._freq
+            return freq
     
     @property
     def d_index(self):

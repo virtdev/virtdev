@@ -33,8 +33,8 @@ pygame.camera.init()
 _camera_index = 0
 
 class Camera(Driver):
-    def __init__(self, name=None, setup=True):
-        Driver.__init__(self, name=name, mode=mode.OVP | mode.MODE_SYNC, setup=setup)
+    def __init__(self, name=None):
+        Driver.__init__(self, name=name, mode=mode.OVP | mode.MODE_SYNC)
     
     def setup(self):
         global _camera_index

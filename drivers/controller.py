@@ -28,6 +28,10 @@ from lib.bt import BluetoothSocket
 from lib.util import lock, check_info
 
 class Controller(Driver):
+    def __init__(self, name=None):
+        Driver.__init__(self, name=name, mode=mode.MODE_TRIG | mode.MODE_POLL | mode.MODE_PASSIVE)
+        self._lock = Lock()
+    
     def _check_info(self, buf):
         info = check_info(buf)
         if not info:
@@ -49,7 +53,6 @@ class Controller(Driver):
                 else:
                     sock = BluetoothSocket(name)
                 self._pyb = Pyboard(sock)
-                self._pyb.enter('setup()')
                 buf = self._pyb.enter('mount()')
                 self._info = self._check_info(buf)
             except:
@@ -59,8 +62,6 @@ class Controller(Driver):
                 if sock:
                     sock.close()
                 raise Exception(log_get(self, 'no info'))
-        self.set(mode=mode.MODE_TRIG | mode.MODE_POLL | mode.MODE_PASSIVE)
-        self._lock = Lock()
     
     def _exec(self, cmd):
         output = self._pyb.enter(cmd)

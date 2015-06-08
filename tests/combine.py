@@ -41,7 +41,6 @@ if __name__ == '__main__':
         usage()
         sys.exit()
     attr = {}
-    uid = uid
     if timeout:
         attr['timeout'] = timeout
     attr['vertex'] = devices

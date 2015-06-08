@@ -30,8 +30,9 @@ class Freq(object):
             return self._freq[name]
         else:
             freq = self._loader.get_attr(name, ATTR_FREQ, float)
-            self._freq[name] = freq
-            return freq
+            if freq != None:
+                self._freq[name] = freq
+                return freq
     
     def remove(self, name):
         if self._freq.has_key(name):

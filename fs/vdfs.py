@@ -33,7 +33,7 @@ from lib.log import log_err, log
 from conf.virtdev import DATA_SERVERS
 from fuse import FuseOSError, Operations
 from dev.interfaces.lo import device_name
-from dev.udo import UDO, FREQ_MAX, TIMEOUT_MAX
+from dev.udo import FREQ_MAX, TIMEOUT_MAX
 from lib.util import DIR_MODE, named_lock, load_driver
 from lib.mode import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK, MODE_CLONE
 from attr import Attr, ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PARENT, ATTR_TIMEOUT

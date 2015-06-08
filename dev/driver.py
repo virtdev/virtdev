@@ -25,7 +25,7 @@ from threading import Thread
 from dev.req import REQ_OPEN, REQ_CLOSE, REQ_GET, REQ_PUT, REQ_MOUNT, parse
 
 class Driver(object):
-    def __init__(self, name=None, mode=mode.IV, rng=None, freq=None, setup=True):
+    def __init__(self, name=None, mode=mode.IV, rng=None, freq=None):
         self.__name = name
         self.__mode = mode
         self.__freq = freq
@@ -33,8 +33,6 @@ class Driver(object):
         self.__sock = None
         self.__index = None
         self.__thread = None
-        if setup:
-            self.setup()
     
     def __str__(self):
         return self.__class__.__name__

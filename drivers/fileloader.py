@@ -25,8 +25,8 @@ from base64 import encodestring
 PATH_FL = '/opt/fileloader'
 
 class FileLoader(Driver):
-    def __init__(self, name=None, setup=True):
-        Driver.__init__(self, name=name, mode=mode.OVP | mode.MODE_SWITCH, freq=1, setup=setup)
+    def __init__(self, name=None):
+        Driver.__init__(self, name=name, mode=mode.OVP | mode.MODE_SWITCH, freq=1)
     
     def setup(self):
         if self.get_name():

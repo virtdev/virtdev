@@ -30,8 +30,9 @@ class Parent(object):
             return self._parent[name]
         else:
             parent = self._loader.get_attr(name, ATTR_PARENT, str)
-            self._parent[name] = parent
-            return parent
+            if parent != None:
+                self._parent[name] = parent
+                return parent
     
     def remove(self, name):
         if self._parent.has_key(name):

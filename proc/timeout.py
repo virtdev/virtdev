@@ -30,8 +30,9 @@ class Timeout(object):
             return self._timeout[name]
         else:
             timeout = self._loader.get_attr(name, ATTR_TIMEOUT, float)
-            self._timeout[name] = timeout
-            return timeout
+            if timeout != None:
+                self._timeout[name] = timeout
+                return timeout
     
     def remove(self, name):
         if self._timeout.has_key(name):

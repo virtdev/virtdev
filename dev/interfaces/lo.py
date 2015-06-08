@@ -29,7 +29,7 @@ from lib.util import load_driver
 from conf.virtdev import LO_ADDR, LO_PORT
 from lib.mode import MODE_LO, MODE_PASSIVE, MODE_CLONE, MODE_VIRT
 
-def device_name(typ, name, mode):
+def device_name(typ, name, mode=0):
     return '%s_%s_%d' % (typ, name, mode)
 
 def connect(device):
@@ -79,7 +79,9 @@ class Lo(UDI):
                     setup = True
                 
                 if typ and name:
-                    driver = load_driver(typ, name, setup)
+                    driver = load_driver(typ, name)
+                    if setup:
+                        driver.setup()
                     self._lo.update({device:driver})
                     if driver:
                         stream.put(sock, device, local=True)
