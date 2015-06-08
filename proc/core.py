@@ -126,7 +126,8 @@ class Core(object):
     def _start_inspector(self):
         while True:
             time.sleep(INSP_INTV)
-            for name in self._members:
+            members = self._members.keys()
+            for name in members:
                 self._inspect(name)
     
     def _is_ready(self, dest, src, flags):
