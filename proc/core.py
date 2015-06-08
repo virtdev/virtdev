@@ -337,6 +337,9 @@ class Core(object):
     
     @named_lock
     def _put(self, dest, src, buf, flags):
+        if not buf:
+            self._log('put, no content, dest=%s, src=%s' % (dest, src))
+            return
         res = None
         mode = self._mode.get(dest)
         if not mode & MODE_CLONE:
@@ -359,9 +362,5 @@ class Core(object):
                 self._dispatcher.sendto(src, dest, res, hidden=True, flags=flags)
     
     def put(self, dest, src, buf, flags):
-        ev = self._put(dest, src, buf, flags)
-        if ev:
-            self._log('put->wait, dest=%s, src=%s' % (dest, src))
-            ev.wait(WAIT_TIME)
-            return
+        self._put(dest, src, buf, flags)
         return True

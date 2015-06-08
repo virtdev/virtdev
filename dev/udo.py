@@ -30,7 +30,7 @@ from fs.attr import ATTR_MODE, ATTR_FREQ
 from threading import Thread, Event, Lock
 from lib.log import log, log_get, log_err
 from lib.op import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
-from lib.mode import MODE_POLL, MODE_VIRT, MODE_SWITCH, MODE_REFLECT, MODE_SYNC, MODE_TRIG, MODE_PASSIVE
+from lib.mode import MODE_POLL, MODE_VIRT, MODE_SWITCH, MODE_SYNC, MODE_TRIG, MODE_PASSIVE
 
 LOG = True
 FREQ_MAX = 100
@@ -382,22 +382,8 @@ class UDO(object):
                     continue
                 
                 name = device.d_name
-                if self._core.has_handler(name):
-                    output = self._core.handle(name, {name:buf})
-                    if not output:
-                        continue
-                    
-                    buf = ast.literal_eval(output)
-                    if type(buf) != dict:
-                        log_err(self, 'invalid output')
-                        continue
-                    
-                    if buf:
-                        mode = device.d_mode
-                        if mode & MODE_REFLECT:
-                            op = self._core.get_oper({name:buf}, mode)
-                            if op:
-                                buf = self.proc(name, op)
+                if buf and self._core.has_handler(name):
+                    buf = self._core.handle(name, {name:buf})
                 
                 if not self._set(device, buf) and buf:
                     mode = device.d_mode
