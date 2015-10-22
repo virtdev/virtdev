@@ -21,22 +21,21 @@ import os
 import re
 import time
 import shelve
+import notifier
 from lib import tunnel
-from lib import notifier
 from daemon import Daemon
 from proc.core import Core
 from proc.proc import Proc
+from lib.mode import MODE_VISI
 from lib.lock import NamedLock
 from conductor import Conductor
 from lib.request import Request
 from threading import Lock, Thread
 from lib.op import OP_OPEN, OP_CLOSE
-from lib.log import log, log_err, log_get
-from lib.mode import MODE_SYNC, MODE_VISI 
-from lib.util import USERNAME_SIZE, PASSWORD_SIZE, netaddresses, get_node, dev_name, cat, lock, named_lock
-from conf.virtdev import LO, BT, USB, FS, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT, LIB_PATH, RUN_PATH, SHADOW, VISIBLE, MOUNTPOINT
-
-LOG=True
+from lib.log import log_err, log_get
+from conf.path import PATH_LIB, PATH_RUN, PATH_MOUNTPOINT
+from lib.util import USERNAME_SIZE, PASSWORD_SIZE, netaddresses, get_node, get_name, cat, lock, named_lock
+from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
 
 class DeviceManager(object):
     def __init__(self, cond): 
@@ -60,13 +59,12 @@ class DeviceManager(object):
                 return
     
     @named_lock
-    def add(self, name, mode=None, freq=None, prof=None):
+    def add(self, name, mode=None, freq=None, prof=None): 
         return self._cond.request.device.add(node=get_node(), addr=self._cond.addr, name=name, mode=mode, freq=freq, prof=prof)
     
     @named_lock
     def update(self, name, buf):
-        if self._cond.core.get_mode(name) & MODE_SYNC:
-            return self._cond.request.device.update(name=name, buf=buf)
+        return self._cond.request.device.update(name=name, buf=buf)
     
     @named_lock
     def get(self, name):
@@ -126,7 +124,7 @@ class TunnelManager(object):
                 log_err(self, 'failed to open, no token')
                 raise Exception(log_get(self, 'failed to open'))
             try:
-                tunnel.connect(addr, key)
+                tunnel.connect(uid, addr, key)
             except:
                 self._cond.remove_device(name)
                 self._cond.remove_key(uid, node)
@@ -147,21 +145,23 @@ class TunnelManager(object):
     
     @named_lock
     def put(self, name, **args):
+        uid = self._cond.uid
+        token = self._cond.token 
         _, _, addr = self._cond.get_device(name)
-        ip_addr = tunnel.addr2ip(addr)
-        tunnel.put(ip_addr, 'put', args, self._cond.uid, self._cond.token)
+        tunnel.put(uid, addr, 'put', args, token)
     
     @named_lock
     def push(self, name, **args):
+        uid = self._cond.uid
+        token = self._cond.token 
         _, _, addr = self._cond.get_device(name)
-        ip_addr = tunnel.addr2ip(addr)
-        tunnel.push(ip_addr, 'put', args, self._cond.uid, self._cond.token)
+        tunnel.push(uid, addr, 'put', args, token)
 
 class MemberManager(object):
     def __init__(self, cond):
         self._cond = cond
         self._lock = Lock()
-        self._path = os.path.join(LIB_PATH, dev_name(cond.uid))
+        self._path = os.path.join(PATH_LIB, get_name(cond.uid, get_node()))
     
     @lock
     def list(self):
@@ -199,11 +199,7 @@ class MemberManager(object):
         finally:
             d.close()
 
-class Manager(object):
-    def _log(self, text):
-        if LOG:
-            log(text)
-    
+class Manager(object):    
     def _init_proc(self):
         self._filter = Proc(self, (PROC_ADDR, FILTER_PORT))
         self._handler = Proc(self, (PROC_ADDR, HANDLER_PORT))
@@ -241,16 +237,12 @@ class Manager(object):
             from interfaces.usb import USBSerial
             self._usb = USBSerial(self.uid, self.core)
             self.devices.append(self._usb)
-        
-        name = dev_name(self.uid)
-        self.device.add(name)
-        self._log('dev: name=%s, node=%s' % (name, get_node()))
     
     def _init_core(self):
         self.core = Core(self)
     
     def _get_password(self):
-        path = os.path.join(LIB_PATH, 'user')
+        path = os.path.join(PATH_LIB, 'user')
         d = shelve.open(path)
         try:
             user = d['user']
@@ -271,9 +263,10 @@ class Manager(object):
             log_err(self, 'failed to login, invalid password')
             return
         
-        mode = 0
-        if VISIBLE:
-            mode |= MODE_VISI
+        if EXPOSE:
+            mode = MODE_VISI
+        else:
+            mode = 0
         
         req = Request(name, password)
         res = req.user.login(node=get_node(), networks=netaddresses(mask=True), mode=mode)
@@ -309,12 +302,12 @@ class Manager(object):
             return
         
         self._init_user()
-        self._init_proc()    
-        self._init_core()
+        self._init_proc()
         self._init_cond()
+        self._init_core()
         self._init_dev()
         
-        if VISIBLE:
+        if EXPOSE:
             self._init_daemon()
     
     def __init__(self):
@@ -338,17 +331,16 @@ class Manager(object):
         self._initialize()
     
     def _save_addr(self):
-        path = os.path.join(RUN_PATH, 'addr')
+        path = os.path.join(PATH_RUN, 'addr')
         d = shelve.open(path)
         try:
             d['addr'] = self.addr
             d['node'] = get_node()
-            d['name'] = dev_name(self.uid)
         finally:
             d.close()
     
     def _start(self):
-        path = os.path.join(MOUNTPOINT, self.uid)
+        path = os.path.join(PATH_MOUNTPOINT, self.uid)
         while not os.path.exists(path):
             time.sleep(0.1)
         for device in self.devices:
@@ -368,7 +360,7 @@ class Manager(object):
                 return (addr, key)
     
     def notify(self, op, buf):
-        notifier.push(op, buf)
+        notifier.notify(op, buf)
     
     def has_lo(self):
         return self._lo != None

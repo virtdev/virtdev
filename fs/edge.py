@@ -47,7 +47,7 @@ class Edge(Path):
                 edge = (src, dest[1:])
             else:
                 edge = (src, dest)
-            self._core.add_dispatcher(edge)
+            self._core.add_edge(edge)
     
     def _create(self, uid, name):
         if self._core:
@@ -71,7 +71,7 @@ class Edge(Path):
         child = self.child(name)
         if parent != child:
             edge = (parent, child)
-            self._core.remove_dispatcher(edge)
+            self._core.remove_edge(edge)
     
     def unlink(self, uid, name):
         self._unlink(uid, name)

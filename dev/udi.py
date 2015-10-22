@@ -17,7 +17,6 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
 import req
 import time
 import copy
@@ -25,14 +24,13 @@ from udo import UDO
 from lib import stream
 from threading import Lock, Thread
 from lib.log import log_get, log_err
-from lib.util import get_name, check_info
+from lib.util import get_name, device_info
 from lib.mode import MODE_CLONE, MODE_VIRT
 from multiprocessing.pool import ThreadPool
 
 PAIR_INTERVAL = 7 # seconds
 SCAN_INTERVAL = 7 # seconds
 MOUNT_TIMEOUT = 15 # seconds
-DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
             
 class UDI(object):
     def __init__(self, uid, core):
@@ -78,8 +76,8 @@ class UDI(object):
             mode = int(info['mode'])
             dev.set_mode(mode)
         
-        if info.get('range'):
-            dev.set_range(dict(info['range']))
+        if info.get('spec'):
+            dev.set_spec(dict(info['spec']))
         
         return dev
     
@@ -101,7 +99,7 @@ class UDI(object):
         stream.put(sock, req.req_mount(), local=local)
         buf = stream.get(sock, local=local)
         if buf:
-            return check_info(buf)
+            return device_info(buf)
     
     def _mount(self, sock, local, device, init):
         info = self._get_info(sock, local)
@@ -125,7 +123,6 @@ class UDI(object):
                 log_err(self, 'failed to mount, no device')
                 return
             parent = UDO(children, local)
-            init = False
         if self.get_mode(device) & MODE_CLONE:
             sock = None
         parent.mount(self._uid, name, self._core, sock=sock, init=init)
@@ -134,15 +131,18 @@ class UDI(object):
     
     def _proc(self, target, args, timeout):
         pool = ThreadPool(processes=1)
+        result = pool.apply_async(target, args=args)
+        pool.close()
         try:
-            result = pool.apply_async(target, args=args)
-            result.wait(timeout)
-            return result.get()
-        except:
-            pool.terminate()
+            return result.get(timeout=timeout)
+        finally:
+            pool.join()
     
     def _create(self, device, init=True):
-        sock, local = self._proc(self.connect, (device,), PAIR_INTERVAL)
+        try:
+            sock, local = self._proc(self.connect, (device,), PAIR_INTERVAL)
+        except:
+            return
         if sock:
             name = self._proc(self._mount, (sock, local, device, init), MOUNT_TIMEOUT)
             if not name:
@@ -160,9 +160,8 @@ class UDI(object):
     def find(self, name):
         devices = copy.copy(self._devices)
         for i in devices:
-            d = devices[i].find(name)
-            if d:
-                return d
+            if devices[i].find(name):
+                return devices[i]
     
     def _start(self):
         while True:

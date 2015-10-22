@@ -18,12 +18,16 @@
 #      MA 02110-1301, USA.
 
 import os
-from conf.virtdev import FS_PATH
+from conf.path import PATH_FS
 
 class Temp(object):
-    def __init__(self, parent, watcher):
+    def __init__(self, parent, rdonly):
         self._parent = parent
-        self._watcher = watcher
+        self._rdonly = rdonly
+        self._watcher = None
+        if not self._rdonly:
+            from watcher import Watcher
+            self._watcher = Watcher()
     
     def _get_name(self, name):
         ret = ''
@@ -36,7 +40,7 @@ class Temp(object):
         return ret
     
     def _get_dir(self, uid, label):
-        return os.path.join(FS_PATH, uid, 'temp', label)
+        return os.path.join(PATH_FS, uid, 'temp', label)
     
     def _check_dir(self, uid, label):
         path = self._get_dir(uid, label)
@@ -99,21 +103,22 @@ class Temp(object):
             mode |= os.O_TRUNC
         ret = os.open(path, mode, 0644)
         if ret >= 0 and self._watcher:
-            self._watcher.add(path)
+            self._watcher.register(path)
         return ret
     
-    def close(self, uid, name, fh, force=False):
-        path = ''
+    def release(self, uid, name, fh):
         os.close(fh)
-        update = False
-        if self._watcher:
+        if not self._rdonly:
             path = self.get_path(uid, name)
-            if self._watcher.pop(path):
-                update = True
-        if update or force:
-            if not path:
-                path = self.get_path(uid, name)
-            parent = self._parent.get_path(uid, name)
-            self._parent.save_file(uid, path, parent)
-            return True
-        return False
+            if self._watcher and self._watcher.pop(path):
+                return True
+    
+    def update(self, uid, name):
+        path = self.get_path(uid, name)
+        parent = self._parent.get_path(uid, name)
+        self._parent.save_file(uid, path, parent)
+    
+    def drop(self, uid, name):
+        path = self.get_path(uid, name)
+        if os.path.exists(path):
+            os.remove(path)

@@ -19,17 +19,11 @@
 
 from emitter import EventEmitter
 from receiver import EventReceiver
-from collector import EventCollector
-from conf.virtdev import EVENT_SERVER
-
 
 class DeviceEvent(object):
     def __init__(self, router):
-        self._collector = None
         self._emitter = EventEmitter(router)
         self._receiver = EventReceiver(router)
-        if EVENT_SERVER:
-            self._collector = EventCollector()
     
     def put(self, uid, name):
         return self._emitter.put(uid, name)

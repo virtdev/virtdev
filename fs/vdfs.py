@@ -26,18 +26,17 @@ from edge import Edge
 from data import Data
 from errno import EINVAL
 from vertex import Vertex
-from watcher import Watcher
+from lib.loader import Loader
 from lib.lock import NamedLock
 from dev.manager import Manager
 from lib.log import log_err, log
-from conf.virtdev import DATA_SERVERS
 from fuse import FuseOSError, Operations
 from dev.interfaces.lo import device_name
 from dev.udo import FREQ_MAX, TIMEOUT_MAX
 from lib.util import DIR_MODE, named_lock, load_driver
 from lib.mode import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK, MODE_CLONE
 from attr import Attr, ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PARENT, ATTR_TIMEOUT
-from lib.op import OP_POLL, OP_MOUNT, OP_CLONE, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_SYNC, OP_ADD, OP_JOIN, OP_ACCEPT
+from lib.op import OP_POLL, OP_MOUNT, OP_CLONE, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_ADD, OP_JOIN, OP_ACCEPT, OP_SCAN
 
 _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
@@ -48,36 +47,32 @@ TYPE_VDEV = 'VDev'
 def show_path(func):
     def _show_path(*args, **kwargs):
         path = args[1]
-        log('%s: path=%s' % (func.func_name, path))
+        log('%s: path=%s' % (func.func_name, path), time=True)
         return func(*args, **kwargs)
     return _show_path
 
 class VDFS(Operations):
-    def __init__(self, query=None):
+    def __init__(self, query=None, router=None):
         self._events = {}
         self._results = {}
         self._query = query
-        watcher = Watcher()
         if not query:
             self._shadow = True
             manager = Manager()
             self._edge = Edge(core=manager.core)
             self._attr = Attr(core=manager.core)
             self._vertex = Vertex(core=manager.core)
-            self._data = Data(self._vertex, self._edge, self._attr, watcher=watcher, core=manager.core)
+            self._data = Data(self._vertex, self._edge, self._attr, core=manager.core)
             
             from lib.link import Uplink
             self._link = Uplink(manager)
         else:
             manager = None
             self._shadow = False
-            router = query.router
-            for i in DATA_SERVERS:
-                router.add_server('fs', i)
             self._edge = Edge(router=router)
             self._vertex = Vertex(router=router)
-            self._attr = Attr(watcher=watcher, router=router)
-            self._data = Data(self._vertex, self._edge, self._attr, watcher=watcher, router=router)
+            self._attr = Attr(router=router, rdonly=False)
+            self._data = Data(self._vertex, self._edge, self._attr, router=router, rdonly=False)
             
             from lib.link import Downlink
             link = Downlink(query)
@@ -139,7 +134,7 @@ class VDFS(Operations):
             if total > 2:
                 if obj == self._attr:
                     if total > 4:
-                        log_err(self, 'failed to parse, too much fields, path=%s' % path)
+                        log_err(self, 'failed to parse, invalid fields, path=%s' % path)
                         raise FuseOSError(EINVAL)
                     name = self._check_name(field[2])
                     if not name:
@@ -158,68 +153,60 @@ class VDFS(Operations):
         
         return (obj, uid, name)
     
-    def _sync_create(self, obj, uid, name):
+    def _do_create(self, obj, uid, name):
         if not self._shadow:
             if obj.can_invalidate():
                 if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
-                    log_err(self, 'sync_create failed, op=OP_INVALIDATE, name=%s' % name)
+                    log_err(self, 'failed to create, link error, op=OP_INVALIDATE, name=%s' % name)
                     raise FuseOSError(EINVAL)
             elif obj.can_touch():
                 if not self._link.put(name=obj.parent(name), op=OP_TOUCH, path=obj.real(name)):
-                    log_err(self, 'sync_create failed, op=OP_TOUCH, name=%s' % name)
+                    log_err(self, 'failed to create, link error, op=OP_TOUCH, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
-    def _sync_open(self, obj, uid, name, flags):
+    def _do_open(self, obj, uid, name, flags):
         if not self._shadow:
-            if obj.can_invalidate():
-                if obj.may_update(flags):
-                    if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
-                        log_err(self, 'sync_open failed, op=INVALIDATE, name=%s' % name)
-                        raise FuseOSError(EINVAL)
-            elif obj.can_touch():
+            if obj.can_touch():
                 if not self._link.put(name=obj.parent(name), op=OP_TOUCH, path=obj.real(name)):
-                    log_err(self, 'sync_open failed, op=OP_TOUCH, name=%s' % name)
+                    log_err(self, 'failed to open, link error, op=OP_TOUCH, name=%s' % name)
                     raise FuseOSError(EINVAL)
         elif obj.is_expired(uid, name):
             buf = self._link.put(name=obj.parent(name), op=OP_DIFF, label=obj.label, item=obj.child(name), buf=obj.signature(uid, name))
             obj.patch(uid, name, buf)
     
-    def _sync_release(self, obj, uid, name, update=False):
-        if self._shadow:
-            if update:
-                with open(obj.get_path(uid, name), 'r') as f:
-                    buf = f.read()
-                if not self._link.put(name=name, op=OP_SYNC, buf=buf):
-                    log_err(self, 'sync_release failed, op=OP_SYNC, name=%s' % name)
+    def _do_release(self, obj, uid, name):
+        if not self._shadow:
+            if obj.can_invalidate():
+                if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
+                    log_err(self, 'failed to release, link error, op=OP_INVALIDATE, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
-    def _sync_unlink(self, obj, uid, name):
+    def _do_unlink(self, obj, uid, name):
         if not self._shadow:
             if obj.can_invalidate() or obj.can_unlink():
                 if not self._link.put(name=obj.parent(name), op=OP_INVALIDATE, path=obj.real(name)):
-                    log_err(self, 'sync_unlink failed, op=OP_INVALIDATE, name=%s' % name)
+                    log_err(self, 'failed to unlink, link error, op=OP_INVALIDATE, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
-    def _sync_enable(self, obj, uid, name):
+    def _do_enable(self, obj, uid, name):
         if not self._shadow:
             if obj.can_enable():
                 if not self._link.put(name=name, op=OP_ENABLE, path=name):
-                    log_err(self, 'sync_enable failed, op=OP_ENABLE, name=%s' % name)
+                    log_err(self, 'failed to enable, link error, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
-    def _sync_disable(self, obj, uid, name):
+    def _do_disable(self, obj, uid, name):
         if not self._shadow:
             if obj.can_disable():
                 if not self._link.put(name=name, op=OP_DISABLE, path=name):
-                    log_err(self, 'sync_disable failed, op=OP_DISABLE, name=%s' % name)
+                    log_err(self, 'failed to disable, link error, name=%s' % name)
                     raise FuseOSError(EINVAL)
     
     @named_lock
-    @show_path
     def _invalidate(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
-            log_err(self, 'failed to invalidate, cannot get obj')
+            log_err(self, 'failed to invalidate, no object')
             raise FuseOSError(EINVAL)
         obj.invalidate(uid, name)
     
@@ -227,7 +214,7 @@ class VDFS(Operations):
         lo = mode & MODE_LO
         if lo:
             if not typ or (self._shadow and not self._manager.has_lo()):
-                log_err(self, 'failed to initialize device')
+                log_err(self, 'failed to initialize device, name=%s' % name)
                 raise FuseOSError(EINVAL)
         
         link = mode & MODE_LINK
@@ -235,7 +222,7 @@ class VDFS(Operations):
             mode &= ~MODE_LINK
             
         if mode & MODE_CLONE and not parent:
-            log_err(self, 'failed to initialize device, no parent')
+            log_err(self, 'failed to initialize device, no parent, name=%s' % name)
             raise FuseOSError(EINVAL)
         
         if not mode & MODE_VIRT:
@@ -248,7 +235,7 @@ class VDFS(Operations):
             if typ:
                 driver = load_driver(typ)
                 if not driver:
-                    log_err(self, 'failed to initialize device')
+                    log_err(self, 'failed to initialize device, name=%s' % name)
                     raise FuseOSError(EINVAL)
                 if mode & MODE_CLONE:
                     mode = driver.get_mode() | MODE_CLONE
@@ -283,7 +270,7 @@ class VDFS(Operations):
         
         if vertex:
             if mode & MODE_CLONE:
-                log_err(self, 'failed to initialize device, invalid vertex')
+                log_err(self, 'failed to initialize device, invalid vertex, name=%s' % name)
                 raise FuseOSError(EINVAL)
             self._vertex.initialize(uid, name, vertex)
             for v in vertex:
@@ -292,7 +279,7 @@ class VDFS(Operations):
         if not self._shadow:
             if not link:
                 if not self._link.mount(uid, name, mode, vertex, typ, parent, timeout):
-                    log_err(self, 'failed to initialize device, cannot mount')
+                    log_err(self, 'failed to initialize device, link error, name=%s' % name)
                     raise FuseOSError(EINVAL)
         else:
             if lo and not mode & MODE_CLONE:
@@ -302,22 +289,19 @@ class VDFS(Operations):
         if not name:
             name = uuid.uuid4().hex
         
-        if mode != None:
-            link = mode & MODE_LINK
-            self._initialize(uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ, timeout)
-        else:
-            link = None
-        
-        if self._shadow and not link:
+        if self._shadow and (mode == None or not mode & MODE_LINK):
             if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, prof=prof):
-                log_err(self, 'failed to mount device, cannot link, op=OP_ADD')
+                log_err(self, 'failed to mount device, link error, op=OP_ADD, name=%s' % str(name))
                 raise FuseOSError(EINVAL)
+        
+        if mode != None:
+            self._initialize(uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ, timeout)
         
         return name
     
     def _mount(self, path, value):
         if not value:
-            log_err(self, 'failed to mount, no value')
+            log_err(self, 'failed to mount')
             raise FuseOSError(EINVAL)
         
         uid = self._get_uid(path)
@@ -365,7 +349,6 @@ class VDFS(Operations):
         
         self._mount_device(uid, name, mode, vertex, parent, freq, prof, hndl, filt, disp, typ, timeout)
     
-    @named_lock
     def getattr(self, path, fh=None):
         obj, uid, name = self._parse(path)
         if not name:
@@ -382,17 +365,8 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to create, no object')
             raise FuseOSError(EINVAL)
-        self._sync_create(obj, uid, name)
+        self._do_create(obj, uid, name)
         return obj.create(uid, name)
-    
-    @named_lock
-    @show_path
-    def readdir(self, path, fh):
-        obj, uid, name = self._parse(path)
-        res = []
-        if obj:
-            res = obj.readdir(uid, name)
-        return res
     
     @named_lock
     @show_path
@@ -401,7 +375,7 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to open, no object')
             raise FuseOSError(EINVAL)
-        self._sync_open(obj, uid, name, flags)
+        self._do_open(obj, uid, name, flags)
         return obj.open(uid, name, flags)
     
     @named_lock
@@ -411,27 +385,38 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to release, no object')
             raise FuseOSError(EINVAL)
-        update = obj.release(uid, name, fh)
-        self._sync_release(obj, uid, name, update)
+        ret = obj.release(uid, name, fh)
+        if ret:
+            try:
+                self._do_release(obj, uid, name)
+            except:
+                obj.drop(uid, name)
+                return
+            obj.update(uid, name)
     
-    @named_lock
+    @show_path
+    def readdir(self, path, fh):
+        obj, uid, name = self._parse(path)
+        res = []
+        if obj:
+            res = obj.readdir(uid, name)
+        return res
+    
     def write(self, path, buf, offset, fh):
         os.lseek(fh, offset, 0)
         return os.write(fh, buf)
     
-    @named_lock
     def read(self, path, size, offset, fh):
         os.lseek(fh, offset, 0)
         return os.read(fh, size)
     
-    @named_lock
     @show_path
     def unlink(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
             log_err(self, 'failed to unlink, no object')
             raise FuseOSError(EINVAL)
-        self._sync_unlink(obj, uid, name)
+        self._do_unlink(obj, uid, name)
         obj.unlink(uid, name)
     
     def _create_device(self, path, op, attr):
@@ -457,10 +442,10 @@ class VDFS(Operations):
             if not parent:
                 log_err(self, 'failed to create device, no parent')
                 raise FuseOSError(EINVAL)
-            prof = self._attr.get_profile(uid, parent)
+            prof = Loader(uid).get_profile(parent)
             typ = prof['type']
         
-        if None == mode:
+        if mode == None:
             if not typ:
                 mode = MODE_VIRT
             else:
@@ -475,7 +460,7 @@ class VDFS(Operations):
         vertex = args.get('vertex')
         if vertex:
             if mode & MODE_CLONE:
-                log_err(self, 'failed to create device, any cloned device does not have vertex')
+                log_err(self, 'failed to create device, invalid mode')
                 raise FuseOSError(EINVAL)
             if type(vertex) != list:
                 log_err(self, 'failed to create device, invalid vertex')
@@ -496,14 +481,14 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to enable, no object')
             raise FuseOSError(EINVAL)
-        self._sync_enable(obj, uid, name)
+        self._do_enable(obj, uid, name)
     
     def _disable(self, path):
         obj, uid, name = self._parse(path)
         if not obj:
             log_err(self, 'failed to disable, no object')
             raise FuseOSError(EINVAL)
-        self._sync_disable(obj, uid, name)
+        self._do_disable(obj, uid, name)
     
     def _join(self, path, target):
         if not self._shadow:
@@ -550,15 +535,15 @@ class VDFS(Operations):
     def _set_event(self, uid, event):
         self._events[uid] = event
     
-    def _scan(self, path, args):
+    def _scan(self, path):
         result = ''
-        if self._shadow or not args:
+        if self._shadow:
             return result
-        obj, _, name = self._parse(path)
+        obj, uid, name = self._parse(path)
         if not obj or not obj.can_scan():
             return result
         if name:
-            result = self._query.history.get(name, args)
+            result = self._query.history.get(uid, name)
         return result
     
     def _get_uid(self, path):
@@ -602,16 +587,16 @@ class VDFS(Operations):
             self._results.update({op:{path:result}})
     
     def getxattr(self, path, name, position=0):
-        if name == OP_POLL:
-            op = 'poll'
-        elif name.startswith('scan:'):
-            op = 'scan'
-        elif name.startswith('clone:'):
-            op = 'clone'
-        elif name.startswith('create:'):
-            op = 'create'
-        elif name.startswith('combine:'):
-            op = 'combine'
+        if name.startswith(OP_POLL):
+            op = OP_POLL
+        elif name.startswith(OP_SCAN):
+            op = OP_SCAN
+        elif name.startswith(OP_CLONE):
+            op = OP_CLONE
+        elif name.startswith(OP_CREATE):
+            op = OP_CREATE
+        elif name.startswith(OP_COMBINE):
+            op = OP_COMBINE
         else:
             return ''
         
@@ -619,20 +604,19 @@ class VDFS(Operations):
         if res:
             return res
         
-        if op == 'poll':
+        if op == OP_POLL:
             res = self._poll(path)
-        elif op == 'scan':
-            res = self._scan(path, name[len('scan:'):])
-        elif op == 'clone':
-            res = self._create_device(path, OP_CLONE, name[len('clone:'):])
-        elif op == 'create':
-            res = self._create_device(path, OP_CREATE, name[len('create:'):])
-        elif op == 'combine':
-            res = self._create_device(path, OP_COMBINE, name[len('combine:'):])
+        elif op == OP_SCAN:
+            res = self._scan(path)
+        elif op == OP_CLONE:
+            res = self._create_device(path, OP_CLONE, name[len(OP_CLONE) + 1:])
+        elif op == OP_CREATE:
+            res = self._create_device(path, OP_CREATE, name[len(OP_CREATE) + 1:])
+        elif op == OP_COMBINE:
+            res = self._create_device(path, OP_COMBINE, name[len(OP_COMBINE) + 1:])
         self._set_result(path, op, res)
         return res
     
-    @named_lock
     @show_path
     def truncate(self, path, length, fh=None):
         obj, uid, name = self._parse(path)
@@ -641,7 +625,6 @@ class VDFS(Operations):
             raise FuseOSError(EINVAL)
         obj.truncate(uid, name, length)
     
-    @named_lock
     @show_path
     def readlink(self, path):
         obj, uid, name = self._parse(path)

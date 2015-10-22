@@ -22,7 +22,6 @@ import lo
 from dev.udi import UDI
 from conf.virtdev import LO
 from lib.usb import USBSocket
-from drivers.controller import Controller
 
 PATH_DEV = '/dev'
 
@@ -39,8 +38,7 @@ class USBSerial(UDI):
     def connect(self, device):
         ret = None
         if LO: 
-            typ = str(Controller())
-            sock = lo.connect(lo.device_name(typ, device))
+            sock = lo.connect(lo.device_name('Controller', device))
             if sock:
                 ret = (sock, True)
         if not ret:

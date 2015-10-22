@@ -26,7 +26,7 @@ NODE_MAX = 256
 
 class Node(Service):
     def _get_uid(self, user):
-        return self._query.user.get({'user':user}, 'uid')
+        return self._query.user.get(user, 'uid')
     
     def find(self, uid, user, node):
         uid = self._get_uid(user)

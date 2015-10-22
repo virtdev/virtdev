@@ -23,8 +23,8 @@ class Key(Service):
     def get(self, uid, name):
         device = self._query.device.get(name)
         if device:
-            if uid != device['uid']:
+            if device['uid'] != uid:
                 guests = self._query.guest.get(uid)
                 if not guests or name not in guests:
-                    return 
-            return self._query.key.get(device['uid'] + device['node'])
+                    return
+            return self._query.key.get(name)

@@ -21,8 +21,8 @@ import zerorpc
 from lib.log import log_err
 from lib.lock import NamedLock
 from threading import Thread, Event
-from lib.util import zmqaddr, ifaddr, named_lock
-from conf.virtdev import EVENT_COLLECTOR_PORT, EVENT_RECEIVER_PORT
+from lib.util import USER_DOMAIN, zmqaddr, ifaddr, named_lock
+from conf.virtdev import IFBACK, EVENT_COLLECTOR_PORT, EVENT_RECEIVER_PORT
 
 WAIT_TIME = 3600 # seconds
 
@@ -41,6 +41,7 @@ class EventReceiver(Thread):
         self._results = {}
         self._router = router
         self._lock = NamedLock()
+        self._addr = ifaddr(IFBACK)
         self._recv = Receiver(self)
         self.start()
     
@@ -84,12 +85,12 @@ class EventReceiver(Thread):
     
     def get(self, uid):
         ret = ''
-        addr = self._router.get('event', uid)
         cli = zerorpc.Client()
+        addr = self._router.get(uid, USER_DOMAIN)
         cli.connect(zmqaddr(addr, EVENT_COLLECTOR_PORT))
         try:
             while not ret:
-                ret = cli.get(uid, ifaddr())
+                ret = cli.get(uid, self._addr)
                 if not ret:
                     event = self._get_event(uid)
                     try:
@@ -110,5 +111,5 @@ class EventReceiver(Thread):
     
     def run(self):
         srv = zerorpc.Server(self._recv)
-        srv.bind(zmqaddr(ifaddr(), EVENT_RECEIVER_PORT))
+        srv.bind(zmqaddr(self._addr, EVENT_RECEIVER_PORT))
         srv.run()

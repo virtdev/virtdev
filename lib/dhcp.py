@@ -17,30 +17,18 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import random
-from lib.util import cat, split
-from lib.log import log_err, log_get
-from db.db import CounterDB, AddressDB
+from random import randint
 
 F1_SIZE = 255 * 8
 F2_SIZE = 8
 F3_SIZE = 32
 
-RETRY_MAX = 3
-GROUP_MAX = 32
 HOST_MAX = 255 * 255 * 8
+RETRY_MAX = 3
 
-class DHCP(object):
-    def __init__(self):
-        self._counter = CounterDB()
-        self._address = AddressDB()
-        for i in range(GROUP_MAX):
-            self._counter.set(str(i), 0)
-    
-    def _index2addr(self, index):
-        if index >= HOST_MAX:
-            log_err(self, 'invalid index')
-            raise Exception(log_get(self, 'invalid index'))
+class DHCP(object):    
+    def _gen_addr(self):
+        index = randint(0, HOST_MAX - 1)
         tmp = index % F1_SIZE
         f1 = int(index / F1_SIZE)
         f2 = int(tmp / F2_SIZE)
@@ -48,8 +36,6 @@ class DHCP(object):
         return '10.%d.%d.%d' % (f1, f2, f3)
     
     def _check_addr(self, addr, networks):
-        if not addr:
-            return False
         field = addr.split('.')
         net = '%s.%s.%s.' % (field[0], field[1], field[2])
         len_net = len(net)
@@ -59,50 +45,8 @@ class DHCP(object):
                 return False
         return True
     
-    def _check_group(self):
-        start = random.randint(0, GROUP_MAX - 1)
-        for i in range(GROUP_MAX):
-            grp = (start + i) % GROUP_MAX
-            cnt = self._counter.get(str(grp))
-            if cnt < HOST_MAX:
-                start = grp * int(HOST_MAX / GROUP_MAX)
-                index = (start + cnt) % HOST_MAX
-                return (str(grp), index)
-        return (None, None)
-    
-    def _check_gaddr(self, uid, node, gaddr, group=None):
-        name = cat(uid, node)
-        self._address.put(gaddr, name)
-        res = self._address.get(gaddr, first=True)
-        if res == name:
-            if group:
-                self._counter.put(group, 1)
-            return True
-    
     def allocate(self, uid, node, networks=None):
-        cnt = 0
-        while cnt < RETRY_MAX:
-            group, index = self._check_group()
-            if group:
-                addr = self._index2addr(index)
-                gaddr = cat(group, addr)
-            else:
-                gaddr = self._address.recycle()
-                addr = split(gaddr)[1]
+        for _ in range(RETRY_MAX):
+            addr = self._gen_addr()
             if self._check_addr(addr, networks):
-                if self._check_gaddr(uid, node, gaddr, group):
-                    return gaddr
-                else:
-                    gaddr = self._address.recycle()
-                    if gaddr:
-                        addr = split(gaddr)[1]
-                        if self._check_addr(addr, networks):
-                            if self._check_gaddr(uid, node, gaddr):
-                                return gaddr
-            cnt += 1
-    
-    def free(self, address):
-        self._address.unset(address)
-    
-    def refresh(self, address):
-        self._address.refresh(address)
+                return addr

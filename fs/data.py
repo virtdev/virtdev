@@ -21,9 +21,9 @@ from temp import Temp
 from path import Path
 
 class Data(Path):
-    def __init__(self, vertex, edge, attr, watcher=None, router=None, core=None):
+    def __init__(self, vertex, edge, attr, router=None, core=None, rdonly=True):
         Path.__init__(self, router, core)
-        self._temp = Temp(self, watcher)
+        self._temp = Temp(self, rdonly)
         self._vertex = vertex
         self._edge = edge
         self._attr = attr
@@ -59,7 +59,7 @@ class Data(Path):
         return self._temp.open(uid, name, flags)
     
     def release(self, uid, name, fh):
-        return self._temp.close(uid, name, fh)
+        return self._temp.release(uid, name, fh)
     
     def _unlink(self, uid, name):
         if self._core:
@@ -82,3 +82,9 @@ class Data(Path):
     def initialize(self, uid, name):
         f = self.create(uid, name)
         self.release(uid, name, f)
+        
+    def drop(self, uid, name):
+        return self._temp.drop(uid, name)
+    
+    def update(self, uid, name):
+        return self._temp.update(uid, name)

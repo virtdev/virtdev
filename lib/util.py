@@ -23,24 +23,31 @@ import imp
 import uuid
 import xattr
 import struct
-from op import OP_MOUNT
-from netifaces import interfaces, ifaddresses, AF_INET
+import collections
+from datetime import datetime
+from pynetlinux import ifconfig
+from op import OP_MOUNT, OP_INVALIDATE
+from netifaces import AF_INET, interfaces, ifaddresses
 
 import sys
 sys.path.append('..')
-from conf.virtdev import IFNAME, MOUNTPOINT
+from conf.virtdev import IFNAME
+from conf.path import PATH_MOUNTPOINT
 
 UID_SIZE = 32
 TOKEN_SIZE = 32
 PASSWORD_SIZE = 32
 USERNAME_SIZE = UID_SIZE
-INFO_FIELDS = ['mode', 'type', 'freq', 'range']
+INFO_FIELDS = ['mode', 'type', 'freq', 'spec']
 
 DIR_MODE = 0o755
 FILE_MODE = 0o644
 
+USER_DOMAIN = 'U'
+DEVICE_DOMAIN = 'D'
+
 DEVNULL = open(os.devnull, 'wb')
-DRIVER_PATH = os.path.join(os.getcwd(), 'drivers')
+PATH_DRIVER = os.path.join(os.getcwd(), 'drivers')
 
 _ifaddr = None
 
@@ -137,18 +144,9 @@ def get_node():
     return '%x' % uuid.getnode()
 
 def get_name(ns, parent, child=None):
-    if None == child:
+    if child == None:
         child = ''
     return uuid.uuid5(uuid.UUID(ns), os.path.join(str(parent), str(child))).hex
-
-def dev_name(uid, node=None):
-    if not node:
-        node = get_node()
-    ns = '%032x' % int(node, 16)
-    return get_name(ns, str(uid), 'vdev')
-
-def split(s):
-    return str(s).split(":")
 
 def cat(*items):
     ret = ''
@@ -179,14 +177,17 @@ def named_lock(func):
             self._lock.release(name)
     return _named_lock
 
+def mount(uid, attr):
+    path = os.path.join(PATH_MOUNTPOINT, uid)
+    xattr.setxattr(path, OP_MOUNT, str(attr))
+
 def mount_device(uid, name, mode, freq, prof):
     attr = {}
     attr.update({'name':name})
     attr.update({'mode':mode})
     attr.update({'freq':freq})
     attr.update({'prof':prof})
-    path = os.path.join(MOUNTPOINT, uid)
-    xattr.setxattr(path, OP_MOUNT, str(attr))
+    mount(uid, attr)
 
 def update_device(query, uid, node, addr, name):
     query.device.put(name, {'uid':uid, 'addr':addr, 'node':node})
@@ -195,7 +196,8 @@ def update_device(query, uid, node, addr, name):
 
 def load_driver(typ, name=None):
     try:
-        module = imp.load_source(typ, os.path.join(DRIVER_PATH, '%s.py' % typ.lower()))
+        driver_name = typ.lower()
+        module = imp.load_source(typ, os.path.join(PATH_DRIVER, driver_name, '%s.py' % driver_name))
         if module and hasattr(module, typ):
             driver = getattr(module, typ)
             if driver:
@@ -203,15 +205,7 @@ def load_driver(typ, name=None):
     except:
         pass
 
-def info(typ, mode=0, freq=None, rng=None):
-    ret = {'type':typ, 'mode':mode}
-    if freq:
-        ret.update({'freq':freq})
-    if range:
-        ret.update({'range':rng})
-    return ret
-
-def check_info(buf):
+def device_info(buf):
     try:
         info = ast.literal_eval(buf)
         if type(info) != dict:
@@ -224,24 +218,57 @@ def check_info(buf):
     except:
         pass
 
-def check_profile(buf):
-    prof = {}
-    for item in buf:
-        pair = item.strip().split('=')
-        if len(pair) != 2:
-            raise Exception('invalid profile')
-        if pair[0] == 'type':
-            prof.update({'type':str(pair[1])})
-        elif pair[0] == 'range':
-            r = ast.literal_eval(pair[1])
-            if type(r) != dict:
-                raise Exception('invalid profile')
-            prof.update({'range':r})
-        elif pair[0] == 'index':
-            if pair[1] == 'None':
-                prof.update({'index':None})
+def server_list(addr, area=None):
+    if not addr or type(addr) != list:
+        return
+    length = len(addr)
+    if not area:
+        t = 0.0
+        area = [0] * length
+    else:
+        if type(area) != list or len(area) != length:
+            return
+        t = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
+    j = 0
+    cnt = -1
+    pos = []
+    grp = []
+    grp_sz = []
+    left = area[0]
+    if length == 1:
+        pos = [0]
+        peer = [1]
+    else:
+        for i in range(length):
+            if area[i] != left:
+                left = area[i]
+                grp_sz.append(cnt + 1)
+                cnt = 0
+                j += 1    
             else:
-                prof.update({'index':int(pair[1])})
-    if not prof.has_key('type'):
-        raise Exception('invalid profile')
-    return prof
+                cnt += 1
+            if i == length - 1:
+                grp_sz.append(cnt + 1)
+            pos.append(cnt)
+            grp.append(j)
+        peer = map(lambda x: grp_sz[x], grp)
+    return map(lambda a, b, c, d, e: (t, int(a), b, length, c, d, e), area, range(length), pos, peer, addr)
+
+def unicode2str(buf):
+    if isinstance(buf, basestring):
+        return str(buf)
+    elif isinstance(buf, collections.Mapping):
+        return dict(map(unicode2str, buf.iteritems()))
+    elif isinstance(buf, collections.Iterable):
+        return type(buf)(map(unicode2str, buf))
+    else:
+        return buf
+
+def path2temp(path):
+    return path + '~'
+
+def invalidate(path):
+    xattr.setxattr(path, OP_INVALIDATE, "", symlink=True)
+    
+def cmd(op, args):
+    return op + ':' + str(args)

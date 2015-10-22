@@ -19,20 +19,32 @@
 
 from lib.loader import Loader
 from fs.attr import ATTR_MODE
+from lib.log import log, log_get
+
+PRINT = True
 
 class Mode(object):
     def __init__(self, uid):
         self._mode = {}
         self._loader = Loader(uid)
     
+    def _print(self, text):
+        if PRINT:
+            log(log_get(self, text))
+    
+    def _get(self, name):
+        mode = self._loader.get_attr(name, ATTR_MODE, int)
+        if mode != None:
+            self._mode[name] = mode
+            self._print('name=%s, mode=%s' % (str(name), str(mode)))
+            return mode
+    
     def get(self, name):
         if self._mode.has_key(name):
-            return self._mode[name]
-        else:
-            mode = self._loader.get_attr(name, ATTR_MODE, int)
-            if mode != None:
-                self._mode[name] = mode
-                return mode
+            ret = self._mode.get(name)
+            if ret != None:
+                return ret
+        return self._get(name)
     
     def remove(self, name):
         if self._mode.has_key(name):

@@ -1,0 +1,32 @@
+#!/usr/bin/python
+
+import os
+import xattr
+import argparse
+
+import sys
+sys.path.append('..')
+
+from lib.util import cmd
+from lib.op import OP_COMBINE
+from conf.path import PATH_MOUNTPOINT
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', dest='uid', default=None)
+    parser.add_argument('-t', dest='timeout', default=None)
+    parser.add_argument('-d', nargs='+', dest='device', default=None)
+    args = parser.parse_args(sys.argv[1:])
+    uid = args.uid
+    device = args.device
+    timeout = args.timeout
+    if not uid or not device:
+        parser.print_help()
+        sys.exit()
+    attr = {}
+    if timeout:
+        attr['timeout'] = timeout
+    attr['vertex'] = device
+    path = os.path.join(PATH_MOUNTPOINT, uid)
+    name = xattr.getxattr(path, cmd(OP_COMBINE, attr))
+    print(str(name))

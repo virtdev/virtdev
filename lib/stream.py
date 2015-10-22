@@ -27,7 +27,7 @@ ETX = '1'
 CHR = DLE + DLE
 HEAD = DLE + STX
 TAIL = DLE + ETX
-STREAM_MAX = 1 << 22
+STREAM_MAX = 1 << 26
 
 def _check(buf):
     if len(buf) < crc.CRC_SIZE:
@@ -37,6 +37,7 @@ def _check(buf):
         return tmp
 
 def put(sock, buf, local=False):
+    buf = str(buf)
     if local:
         send_pkt(sock, buf)
         return

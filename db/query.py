@@ -17,12 +17,11 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from user import UserDB
 from history import HistoryDB
-from lib.router import Router
 from lib.util import tuple2str
 from event.event import DeviceEvent
-from conf.virtdev import META_SERVERS, EVENT_SERVERS, DATA_SERVERS
-from db import MemberDB, TokenDB, GuestDB, DeviceDB, UserDB, NodeDB, KeyDB
+from db import MemberDB, TokenDB, GuestDB, DeviceDB, NodeDB, KeyDB
 
 def tuplevalue(func):
     def _tuplevalue(*args, **kwargs):
@@ -34,8 +33,6 @@ def tuplevalue(func):
 class MemberQuery(object):
     def __init__(self, router):
         self._member = MemberDB(router)
-        for i in META_SERVERS:
-            router.add_server(str(self._member), i)
     
     def get(self, key):
         return self._member.get(key)
@@ -51,8 +48,6 @@ class MemberQuery(object):
 class NodeQuery(object):
     def __init__(self, router):
         self._node = NodeDB(router)
-        for i in META_SERVERS:
-            router.add_server(str(self._node), i)
     
     def get(self, key):
         return self._node.get(key)
@@ -68,17 +63,13 @@ class NodeQuery(object):
 class UserQuery(object):
     def __init__(self, router):
         self._user = UserDB(router)
-        for i in META_SERVERS:
-            router.add_server(str(self._user), i)
     
     def get(self, key, *fields):
-        return self._user.find(key, *fields)
+        return self._user.get(key, *fields)
 
 class TokenQuery(object):
     def __init__(self, router):
         self._token = TokenDB(router)
-        for i in META_SERVERS:
-            router.add_server(str(self._token), i)
     
     def get(self, key):
         return self._token.get(key, first=True)
@@ -92,8 +83,6 @@ class TokenQuery(object):
 class DeviceQuery(object):
     def __init__(self, router):
         self._device = DeviceDB(router)
-        for i in META_SERVERS:
-            router.add_server(str(self._device), i)
     
     def get(self, key):
         return self._device.get(key)
@@ -107,8 +96,6 @@ class DeviceQuery(object):
 class GuestQuery(object):
     def __init__(self, router):
         self._guest = GuestDB(router)
-        for i in META_SERVERS:
-            router.add_server(str(self._guest), i)
     
     def get(self, key):
         return self._guest.get(key)
@@ -122,20 +109,16 @@ class GuestQuery(object):
 class HistoryQuery(object):
     def __init__(self, router):
         self._history = HistoryDB(router)
-        for i in DATA_SERVERS:
-            router.add_server(str(self._history), i)
     
-    def get(self, key, query):
-        return self._history.get(key, query)
+    def get(self, uid, key):
+        return self._history.get(uid, key)
     
-    def put(self, key, **fields):
-        self._history.put(key, fields)
+    def put(self, uid, key, **fields):
+        self._history.put(uid, key, fields)
 
 class EventQuery(object):
     def __init__(self, router):
         self._event = DeviceEvent(router)
-        for i in EVENT_SERVERS:
-            router.add_server('event', i)
     
     def get(self, key):
         return self._event.get(key)
@@ -146,8 +129,6 @@ class EventQuery(object):
 class KeyQuery(object):
     def __init__(self, router):
         self._key = KeyDB(router)
-        for i in META_SERVERS:
-            router.add_server(str(self._key), i)
     
     def get(self, key):
         return self._key.get(key)
@@ -159,16 +140,14 @@ class KeyQuery(object):
         self._key.remove(key)
 
 class Query(object):
-    def __init__(self):
+    def __init__(self, meta_router, data_router):
         self.link = None
-        router = Router()
-        self.router = router
-        self.key = KeyQuery(router)
-        self.user = UserQuery(router)
-        self.node = NodeQuery(router)
-        self.event = EventQuery(router)
-        self.token = TokenQuery(router)
-        self.guest = GuestQuery(router)
-        self.member = MemberQuery(router)
-        self.device = DeviceQuery(router)
-        self.history = HistoryQuery(router)
+        self.key = KeyQuery(meta_router)
+        self.user = UserQuery(meta_router)
+        self.node = NodeQuery(meta_router)
+        self.event = EventQuery(data_router)
+        self.token = TokenQuery(meta_router)
+        self.guest = GuestQuery(meta_router)
+        self.member = MemberQuery(meta_router)
+        self.device = DeviceQuery(meta_router)
+        self.history = HistoryQuery(data_router)

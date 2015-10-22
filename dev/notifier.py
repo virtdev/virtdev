@@ -1,4 +1,4 @@
-#      emitter.py
+#      notifier.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -15,26 +15,16 @@
 #      You should have received a copy of the GNU General Public License
 #      along with this program; if not, write to the Free Software
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-#      MA 02110-1301, USA
+#      MA 02110-1301, USA.
 
-import sys
-sys.path.append('..')
+import zerorpc
+from lib.util import zmqaddr
+from conf.virtdev import NOTIFIER_ADDR, NOTIFIER_PORT
 
-from lib.router import Router
-from event.emitter import EventEmitter
-from conf.virtdev import EVENT_SERVERS
-
-def usage():
-    print 'emitter.py uid name'
-
-if __name__ == '__main__':
-    argc = len(sys.argv)
-    if argc != 3:
-        usage()
-        sys.exit()
-    router = Router()
-    for i in EVENT_SERVERS:
-        router.add_server('event', i)
-    uid = sys.argv[1]
-    name = sys.argv[2]
-    EventEmitter(router).put(uid, name)
+def notify(op, buf):
+    cli = zerorpc.Client()
+    cli.connect(zmqaddr(NOTIFIER_ADDR, NOTIFIER_PORT))
+    try:
+        cli.push(op, buf)
+    finally:
+        cli.close()

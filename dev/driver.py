@@ -20,16 +20,15 @@
 import ast
 from lib import mode
 from lib import stream
-from lib.util import info
 from threading import Thread
 from dev.req import REQ_OPEN, REQ_CLOSE, REQ_GET, REQ_PUT, REQ_MOUNT, parse
 
 class Driver(object):
-    def __init__(self, name=None, mode=mode.IV, rng=None, freq=None):
+    def __init__(self, name=None, mode=mode.IV, freq=None, spec=None):
         self.__name = name
         self.__mode = mode
         self.__freq = freq
-        self.__range = rng
+        self.__spec = spec
         self.__sock = None
         self.__index = None
         self.__thread = None
@@ -59,24 +58,20 @@ class Driver(object):
         return str(self)
     
     def get_profile(self):
-        typ = self.get_type()
-        rng = self.get_range()
-        prof = {'type':typ}
-        if rng:
-            prof.update({'range':rng})
-        return prof
+        profile = {'type':self.get_type()}
+        spec = self.get_spec()
+        if spec:
+            profile.update({'spec':spec})
+        return profile
     
     def get_freq(self):
         return self.__freq
     
-    def get_range(self):
-        return self.__range
+    def get_spec(self):
+        return self.__spec
     
     def get_mode(self):
         return self.__mode | mode.MODE_LO
-    
-    def get_info(self):
-        return {'None':info(self.get_type(), self.get_mode(), self.get_freq(), self.get_range())}
     
     def get_args(self, buf):
         try:
@@ -93,45 +88,65 @@ class Driver(object):
     def get_name(self):
         return self.__name
     
-    def start(self, sock):
-        self.__sock = sock
-        self.__thread = Thread(target=self.__proc)
-        self.__thread.start()
+    def get_info(self):
+        info = {'type':self.get_type(), 'mode':self.get_mode()}
+        freq = self.get_freq()
+        if freq:
+            info.update({'freq':freq})
+        spec = self.get_spec()
+        if spec:
+            info.update({'spec':spec})
+        return str({'None':info})
     
-    def __reply(self, buf):
-        stream.put(self.__sock, str({self.__index:buf}), local=True)
+    def start(self, sock):
+        if sock:
+            self.__sock = sock
+            self.__thread = Thread(target=self.__proc)
+            self.__thread.start()
+    
+    def __send(self, buf, pack=True):
+        if pack:
+            stream.put(self.__sock, {self.__index:buf}, local=True)
+        else:
+            stream.put(self.__sock, buf, local=True)
+    
+    def __recv(self):
+        req = stream.get(self.__sock, local=True)
+        self.__index, cmd, buf = parse(req)
+        return (cmd, buf)
+    
+    def __release(self):
+        if self.__sock:
+            self.__sock.close()
     
     def __proc(self):
-        if not self.__sock:
-            return
         try:
             while True:
                 ret = ''
-                req = stream.get(self.__sock, local=True)
-                self.__index, flags, buf = parse(req)
-                if flags & REQ_OPEN:
+                cmd, buf = self.__recv()
+                if cmd & REQ_OPEN:
                     ret = self.open()
                     if ret:
-                        self.__reply(ret)
-                elif flags & REQ_CLOSE:
+                        self.__send(ret)
+                elif cmd & REQ_CLOSE:
                     ret = self.close()
                     if ret:
-                        self.__reply(ret)
-                elif flags & REQ_GET:
+                        self.__send(ret)
+                elif cmd & REQ_GET:
                     try:
                         res = self.get()
                         if res:
                             ret = res
                     finally:
-                        self.__reply(ret)
-                elif flags & REQ_PUT:
+                        self.__send(ret)
+                elif cmd & REQ_PUT:
                     try:
                         res = self.put(buf)
                         if res:
                             ret = res
                     finally:
-                        self.__reply(ret)
-                elif flags & REQ_MOUNT:
-                    stream.put(self.__sock, str(self.get_info()), local=True)
+                        self.__send(ret)
+                elif cmd & REQ_MOUNT:
+                    self.__send(self.get_info(), pack=False)
         finally:
-            self.__sock.close()
+            self.__release()

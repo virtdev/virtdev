@@ -1,0 +1,38 @@
+#!/bin/sh
+apt-get install -y build-essential
+apt-get install -y isc-dhcp-server
+apt-get install -y librsync-dev
+apt-get install -y libsasl2-dev
+apt-get install -y libkrb5-dev
+apt-get install -y libzmq-dev
+apt-get install -y memcached
+apt-get install -y mongodb
+apt-get install -y n2n
+apt-get install -y python-all-dev
+apt-get install -y python-cffi
+apt-get install -y python-dbus
+apt-get install -y python-gevent
+apt-get install -y python-gi-dev
+apt-get install -y python-imaging
+apt-get install -y python-memcache
+apt-get install -y python-numpy
+apt-get install -y python-pip
+pip install fusepy
+pip install happybase
+pip install hash_ring
+pip install hdfs
+pip install isodate
+pip install netifaces
+pip install psutil
+pip install pycrypto
+pip install pymongo
+pip install python-librsync
+pip install pyzmq
+pip install RestrictedPython
+pip install snakebite
+pip install sophia
+pip install xattr
+pip install zerorpc
+pip install pytz
+pip install pynetlinux 
+pip install python-inotify==0.6-test

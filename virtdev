@@ -1,0 +1,6 @@
+#!/usr/bin/python
+
+from lib.mount import mount
+
+if __name__ == '__main__':
+    mount()

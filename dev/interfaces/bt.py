@@ -21,9 +21,9 @@ import os
 import lo
 import bluetooth
 from dev.udi import UDI
+from conf.virtdev import LO
+from conf.path import PATH_LIB
 from lib.bt import BluetoothSocket
-from conf.virtdev import LIB_PATH, LO
-from drivers.controller import Controller
 
 PIN = '1234'
 DEVICE_MAX = 32
@@ -32,7 +32,7 @@ class Bluetooth(UDI):
     def _get_devices(self):
         cnt = 0
         device_list = []
-        path = os.path.join(LIB_PATH, 'devices')
+        path = os.path.join(PATH_LIB, 'devices')
         if os.path.exists(path):
             with open(path, 'r') as f:
                 while True:
@@ -65,8 +65,7 @@ class Bluetooth(UDI):
     def connect(self, device):
         self._init(device)
         if LO: 
-            typ = str(Controller())
-            sock = lo.connect(lo.device_name(typ, device))
+            sock = lo.connect(lo.device_name('Controller', device))
             if sock:
                 return (sock, True)
         return (BluetoothSocket(device), False)

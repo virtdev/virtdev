@@ -21,7 +21,7 @@ from log import log_err
 from threading import Thread, Event, Lock
 from multiprocessing.pool import ThreadPool
 
-TIMEOUT = 60 # seconds
+TIMEOUT = 600 # seconds
 
 class Queue(object):
     def __init__(self, capacity, timeout=TIMEOUT):
@@ -85,10 +85,11 @@ class Queue(object):
     def __proc(self, buf):
         pool = ThreadPool(processes=1)
         result = pool.apply_async(self.proc, args=(buf,))
+        pool.close()
         try:
             result.get(timeout=self.__timeout)
         finally:
-            pool.terminate()
+            pool.join()
     
     def __run(self):
         while True:

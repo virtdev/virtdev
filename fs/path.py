@@ -21,20 +21,21 @@ import os
 import stat
 from lib.log import log_err
 from fuse import FuseOSError
+from lib.util import path2temp
 from errno import EINVAL, ENOENT
-from conf.virtdev import FS_PATH, MOUNTPOINT
+from conf.path import PATH_FS, PATH_MOUNTPOINT
 
 DOMAIN = {'vertex':'vertex', 'edge':'edge', 'data':'data', 'attr':'attr', 'temp':'temp'}
 
 def is_local(uid, name):
-    path = os.path.join(FS_PATH, uid, DOMAIN['attr'], name)
+    path = os.path.join(PATH_FS, uid, DOMAIN['attr'], name)
     return os.path.exists(path)
 
 def load(uid, name='', domain='', sort=False, passthrough=False):
     if not passthrough:
-        root = MOUNTPOINT
+        root = PATH_MOUNTPOINT
     else:
-        root = FS_PATH
+        root = PATH_FS
         if not domain:
             domain = DOMAIN['data']
     if not name and not domain:
@@ -53,8 +54,8 @@ def load(uid, name='', domain='', sort=False, passthrough=False):
 
 class Path(object):
     def __init__(self, router=None, core=None):
-        if not os.path.exists(FS_PATH):
-            os.mkdir(FS_PATH)
+        if not os.path.exists(PATH_FS):
+            os.mkdir(PATH_FS)
         name = self.__class__.__name__.lower()
         self._label = DOMAIN.get(name, '')
         if not router:
@@ -92,9 +93,6 @@ class Path(object):
         return False
     
     def can_disable(self):
-        return False
-    
-    def may_update(self, flags):
         return False
     
     def signature(self, uid, name):
@@ -141,11 +139,8 @@ class Path(object):
                 name = tmp[0]
             return os.path.join(self._label, *name)
     
-    def path2temp(self, path):
-        return path + '~'
-    
     def get_path(self, uid, name='', parent=''):
-        return str(os.path.join(FS_PATH, uid, self._label, parent, name))
+        return str(os.path.join(PATH_FS, uid, self._label, parent, name))
     
     def check_path(self, uid, name='', parent=''):
         path = self.get_path(uid, name, parent)
@@ -181,7 +176,7 @@ class Path(object):
     
     def lslink(self, uid, name):
         child = self.child(name)
-        return os.path.join(MOUNTPOINT, uid, self._label, child)
+        return os.path.join(PATH_MOUNTPOINT, uid, self._label, child)
     
     def lsattr(self, uid, name, symlink=False):
         st = None
@@ -190,7 +185,7 @@ class Path(object):
         if self._file.exists(uid, path):
             st = self._file.stat(uid, path)
         elif self.can_invalidate():
-            path = self.path2temp(path)
+            path = path2temp(path)
             try:
                 st = self._file.stat(uid, path)
             except:
@@ -211,3 +206,9 @@ class Path(object):
                     st['st_mode'] = mode
                     st['st_nlink'] = 2
         return st
+    
+    def drop(self, uid, name):
+        pass
+    
+    def update(self, uid, name):
+        pass

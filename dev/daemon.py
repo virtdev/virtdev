@@ -20,14 +20,14 @@
 import zerorpc
 from threading import Thread
 from conf.virtdev import DAEMON_PORT
-from lib.util import cat, zmqaddr, dev_name
+from lib.util import cat, zmqaddr, get_name, get_node
 
 NODE_MAX = 8
 
 class DaemonRequest(object):
     def __init__(self, manager):
         self._manager = manager
-        self._name = dev_name(manager.uid)
+        self._name = get_name(manager.uid, get_node())
     
     def accept(self, uid, user, node, dest, src):
         if self._manager.guest.accept(dest, src):
@@ -52,14 +52,14 @@ class DaemonRequest(object):
         if res:
             uid = res['uid']
             node = res['node'][0]
-            name = dev_name(uid, node)
+            name = get_name(uid, node)
             return {'node':node, 'uid':uid, 'name':name}
     
     def find(self, user, node):
         res = self._manager.node.find(user, node)
         if res:
             uid = res['uid']
-            name = dev_name(uid, node)
+            name = get_name(uid, node)
             return {'uid':uid, 'name':name}
     
     def chkaddr(self, name):

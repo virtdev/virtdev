@@ -25,14 +25,18 @@ class Timeout(object):
         self._timeout = {}
         self._loader = Loader(uid)
     
+    def _get(self, name):
+        timeout = self._loader.get_attr(name, ATTR_TIMEOUT, float)
+        if timeout != None:
+            self._timeout[name] = timeout
+            return timeout
+    
     def get(self, name):
         if self._timeout.has_key(name):
-            return self._timeout[name]
-        else:
-            timeout = self._loader.get_attr(name, ATTR_TIMEOUT, float)
-            if timeout != None:
-                self._timeout[name] = timeout
-                return timeout
+            ret = self._timeout.get(name)
+            if ret != None:
+                return ret
+        return self._get(name)
     
     def remove(self, name):
         if self._timeout.has_key(name):

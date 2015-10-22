@@ -19,38 +19,32 @@
 
 import os
 import json
-import xattr
 from subprocess import call
-from lib.util import DEVNULL, cat
-from conf.virtdev import MOUNTPOINT
-from lib.op import OP_MOUNT, OP_INVALIDATE
+from conf.path import PATH_MOUNTPOINT
+from lib.util import DEVNULL, cat, invalidate, mount
 
 RETRY_MAX = 2
 
 class Operation(object):
     def __init__(self, manager):
         self._manager = manager
-        self.uid = manager.uid
+        self._uid = manager.uid
     
-    def _get_path(self, path=''):
-        if path:
-            return os.path.join(MOUNTPOINT, self.uid, path)
-        else:
-            return os.path.join(MOUNTPOINT, self.uid)
+    def _get_path(self, path):
+        return os.path.join(PATH_MOUNTPOINT, self._uid, path)
     
     def _touch(self, path):
         call(['touch', path], stderr=DEVNULL, stdout=DEVNULL)
     
     def mount(self, attr):
-        path = self._get_path()
-        xattr.setxattr(path, OP_MOUNT, str(attr))
+        mount(self._uid, attr)
         return True
     
     def invalidate(self, path):
         path = self._get_path(path)
         if not os.path.exists(path):
             self._touch(path)
-        xattr.setxattr(path, OP_INVALIDATE, "", symlink=True)
+        invalidate(path)
         return True
     
     def touch(self, path):

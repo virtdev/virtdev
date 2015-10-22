@@ -17,16 +17,15 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import ast
-import json
 import socket
+from lib import bson
 from lib.pool import Pool
 from conf.virtdev import HA
 from lib.queue import Queue
 from lib.log import log, log_err
 from threading import Lock, Thread
-from lib.util import send_pkt, recv_pkt
 from RestrictedPython import compile_restricted
+from lib.util import send_pkt, recv_pkt, unicode2str
 
 QUEUE_LEN = 2
 POOL_SIZE = 32
@@ -35,10 +34,10 @@ def put(addr, **args):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect(addr)
     try:
-        buf = json.dumps(args)
+        buf = bson.dumps(args)
         send_pkt(sock, buf)
         res = recv_pkt(sock)
-        return ast.literal_eval(res)
+        return unicode2str(bson.loads(res)[''])
     finally:
         sock.close()
 
@@ -109,15 +108,15 @@ class Proc(Thread):
             res = ''
             buf = recv_pkt(sock)
             if buf:
-                req = json.loads(buf)
+                req = unicode2str(bson.loads(buf))
                 if type(req) == dict:
                     device = None
                     if HA:
                         device = self._manager.get_passive()
                     ret = _exec(device, req['code'], req['args'])
                     if ret:
-                        res = str(ret)
-            send_pkt(sock, res)
+                        res = ret
+            send_pkt(sock, bson.dumps({'':res}))
         finally:
             sock.close()
     

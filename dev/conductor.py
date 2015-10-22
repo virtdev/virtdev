@@ -21,11 +21,11 @@ import socket
 from lib.pool import Pool
 from oper import Operation
 from lib.queue import Queue
-from lib.util import UID_SIZE
-from lib import tunnel, crypto
+from lib import tunnel, package
 from lib.request import Request
 from threading import Thread, Event
 from lib.log import log_err, log_get
+from lib.util import UID_SIZE, get_name
 from conf.virtdev import CONDUCTOR_PORT
 
 QUEUE_LEN = 2
@@ -41,7 +41,6 @@ class ConductorQueue(Queue):
 
 class Conductor(Thread):
     def _init_sock(self, addr):
-        addr = tunnel.addr2ip(addr)
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.bind((addr, CONDUCTOR_PORT))
@@ -53,7 +52,7 @@ class Conductor(Thread):
         uid = manager.uid
         addr = manager.addr
         token = manager.token
-        tunnel.create(addr, key)
+        tunnel.create(uid, addr, key)
         
         self._keys = {}
         self._devices = {}
@@ -69,7 +68,6 @@ class Conductor(Thread):
         self.addr = addr
         self.token = token
         self.user = manager.user
-        self.core = manager.core
         self.devices = manager.devices
         self.request = Request(uid, token)
     
@@ -106,10 +104,10 @@ class Conductor(Thread):
             del self._devices[name]
     
     def get_key(self, uid, node):
-        name = uid + node
+        name = get_name(uid, node)
         key = self._keys.get(name)
         if not key:
-            key = self.requst.key.get(name)
+            key = self.request.key.get(name=name)
             if key:
                 self._keys.update({name:key})
         if not key:
@@ -137,13 +135,13 @@ class Conductor(Thread):
                 log_err(self, 'failed to process, no token')
                 return
             try:
-                req = crypto.unpack(uid, buf, token)
+                req = package.unpack(uid, buf, token)
             except:
                 token = self._get_token(uid, update=True)
                 if not token:
                     log_err(self, 'failed to process, no token')
                     return
-                req = crypto.unpack(uid, buf, token)
+                req = package.unpack(uid, buf, token)
             if req:
                 op = req.get('op')
                 args = req.get('args')
@@ -167,4 +165,4 @@ class Conductor(Thread):
                 sock, _ = self._sock.accept()
                 self._pool.push(sock)
             except:
-                log_err(self, 'failed to push')
+                log_err(self, 'failed to receive request')

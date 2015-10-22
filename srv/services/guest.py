@@ -27,7 +27,7 @@ class Guest(Service):
         if not device or device.get('uid') != uid:
             log_err(self, 'failed to join, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return  False
-        user = self._query.user.get({'uid':device['uid']}, 'user')
+        user = self._query.user.get(uid, 'user')
         if not user:
             log_err(self, 'failed to join, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return  False
@@ -44,7 +44,7 @@ class Guest(Service):
         if not device or device.get('uid') != uid:
             log_err(self, 'failed to accept, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return False
-        user = self._query.user.get({'uid':device['uid']}, 'user')
+        user = self._query.user.get(uid, 'user')
         if not user:
             log_err(self, 'failed to accept, invalid src, dest=%s, src=%s' % (str(dest), str(src)))
             return  False

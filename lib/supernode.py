@@ -20,7 +20,20 @@
 from subprocess import call
 from threading import Thread
 from lib.util import DEVNULL
-from conf.virtdev import SUPERNODE_PORT
+from conf.virtdev import SUPERNODE_PORT, SUPERNODE_SERVERS
+
+def get_supernode(key):
+    odd = 1
+    code = 0
+    length = len(SUPERNODE_SERVERS)
+    for i in key:
+        if odd:
+            code ^= ord(i)
+            odd = 0
+        else:
+            code ^= ord(i) << 8
+            odd = 1
+    return '%s:%d' % (SUPERNODE_SERVERS[code % length], SUPERNODE_PORT)
 
 class Supernode(Thread):
     def __init__(self):

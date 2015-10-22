@@ -20,14 +20,14 @@
 #      This work originally started from the example of Paranoid Pirate Pattern,
 #      which is provided by Daniel Lundin <dln(at)eintr(dot)org>
 
-import time
-from lib import util
+import time 
 from lib.ppp import *
 from lib.log import log_err
 from threading import Thread
+from lib.util import zmqaddr
 from collections import OrderedDict
 from zmq import Poller, Context, ROUTER, POLLIN
-from conf.virtdev import VDEV_PORT, BROKER_PORT, IFBACK
+from conf.virtdev import ROOT_PORT, BROKER_PORT
 
 class BrokerItem(object):
     def __init__(self, identity):
@@ -68,15 +68,21 @@ class BrokerQueue(object):
         return self._queue
 
 class Broker(Thread):
+    def __init__(self, faddr, baddr):
+        Thread.__init__(self)
+        self._queue = BrokerQueue()
+        self._init_context()
+        self._faddr = faddr
+        self._baddr = baddr
+        self._active = True
+    
     def _init_frontend(self):
-        addr = util.ifaddr()
         self._frontend = self._context.socket(ROUTER)
-        self._frontend.bind(util.zmqaddr(addr, VDEV_PORT))
+        self._frontend.bind(zmqaddr(self._faddr, ROOT_PORT))
     
     def _init_backend(self):
-        addr = util.ifaddr(IFBACK)
         self._backend = self._context.socket(ROUTER)
-        self._backend.bind(util.zmqaddr(addr, BROKER_PORT))
+        self._backend.bind(zmqaddr(self._baddr, BROKER_PORT))
     
     def _init_pollers(self):
         self._poller1 = Poller()
@@ -90,12 +96,6 @@ class Broker(Thread):
         self._init_frontend()
         self._init_backend()
         self._init_pollers()
-    
-    def __init__(self):
-        Thread.__init__(self)
-        self._queue = BrokerQueue()
-        self._init_context()
-        self._active = True
     
     def run(self):
         timeout = time.time() + PPP_HEARTBEAT_INTERVAL
@@ -114,7 +114,7 @@ class Broker(Thread):
                 msg = frames[1:]
                 if len(msg) == 1:
                     if msg[0] not in (PPP_READY, PPP_HEARTBEAT):
-                        log_err(self, "invalid message, %s" % msg)
+                        log_err(self, "invalid message")
                 else:
                     self._frontend.send_multipart(msg)
                 

@@ -37,24 +37,25 @@ class Handler(object):
         return buf
     
     def remove(self, name):
-        if not self._handlers.has_key(name):
-            return
-        del self._handlers[name]
+        if self._handlers.has_key(name):
+            del self._handlers[name]
     
     def check(self, name):
-        if self._handlers.has_key(name):
-            if self._handlers[name]:
-                return True
+        if self._handlers.get(name):
+            return True
         else:
             buf = self._loader.get_attr(name, ATTR_HANDLER, str)
-            self._handlers.update({name:buf})
             if buf:
+                self._handlers.update({name:buf})
                 return True
     
     def put(self, name, buf):
         try:
             code = self._get_code(name)
-            if code:
-                return proc.put(self._addr, code=code, args=buf)
+            if code == None:
+                code = self._get_code(name)
+                if not code:
+                    return
+            return proc.put(self._addr, code=code, args=buf)
         except:
             log_err(self, 'failed to put')

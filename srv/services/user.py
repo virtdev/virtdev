@@ -19,12 +19,31 @@
 
 import uuid
 from lib.dhcp import DHCP
+from db.marker import Marker
 from srv.service import Service
 from lib.log import log_err, log_get
+from conf.virtdev import EXTEND, AREA_CODE
+from lib.util import DEVICE_DOMAIN, get_name, update_device
 
 dhcp = DHCP()
 
 class User(Service):
+    def __init__(self, query):
+        Service.__init__(self, query)
+        if EXTEND:
+            self._marker = Marker()
+    
+    def _check_node(self, uid, node, addr, mode, key):
+        name = get_name(uid, node)
+        if self._query.key.get(name):
+            self._query.node.remove(uid, (node,))
+        else:
+            if EXTEND:
+                self._marker.mark(name, DEVICE_DOMAIN, AREA_CODE)
+        self._query.key.put(name, key)
+        self._query.node.put(uid, (node, addr, str(mode)))
+        update_device(self._query, uid, node, addr, name)
+    
     def _gen_uuid(self):
         return uuid.uuid4().hex
     
@@ -38,13 +57,13 @@ class User(Service):
                 log_err(self, 'no token')
                 raise Exception(log_get(self, 'no token'))
         addr = dhcp.allocate(uid, node, networks)
-        self._query.node.remove(uid, (node,))
-        self._query.node.put(uid, (node, addr, str(mode)))
-        self._query.key.put(uid + node, key)
+        if not addr:
+            log_err(self, 'no address')
+            raise Exception(log_get(self, 'no address'))
+        self._check_node(uid, node, addr, mode, key)
         return {'uid':uid, 'addr':addr, 'token':token, 'key':key}
     
     def logout(self, uid, node, addr):
         self._query.node.remove(uid, (node,))
         self._query.member.remove(uid, ('', node))
-        dhcp.free(addr)
         return True

@@ -19,16 +19,31 @@
 
 import os
 import ast
+import json
 import librsync
 from lib.log import log_err
+from db.marker import Marker
 from StringIO import StringIO
 from lib.mode import MODE_LINK
 from srv.service import Service
-from conf.virtdev import MOUNTPOINT
-from base64 import encodestring, decodestring
-from lib.util import mount_device, update_device
+from conf.path import PATH_MOUNTPOINT
+from base64 import b64encode, b64decode
+from conf.virtdev import EXTEND, AREA_CODE
+from lib.util import DEVICE_DOMAIN, mount_device, update_device
+
+ATTR_LEN = 1024
+RECORD_LEN = 1 << 26
 
 class Device(Service):
+    def __init__(self, query):
+        Service.__init__(self, query)
+        if EXTEND:
+            self._marker = Marker()
+    
+    def _mark(self, name):
+        if EXTEND:
+            self._marker.mark(name, DEVICE_DOMAIN, AREA_CODE)
+    
     def get(self, uid, name):
         device = self._query.device.get(name)
         if device:
@@ -41,6 +56,7 @@ class Device(Service):
     def add(self, uid, node, addr, name, mode, freq, prof):
         if mode != None and prof != None:
             mount_device(uid, name, mode | MODE_LINK, freq, prof)
+            self._mark(name)
         update_device(self._query, uid, node, addr, name)
         self._query.event.put(uid, name)
         return True
@@ -55,21 +71,32 @@ class Device(Service):
         try:
             fields = ast.literal_eval(buf)
             if type(fields) != dict:
-                log_err(self, 'failed to update, invalid type')
+                log_err(self, 'failed to update, name=%s' % str(name))
                 return
         except:
-            log_err(self, 'failed to update')
+            log_err(self, 'failed to update, name=%s' % str(name))
             return
-        path = os.path.join(MOUNTPOINT, uid, name)
+        record = json.dumps(fields)
+        if len(record) > RECORD_LEN:
+            log_err(self, 'failed to update, name=%s' % str(name))
+            return
+        path = os.path.join(PATH_MOUNTPOINT, uid, name)
         with open(path, 'w') as f:
-            f.write(buf)
-        self._query.history.put(name, **fields)
+            f.write(record)
+        self._query.history.put(uid, name, **fields)
         self._query.event.put(uid, name)
         return True
     
     def diff(self, uid, name, label, item, buf):
-        sig = StringIO(decodestring(buf))
-        path = os.path.join(MOUNTPOINT, uid, label, name, item)
-        with open(path, 'r') as f:
-            delta = librsync.delta(f, sig)
-        return encodestring(delta.read())
+        sig = StringIO(b64decode(buf))
+        path = os.path.join(PATH_MOUNTPOINT, uid, label, name, item)
+        fd = os.open(path, os.O_RDONLY)
+        if fd < 0:
+            log_err(self, 'failed to diff, name=%s' % str(name))
+            return
+        try:
+            dest = StringIO(os.read(fd, ATTR_LEN))
+        finally:
+            os.close(fd)
+        delta = librsync.delta(dest, sig)
+        return b64encode(delta.read())

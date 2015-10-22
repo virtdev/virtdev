@@ -18,9 +18,12 @@
 #      MA 02110-1301, USA.
 
 import memcache
-from lib.log import log
+from lib.log import log_err
+from subprocess import call
+from threading import Thread
 from hash_ring import HashRing
-from conf.virtdev import CACHE_SERVERS
+from lib.util import srv_start, srv_join
+from conf.virtdev import CACHE_SERVERS, CACHE_PORTS
 
 class Cache(object):
     def __init__(self, port):
@@ -36,7 +39,7 @@ class Cache(object):
             cli = memcache.Client([addr], debug=0)
             cli.set(key, value)
         except:
-            log(self, 'failed to put, key=%s' % key)
+            log_err(self, 'failed to put, key=%s' % key)
     
     def get(self, key):
         value = None
@@ -45,7 +48,7 @@ class Cache(object):
             cli = memcache.Client([addr], debug=0)
             value = cli.get(key)
         except:
-            log(self, 'failed to get from %s, key=%s' % (addr, key))
+            log_err(self, 'failed to get from %s, key=%s' % (addr, key))
         finally:
             return value
     
@@ -55,4 +58,17 @@ class Cache(object):
             cli = memcache.Client([addr], debug=0)
             cli.delete(key)        
         except:
-            log(self, 'failed to remove, key=%s' % key)
+            log_err(self, 'failed to remove, key=%s' % key)
+
+class CacheServer(Thread):
+    def _create(self, port):
+        call(['memcached', '-u', 'root', '-m', '10', '-p', str(port)])
+    
+    def run(self):
+        srv = []
+        for i in CACHE_PORTS:
+            srv.append(Thread(target=self._create, args=(CACHE_PORTS[i],)))
+        
+        if srv:
+            srv_start(srv)
+            srv_join(srv)

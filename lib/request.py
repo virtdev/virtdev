@@ -19,22 +19,22 @@
 
 import zmq
 import uuid
-import crypto
+import package
 from log import log_err
 from util import zmqaddr
 from random import randint
 from threading import Lock
-from conf.virtdev import VDEV_SERVERS, VDEV_PORT
+from conf.virtdev import ROOT_SERVERS, ROOT_PORT
 from zmq import REQ, IDENTITY, POLLIN, SNDMORE, LINGER
 
-TIMEOUT = 30 # seconds
-RETRY_MAX = 3
+TIMEOUT = 120 # seconds
+RETRY_MAX = 1
 
-class Packet(object):
+class Sender(object):
     def _get_addr(self):
-        length = len(VDEV_SERVERS)
+        length = len(ROOT_SERVERS)
         n = randint(0, length - 1)
-        return zmqaddr(VDEV_SERVERS[n], VDEV_PORT)
+        return zmqaddr(ROOT_SERVERS[n], ROOT_PORT)
     
     def _set_sock(self):
         self._sock = self._context.socket(REQ)
@@ -95,11 +95,10 @@ class Packet(object):
         self._context.term()
 
 class Client(object):
-    def __init__(self, task, uid, token, timeout):
+    def __init__(self, srv, uid, token):
+        self._srv = srv
         self._uid = uid
-        self._task = task
         self._token = token
-        self._timeout = timeout
     
     def __getattr__(self, op):
         self._op = op
@@ -108,20 +107,19 @@ class Client(object):
     def _request(self, **kwargs):
         ret = None
         try:
-            cmd = {'task':self._task, 'op':self._op, 'args':kwargs, 'timeout':self._timeout}
-            buf = crypto.pack(self._uid, cmd, self._token)
-            result = Packet().send(buf)
+            cmd = {'srv':self._srv, 'op':self._op, 'args':kwargs}
+            buf = package.pack(self._uid, cmd, self._token)
+            result = Sender().send(buf)
             if result:
-                ret = crypto.unpack(self._uid, result, self._token)
+                ret = package.unpack(self._uid, result, self._token)
             return ret
         except:
             log_err(self, "failed to request")
 
 class Request(object):
-    def __init__(self, uid, token, timeout=None):
+    def __init__(self, uid, token):
         self._uid = uid
         self._token = token
-        self._timeout = timeout
     
-    def __getattr__(self, task):
-        return Client(task, self._uid, self._token, self._timeout)
+    def __getattr__(self, srv):
+        return Client(srv, self._uid, self._token)

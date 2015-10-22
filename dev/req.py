@@ -30,13 +30,13 @@ def parse(buf):
     if len(buf) < 8:
         return (None, None, None)
     index = struct.unpack('I', buf[0:4])[0]
-    flags = struct.unpack('I', buf[4:8])[0]
-    return (index, flags, buf[8:])
+    cmd = struct.unpack('I', buf[4:8])[0]
+    return (index, cmd, buf[8:])
 
-def _req(index, flags, buf=''):
+def _req(index, cmd, buf=''):
     if index == None:
         index = 0
-    return struct.pack('I', index) + struct.pack('I', flags) + buf
+    return struct.pack('I', index) + struct.pack('I', cmd) + buf
 
 def req_get(index):
     return _req(index, REQ_GET)

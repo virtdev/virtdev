@@ -20,20 +20,17 @@
 import select
 import inotify
 from errno import EINTR
-from lib.util import hash_name
 from threading import Thread, Event
 from inotify.watcher import AutoWatcher
 
-WATCHER_MAX = 4 # WATCHER_MAX < 65536
-
-class WatcherItem(Thread):
+class Watcher(Thread):
     def __init__(self):
-        self._results = {}
         Thread.__init__(self)
         self._event = Event()
         self._watcher = AutoWatcher()
+        self._results = {}
     
-    def add(self, path):
+    def register(self, path):
         n = self._watcher.num_watches()
         self._watcher.add(path, inotify.IN_MODIFY)
         if n == 0:
@@ -61,26 +58,3 @@ class WatcherItem(Thread):
                         self._watcher.remove_path(path)
             except(OSError, select.error) as EINTR:
                 continue
-
-class Watcher(object):
-    def __init__(self):
-        self._watchers = []
-        for _ in range(WATCHER_MAX):
-            w = WatcherItem()
-            self._watchers.append(w)
-            w.start()
-    
-    def _hash(self, path):
-        return hash_name(path) % WATCHER_MAX
-    
-    def add(self, path):
-        n = self._hash(path)
-        self._watchers[n].add(path)
-    
-    def push(self, path):
-        n = self._hash(path)
-        self._watchers[n].push(path)
-    
-    def pop(self, path):
-        n = self._hash(path)
-        return self._watchers[n].pop(path)

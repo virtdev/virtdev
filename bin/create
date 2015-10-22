@@ -1,0 +1,32 @@
+#!/usr/bin/python
+
+import os
+import xattr
+import argparse
+
+import sys
+sys.path.append('..')
+
+from lib.util import cmd
+from lib.op import OP_CREATE
+from conf.path import PATH_MOUNTPOINT
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', dest='uid', default=None)
+    parser.add_argument('-p', dest='parent', default=None)
+    parser.add_argument('-t', dest='device_type', default=None)
+    args = parser.parse_args(sys.argv[1:])
+    uid = args.uid
+    parent = args.parent
+    device_type = args.device_type
+    if not uid or not device_type:
+        parser.print_help()
+        sys.exit()
+    attr = {}
+    attr['type'] = device_type
+    if parent:
+        attr['parent'] = parent
+    path = os.path.join(PATH_MOUNTPOINT, uid)
+    name = xattr.getxattr(path, cmd(OP_CREATE, attr))
+    print str(name)

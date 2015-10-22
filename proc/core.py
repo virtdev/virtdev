@@ -17,10 +17,10 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import os
 import time
 from freq import Freq
 from mode import Mode
-from fs.path import load
 from filter import Filter
 from parent import Parent
 from timeout import Timeout
@@ -28,15 +28,17 @@ from threading import Event
 from handler import Handler
 from threading import Thread
 from datetime import datetime
+from conf.path import PATH_FS
 from lib.lock import NamedLock
 from lib.util import named_lock
+from fs.path import DOMAIN, load
 from dispatcher import Dispatcher
 from lib.log import log_get, log_err, log
 from lib.op import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
 from lib.mode import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT, MODE_CLONE
 
-LOG = True
-QUEUE_LEN = 4
+PRINT = False
+QUEUE_LEN = 2
 INSP_INTV = 5 # seconds
 WAIT_TIME = 0.1 # seconds
 
@@ -57,9 +59,9 @@ class Core(object):
         self._dispatcher = Dispatcher(self._uid, manager.tunnel, self)
         self._inspector.start()
     
-    def _log(self, s):
-        if LOG:
-            log(log_get(self, s))
+    def _print(self, text):
+        if PRINT:
+            log(log_get(self, text))
     
     def _can_put(self, dest, src, flags):
         if flags & MODE_REFLECT:
@@ -109,7 +111,6 @@ class Core(object):
             if (t - t_min).total_seconds() >= timeout:
                 return True
     
-    @named_lock
     def _inspect(self, name):
         try:
             if self._check_timeout(name):
@@ -119,7 +120,7 @@ class Core(object):
                 if args and type(args) == dict:
                     res = self._proc(name, args)
                     if res:
-                        self._dispatch(name, res)
+                        self.dispatch(name, res)
         except:
             log_err(self, 'failed to inspect, name=%s' % str(name))
     
@@ -170,12 +171,12 @@ class Core(object):
                 del self._events[dest]
     
     @named_lock
-    def _remove_dispatcher(self, name, edge):
-        self._dispatcher.remove(edge)
+    def _remove_edge(self, name, edge):
+        self._dispatcher.remove_edge(edge)
     
-    def remove_dispatcher(self, edge):
+    def remove_edge(self, edge):
         name = edge[0]
-        self._remove_dispatcher(name, edge)
+        self._remove_edge(name, edge)
     
     @named_lock
     def remove_handler(self, name):
@@ -184,6 +185,10 @@ class Core(object):
     @named_lock
     def remove_filter(self, name):
         self._filter.remove(name)
+        
+    @named_lock
+    def remove_dispatcher(self, name):
+        self._dispatcher.remove(name)
     
     @named_lock
     def remove_mode(self, name):
@@ -198,12 +203,12 @@ class Core(object):
         self._timeout.remove(name)
     
     @named_lock
-    def _add_dispatcher(self, name, edge):
-        self._dispatcher.add(edge)
+    def _add_edge(self, name, edge):
+        self._dispatcher.add_edge(edge)
     
-    def add_dispatcher(self, edge):
+    def add_edge(self, edge):
         name = edge[0]
-        self._add_dispatcher(name, edge)
+        self._add_edge(name, edge)
     
     def get_mode(self, name):
         return self._mode.get(name)
@@ -221,26 +226,26 @@ class Core(object):
     
     @named_lock
     def remove(self, name):
-        self._dispatcher.remove_all(name)
+        self._dispatcher.remove_edges(name)
+        self.remove_dispatcher(name)
         self.remove_handler(name)
         self.remove_filter(name)
+        self.remove_timeout(name)
+        self.remove_freq(name)
         self.remove_mode(name)
         self._remove(name)
     
-    def _dispatch(self, name, buf):
+    @named_lock
+    def dispatch(self, name, buf):
         self._check_paths(name)
         if not self._dispatcher.check(name):
-            self._log('dispatch->send, name=%s' % name)
+            self._print('dispatch->send, name=%s' % name)
             self._dispatcher.send(name, buf)
         else:
             blocks = self._dispatcher.put(name, buf)
             if blocks and type(blocks) == list:
-                self._log('dispatch->send_blocks, name=%s' % name)
+                self._print('dispatch->send_blocks, name=%s' % name)
                 self._dispatcher.send_blocks(name, blocks)
-    
-    @named_lock
-    def dispatch(self, name, buf):
-        self._dispatch(name, buf)
     
     def get_oper(self, buf, mode):
         if type(buf) != dict:
@@ -248,8 +253,8 @@ class Core(object):
         if mode & MODE_SWITCH:
             ret = None
             for i in buf:
-                if type(buf[i]) == dict and buf[i].has_key('Enable'):
-                    tmp = buf[i]['Enable'] in ('True', True)
+                if type(buf[i]) == dict and buf[i].has_key('enable'):
+                    tmp = buf[i]['Enable'] in ('True', 'true', True)
                     if ret != None:
                         if tmp != ret:
                             return
@@ -274,7 +279,7 @@ class Core(object):
             for device in self._manager.devices:
                 dev = device.find(name)
                 if dev:
-                    self._log('handle, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
+                    self._print('handle, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
                     return dev.proc(name, oper, buf)
         else:
             return buf
@@ -336,10 +341,9 @@ class Core(object):
             if args and type(args) == dict:
                 return self._proc(dest, args)
     
-    @named_lock
-    def _put(self, dest, src, buf, flags):
+    def put(self, dest, src, buf, flags):
         if not buf:
-            self._log('put, no content, dest=%s, src=%s' % (dest, src))
+            self._print('put, no content, dest=%s, src=%s' % (dest, src))
             return
         res = None
         mode = self._mode.get(dest)
@@ -357,11 +361,17 @@ class Core(object):
             res = buf
         if res:
             if not flags & MODE_REFLECT:
-                self._dispatch(dest, res)
+                self.dispatch(dest, res)
             else:
-                self._log('put->sendto, dest=%s, src=%s' % (src, dest))
+                self._print('put->sendto, dest=%s, src=%s' % (src, dest))
                 self._dispatcher.sendto(src, dest, res, hidden=True, flags=flags)
-    
-    def put(self, dest, src, buf, flags):
-        self._put(dest, src, buf, flags)
         return True
+    
+    def sync(self, name, buf):
+        if type(buf) != str and type(buf) != unicode:
+            buf = str(buf)
+        path = os.path.join(PATH_FS, self._uid, DOMAIN['data'], name)
+        with open(path, 'wb') as f:
+            f.write(buf)
+        self._manager.device.update(name, buf)
+        self._print('sync, name=%s' % name)
