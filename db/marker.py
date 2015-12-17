@@ -23,7 +23,7 @@ from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.collection import Collection
 from lib.log import log, log_get, log_err
-from lib.util import USER_DOMAIN, DEVICE_DOMAIN, lock
+from lib.util import CLS_USER, CLS_DEVICE, lock
 from conf.virtdev import META_SERVER_PORT, USER_SERVERS, DEVICE_SERVERS
 
 PRINT = False
@@ -45,20 +45,20 @@ class Marker(object):
         if PRINT:
             log(log_get(self, text))
     
-    def _get_addr(self, name, domain):
-        if domain == USER_DOMAIN:
+    def _get_addr(self, name, cls):
+        if cls == CLS_USER:
             servers = USER_SERVERS
-        elif domain == DEVICE_DOMAIN:
+        elif cls == CLS_DEVICE:
             servers = DEVICE_SERVERS
         else:
-            log_err(self, 'invalid domain')
-            raise Exception(log_get(self, 'invalid domain'))
+            log_err(self, 'invalid cls')
+            raise Exception(log_get(self, 'invalid cls'))
         n = abs(hash(name)) % len(servers)
         return servers[n]
     
     @lock
-    def _check_collection(self, addr, domain):
-        if domain == USER_DOMAIN:
+    def _check_collection(self, addr, cls):
+        if cls == CLS_USER:
             coll = self._coll_usr.get(addr)
             if not coll:
                 if len(self._coll_usr) >= COLLECTION_MAX:
@@ -78,15 +78,15 @@ class Marker(object):
                 self._coll_dev.update({addr:coll})
         return coll
     
-    def _get_collection(self, name, domain):
-        addr = self._get_addr(name, domain)
-        return self._check_collection(addr, domain)
+    def _get_collection(self, name, cls):
+        addr = self._get_addr(name, cls)
+        return self._check_collection(addr, cls)
     
-    def mark(self, name, domain, area):
+    def mark(self, name, cls, area):
         t = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
-        coll = self._get_collection(name, domain)
+        coll = self._get_collection(name, cls)
         if coll:
             coll.update({'k':name}, {'$set':{'v':(t, area)}}, upsert=True)
         else:
-            log_err(self, 'failed to mark, name=%s, domain=%s' % (str(name), str(domain)))
-        self._print('mark, name=%s, domain=%s' % (str(name), str(domain)))
+            log_err(self, 'failed to mark, name=%s, cls=%s' % (str(name), str(cls)))
+        self._print('mark, name=%s, cls=%s' % (str(name), str(cls)))

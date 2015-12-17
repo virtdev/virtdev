@@ -1,14 +1,18 @@
 #!/usr/bin/python
 
 import os
+import sys
 import xattr
 import argparse
+import commands
 
-import sys
-sys.path.append('..')
+_name = commands.getoutput('readlink -f %s' % sys.argv[0])
+_path = os.path.dirname(_name)
+_dir = os.path.dirname(_path)
+sys.path.append(_dir)
 
 from lib.util import cmd
-from lib.op import OP_CREATE
+from lib.operations import OP_CREATE
 from conf.path import PATH_MOUNTPOINT
 
 if __name__ == '__main__':

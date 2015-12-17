@@ -18,10 +18,10 @@
 #      MA 02110-1301, USA.
 
 import uuid
+from util import CLS_USER
 from db.user import UserDB
 from db.marker import Marker
 from db.router import Router
-from util import USER_DOMAIN
 from conf.virtdev import META_SERVERS, AREA_CODE
 
 class User(object):
@@ -34,7 +34,7 @@ class User(object):
         ret = self._user.get(user, 'uid')
         if not ret:
             self._user.put(user, password=password, uid=uid)
-            self._marker.mark(uid, USER_DOMAIN, AREA_CODE)
+            self._marker.mark(uid, CLS_USER, AREA_CODE)
             return True
     
     def get_password(self, user):

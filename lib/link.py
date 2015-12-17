@@ -18,19 +18,19 @@
 #      MA 02110-1301, USA.
 
 import time
-import tunnel
+import channel
 from pool import Pool
 from queue import Queue
 from log import log_err, log_get
-from mode import MODE_LINK, MODE_CLONE
+from modes import MODE_LINK, MODE_CLONE
 from util import str2tuple, update_device, get_name
-from op import OP_ADD, OP_DIFF, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
+from operations import OP_ADD, OP_DIFF, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
 QUEUE_LEN = 4
 POOL_SIZE = 0
 DOWNLINK_RETRY = True
-DOWNLINK_RETRY_MAX = 3
-DOWNLINK_RETRY_INTERVAL = 10 # seconds
+DOWNLINK_RETRY_MAX = 2
+DOWNLINK_RETRY_INTERVAL = 15 # seconds
 
 def chkargs(func):
     def _chkargs(self, name, op, **args):
@@ -82,13 +82,13 @@ class Downlink(object):
     def get_device(self, name):
         return self._query.device.get(name)
     
-    def connect(self, uid, node, addr, touch=False):
+    def connect(self, uid, node, addr, verify=False):
         key = self._query.key.get(get_name(uid, node))
         if not key:
             log_err(self, 'failed to connect, no key')
             return    
         try:
-            tunnel.connect(uid, addr, key, static=True, touch=touch)
+            channel.connect(uid, addr, key, static=True, verify=verify)
             return key
         except:
             pass
@@ -97,14 +97,14 @@ class Downlink(object):
         try:
             if not token:
                 token = self._query.token.get(uid)
-            tunnel.put(uid, addr, op, args, token)
+            channel.put(uid, addr, op, args, token)
             return True
         except:
             log_err(self, 'failed to request, addr=%s, op=%s' % (addr, op))
     
     def disconnect(self, addr):
         try:
-            tunnel.disconnect(addr, force=True)
+            channel.disconnect(addr, release=True)
         except:
             pass
     
@@ -113,13 +113,13 @@ class Downlink(object):
             return
         for _ in range(DOWNLINK_RETRY_MAX):
             try:
-                tunnel.release(addr)
+                channel.disconnect(addr, release=True)
                 time.sleep(DOWNLINK_RETRY_INTERVAL)
-                tunnel.connect(uid, addr, key, static=True, touch=True)
+                channel.connect(uid, addr, key, static=True, verify=True)
                 try:
-                    tunnel.put(uid, addr, op, args, token)
+                    channel.put(uid, addr, op, args, token)
                 finally:
-                    tunnel.disconnect(addr, force=True)
+                    channel.disconnect(addr, release=True)
                 return True
             except:
                 pass
@@ -158,7 +158,7 @@ class Downlink(object):
                 raise Exception(log_get(self, 'failed to mount'))
             for i in nodes:
                 node, addr, _ = str2tuple(i)
-                key = self.connect(uid, node, addr, touch=True)
+                key = self.connect(uid, node, addr, verify=True)
                 if key:
                     break
         

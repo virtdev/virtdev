@@ -27,11 +27,11 @@ import zerorpc
 from lib.ppp import *
 from random import randint
 from threading import Thread
-from lib.log import log_err, log_get
+from lib.log import log_err, log_get, log
 from multiprocessing.pool import ThreadPool
 from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, hash_name
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
-from conf.virtdev import BROKER_SERVERS, BROKER_PORT, PROCESSOR_SERVERS, PROCESSOR_PORT
+from conf.virtdev import BROKER_SERVERS, BROKER_PORT, REQUEST_SERVERS, REQUESTER_PORT
 
 POOL_SIZE = 64
 SLEEP_TIME = 10 # seconds
@@ -41,7 +41,7 @@ class Distributor(Thread):
         Thread.__init__(self)
         self._pool = ThreadPool(processes=POOL_SIZE)
         self._identity = bytes(uuid.uuid4())
-        self._init_services(query)
+        self._query = query
         self._init_sock()
     
     def _init_sock(self):
@@ -67,8 +67,8 @@ class Distributor(Thread):
         return BROKER_SERVERS[randint(0, length - 1)]
     
     def _get_processor(self, uid):
-        length = len(PROCESSOR_SERVERS)
-        return PROCESSOR_SERVERS[hash_name(uid) % length]
+        length = len(REQUEST_SERVERS)
+        return REQUEST_SERVERS[hash_name(uid) % length]
     
     def _get_user(self, buf):
         if len(buf) < USERNAME_SIZE:
@@ -110,13 +110,14 @@ class Distributor(Thread):
                 return
             c = zerorpc.Client()
             addr = self._get_processor(uid)
-            c.connect(zmqaddr(addr, PROCESSOR_PORT))
+            c.connect(zmqaddr(addr, REQUESTER_PORT))
             ret = c.proc(uid, token, buf)
             self._reply(identity, seq, ret)
         except:
             log_err(self, 'failed to process')
     
     def run(self):
+        log(log_get(self, 'start ...'))
         liveness = PPP_HEARTBEAT_LIVENESS
         timeout = time.time() + PPP_HEARTBEAT_INTERVAL
         while True:

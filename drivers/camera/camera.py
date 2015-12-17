@@ -18,12 +18,12 @@
 #      MA 02110-1301, USA.
 
 import pygame
-from lib import mode
 from PIL import Image
 from pygame import camera
 from base64 import b64encode
 from dev.driver import Driver
 from StringIO import StringIO
+from lib.modes import MODE_OVP, MODE_SYNC
 
 CAMERA_INDEX = 0
 CAMERA_WIDTH = 640
@@ -34,7 +34,7 @@ pygame.camera.init()
 
 class Camera(Driver):
     def __init__(self, name=None):
-        Driver.__init__(self, name=name, mode=mode.OVP | mode.MODE_SYNC, spec={'content':{'type':'image/jpeg;base64'}})
+        Driver.__init__(self, name=name, mode=MODE_OVP | MODE_SYNC, spec={'content':{'type':'image/jpeg;base64'}})
     
     def setup(self):
         cameras = camera.list_cameras()

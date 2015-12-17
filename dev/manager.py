@@ -22,29 +22,30 @@ import re
 import time
 import shelve
 import notifier
-from lib import tunnel
+from lib import channel
 from daemon import Daemon
 from proc.core import Core
 from proc.proc import Proc
-from lib.mode import MODE_VISI
 from lib.lock import NamedLock
-from conductor import Conductor
 from lib.request import Request
+from lib.modes import MODE_VISI
 from threading import Lock, Thread
-from lib.op import OP_OPEN, OP_CLOSE
 from lib.log import log_err, log_get
+from conductor import Conductor, conductor
+from lib.operations import OP_OPEN, OP_CLOSE
 from conf.path import PATH_LIB, PATH_RUN, PATH_MOUNTPOINT
 from lib.util import USERNAME_SIZE, PASSWORD_SIZE, netaddresses, get_node, get_name, cat, lock, named_lock
 from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
 
+CONNECT_RETRY_MAX = 2
+
 class DeviceManager(object):
-    def __init__(self, cond): 
-        self._cond = cond
+    def __init__(self): 
         self._lock = NamedLock()
     
     @named_lock
     def open(self, name):
-        for device in self._cond.devices:
+        for device in conductor.devices:
             dev = device.find(name)
             if dev:
                 dev.proc(name, OP_OPEN)
@@ -52,7 +53,7 @@ class DeviceManager(object):
     
     @named_lock
     def close(self, name):
-        for device in self._cond.devices:
+        for device in conductor.devices:
             dev = device.find(name)
             if dev:
                 dev.proc(name, OP_CLOSE)
@@ -60,108 +61,105 @@ class DeviceManager(object):
     
     @named_lock
     def add(self, name, mode=None, freq=None, prof=None): 
-        return self._cond.request.device.add(node=get_node(), addr=self._cond.addr, name=name, mode=mode, freq=freq, prof=prof)
+        return conductor.request.device.add(node=get_node(), addr=conductor.addr, name=name, mode=mode, freq=freq, prof=prof)
     
     @named_lock
     def update(self, name, buf):
-        return self._cond.request.device.update(name=name, buf=buf)
+        return conductor.request.device.update(name=name, buf=buf)
     
     @named_lock
     def get(self, name):
-        return self._cond.request.device.get(name=name)
+        return conductor.request.device.get(name=name)
     
     @named_lock
-    def diff(self, name, label, item, buf):
-        return self._cond.request.device.diff(name=name, label=label, item=item, buf=buf)
+    def diff(self, name, domain, item, buf):
+        return conductor.request.device.diff(name=name, domain=domain, item=item, buf=buf)
     
     @named_lock
     def remove(self, name):
-        return self._cond.request.device.remove(node=get_node(), name=name)
+        return conductor.request.device.remove(node=get_node(), name=name)
 
 class GuestManager(object):
-    def __init__(self, cond):
-        self._cond = cond
+    def __init__(self):
         self._lock = Lock()
     
     @lock
     def join(self, dest, src):
-        return self._cond.request.guest.join(dest=dest, src=src)
+        return conductor.request.guest.join(dest=dest, src=src)
     
     @lock
     def accept(self, dest, src):
-        return self._cond.request.guest.accept(dest=dest, src=src)
+        return conductor.request.guest.accept(dest=dest, src=src)
     
     @lock
     def drop(self, dest, src):
-        return self._cond.request.guest.drop(dest=dest, src=src)
+        return conductor.request.guest.drop(dest=dest, src=src)
 
 class NodeManager(object):
-    def __init__(self, cond):
-        self._cond = cond
+    def __init__(self):
         self._lock = Lock()
     
     @lock
     def search(self, user, random, limit):
-        return self._cond.request.node.search(user=user, random=random, limit=limit)
+        return conductor.request.node.search(user=user, random=random, limit=limit)
     
     @lock
     def find(self, user, node):
-        return self._cond.request.node.search(user=user, node=node)
+        return conductor.request.node.search(user=user, node=node)
 
-class TunnelManager(object):
-    def __init__(self, cond):
-        self._cond = cond
+class ChannelManager(object):
+    def __init__(self):
         self._lock = NamedLock()
     
-    def _try_open(self, name):
-        uid, node, addr = self._cond.get_device(name)
+    def _try_connect(self, name):
+        uid, node, addr = conductor.get_device(name)
         if not uid:
-            log_err(self, 'failed to open, no uid')
-            raise Exception(log_get(self, 'failed to open'))
-        if not tunnel.exist(addr):
-            key = self._cond.get_key(uid, node)
+            log_err(self, 'failed to connect')
+            raise Exception(log_get(self, 'failed to connect'))
+        if not channel.exist(addr):
+            key = conductor.get_key(uid, node)
             if not key:
-                log_err(self, 'failed to open, no token')
-                raise Exception(log_get(self, 'failed to open'))
+                log_err(self, 'failed to connect')
+                raise Exception(log_get(self, 'failed to connect'))
             try:
-                tunnel.connect(uid, addr, key)
+                channel.connect(uid, addr, key)
             except:
-                self._cond.remove_device(name)
-                self._cond.remove_key(uid, node)
+                conductor.remove_device(name)
+                conductor.remove_key(uid, node)
         return True
     
     @named_lock
-    def open(self, name):
-        if not self._try_open(name):
-            if not self._try_open(name):
-                log_err(self, 'failed to open')
-                raise Exception(log_get(self, 'failed to open'))
+    def connect(self, name):
+        for _ in range(CONNECT_RETRY_MAX):
+            if self._try_connect(name):
+                return    
+        log_err(self, 'failed to connect')
+        raise Exception(log_get(self, 'failed to connect'))
     
     @named_lock
-    def close(self, name):
-        _, _, addr = self._cond.get_device(name)
-        if tunnel.exist(addr):
-            tunnel.disconnect(addr)
+    def disconnect(self, name):
+        _, _, addr = conductor.get_device(name)
+        if channel.exist(addr):
+            channel.disconnect(addr)
     
     @named_lock
     def put(self, name, **args):
-        uid = self._cond.uid
-        token = self._cond.token 
-        _, _, addr = self._cond.get_device(name)
-        tunnel.put(uid, addr, 'put', args, token)
+        uid = conductor.uid
+        token = conductor.token 
+        _, _, addr = conductor.get_device(name)
+        channel.put(uid, addr, 'put', args, token)
     
     @named_lock
     def push(self, name, **args):
-        uid = self._cond.uid
-        token = self._cond.token 
-        _, _, addr = self._cond.get_device(name)
-        tunnel.push(uid, addr, 'put', args, token)
+        uid = conductor.uid
+        token = conductor.token 
+        _, _, addr = conductor.get_device(name)
+        channel.push(uid, addr, 'put', args, token)
 
 class MemberManager(object):
-    def __init__(self, cond):
-        self._cond = cond
+    def __init__(self):
         self._lock = Lock()
-        self._path = os.path.join(PATH_LIB, get_name(cond.uid, get_node()))
+        self._path = os.path.join(PATH_LIB, get_name(conductor.uid, get_node()))
     
     @lock
     def list(self):
@@ -208,15 +206,13 @@ class Manager(object):
         self._handler.start()
         self._dispatcher.start()
     
-    def _init_cond(self):
-        cond = Conductor(self)
-        self.node = NodeManager(cond)
-        self.guest = GuestManager(cond)
-        self.device = DeviceManager(cond)
-        self.tunnel = TunnelManager(cond)
-        self.member = MemberManager(cond)
-        self._cond = cond
-        cond.start()
+    def _init_manager(self):
+        Conductor().create(self)
+        self.node = NodeManager()
+        self.guest = GuestManager()
+        self.device = DeviceManager()
+        self.member = MemberManager()
+        self.channel = ChannelManager()        
     
     def _init_daemon(self):
         self._daemon = Daemon(self)
@@ -224,17 +220,17 @@ class Manager(object):
     
     def _init_dev(self):
         if BT:
-            from interfaces.bt import Bluetooth
+            from interface.bt import Bluetooth
             self._bt = Bluetooth(self.uid, self.core)
             self.devices.append(self._bt)
         
         if LO:
-            from interfaces.lo import Lo
+            from interface.lo import Lo
             self._lo = Lo(self.uid, self.core)
             self.devices.append(self._lo)
         
         if USB:
-            from interfaces.usb import USBSerial
+            from interface.usb import USBSerial
             self._usb = USBSerial(self.uid, self.core)
             self.devices.append(self._usb)
     
@@ -273,7 +269,7 @@ class Manager(object):
         if not res:
             log_err(self, 'failed to login')
             return
-        return (res['uid'], res['addr'], res['token'], res['key'])
+        return (res['uid'], res['host'], res['addr'], res['token'], res['key'])
     
     def _init_user(self):
         user, password = self._get_password()
@@ -282,7 +278,7 @@ class Manager(object):
             raise Exception(log_get(self, 'failed to get password'))
         
         try:
-            uid, addr, token, key = self._login(user, password)
+            uid, host, addr, token, key = self._login(user, password)
         except:
             log_err(self, 'failed to login')
             raise Exception(log_get(self, 'failed to login'))
@@ -293,6 +289,7 @@ class Manager(object):
         
         self.uid = uid
         self.key = key
+        self.host = host
         self.addr = addr
         self.user = user
         self.token = token
@@ -303,7 +300,7 @@ class Manager(object):
         
         self._init_user()
         self._init_proc()
-        self._init_cond()
+        self._init_manager()
         self._init_core()
         self._init_dev()
         
@@ -321,7 +318,7 @@ class Manager(object):
         self.token = None
         self.devices = []
         self.device = None
-        self.tunnel = None
+        self.channel = None
         self._daemon = None
         self._filter = None
         self._handler = None
@@ -353,9 +350,9 @@ class Manager(object):
             self._active = True
     
     def chkaddr(self, name):
-        if name and self._cond:
-            uid, node, addr = self._cond.get_device(name)
-            key = self._cond.get_key(uid, node)
+        if name:
+            uid, node, addr = conductor.get_device(name)
+            key = conductor.get_key(uid, node)
             if key:
                 return (addr, key)
     

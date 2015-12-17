@@ -20,7 +20,7 @@
 import proc
 from lib.log import log_err
 from lib.loader import Loader
-from fs.attr import ATTR_HANDLER
+from lib.attributes import ATTR_HANDLER
 from conf.virtdev import PROC_ADDR, HANDLER_PORT
 
 class Handler(object):  

@@ -25,7 +25,7 @@ from lib import stream
 from threading import Lock, Thread
 from lib.log import log_get, log_err
 from lib.util import get_name, device_info
-from lib.mode import MODE_CLONE, MODE_VIRT
+from lib.modes import MODE_CLONE, MODE_VIRT
 from multiprocessing.pool import ThreadPool
 
 PAIR_INTERVAL = 7 # seconds

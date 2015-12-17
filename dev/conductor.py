@@ -17,19 +17,28 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import socket
+import tornado.ioloop
+import tornado.websocket
 from lib.pool import Pool
-from oper import Operation
 from lib.queue import Queue
-from lib import tunnel, package
+from lib import channel, codec
 from lib.request import Request
+from operation import Operation
 from threading import Thread, Event
-from lib.log import log_err, log_get
 from lib.util import UID_SIZE, get_name
-from conf.virtdev import CONDUCTOR_PORT
+from lib.log import log_err, log_get, log
+from lib.protocols import PROTOCOL_N2N, PROTOCOL_WRTC
+from conf.virtdev import CONDUCTOR_PORT, PROTOCOL, EXPOSE
 
 QUEUE_LEN = 2
-POOL_SIZE = 32
+POOL_SIZE = 64
+
+def chkstat(func):
+    def _chkstat(*args, **kwargs):
+        self = args[0]
+        if self._ready:
+            return func(*args, **kwargs)
+    return _chkstat
 
 class ConductorQueue(Queue):
     def __init__(self, srv):
@@ -39,20 +48,19 @@ class ConductorQueue(Queue):
     def proc(self, buf):
         self._srv.proc(buf)
 
-class Conductor(Thread):
-    def _init_sock(self, addr):
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind((addr, CONDUCTOR_PORT))
-        self._sock.listen(5)
+class ConductorHandler(object):
+    def __init__(self):
+        self._ready = False
     
-    def __init__(self, manager):
-        Thread.__init__(self)
+    def initialize(self, manager):
         key = manager.key
         uid = manager.uid
         addr = manager.addr
         token = manager.token
-        tunnel.create(uid, addr, key)
+        if EXPOSE or PROTOCOL == PROTOCOL_N2N:
+            channel.create(uid, addr, key, protocol=PROTOCOL_N2N)
+        if PROTOCOL == PROTOCOL_WRTC:
+            channel.create(uid, addr, key, protocol=PROTOCOL_WRTC)
         
         self._keys = {}
         self._devices = {}
@@ -60,7 +68,6 @@ class Conductor(Thread):
         self._event = Event()
         self._tokens = {uid:token}
         self._op = Operation(manager)
-        self._init_sock(manager.addr)
         for _ in range(POOL_SIZE):
             self._pool.add(ConductorQueue(self))
         
@@ -70,6 +77,7 @@ class Conductor(Thread):
         self.user = manager.user
         self.devices = manager.devices
         self.request = Request(uid, token)
+        self._ready = True
     
     def _get_token(self, uid, update=False):
         token = None
@@ -87,6 +95,7 @@ class Conductor(Thread):
             raise Exception(log_get(self, 'failed to get token'))
         return token
     
+    @chkstat
     def get_device(self, name):
         res = self._devices.get(name)
         if not res:
@@ -99,10 +108,12 @@ class Conductor(Thread):
             raise Exception(log_get(self, 'failed to get device'))
         return res
     
+    @chkstat
     def remove_device(self, name):
         if self._devices.has_key(name):
             del self._devices[name]
     
+    @chkstat
     def get_key(self, uid, node):
         name = get_name(uid, node)
         key = self._keys.get(name)
@@ -115,17 +126,16 @@ class Conductor(Thread):
             raise Exception(log_get(self, 'failed to get key'))
         return key
     
+    @chkstat
     def remove_key(self, uid, node):
         name = uid + node
         if self._keys.get(name):
             del self._keys[name]
     
-    def proc(self, sock):
-        if not sock:
-            return
+    @chkstat
+    def proc(self, buf):
         op = None
         try:
-            buf = tunnel.recv(sock)
             if len(buf) <= UID_SIZE:
                 log_err(self, 'failed to process, invalid request')
                 return
@@ -135,13 +145,13 @@ class Conductor(Thread):
                 log_err(self, 'failed to process, no token')
                 return
             try:
-                req = package.unpack(uid, buf, token)
+                req = codec.decode(uid, buf, token)
             except:
                 token = self._get_token(uid, update=True)
                 if not token:
                     log_err(self, 'failed to process, no token')
                     return
-                req = package.unpack(uid, buf, token)
+                req = codec.decode(uid, buf, token)
             if req:
                 op = req.get('op')
                 args = req.get('args')
@@ -150,19 +160,32 @@ class Conductor(Thread):
                     return
                 func = getattr(self._op, op)
                 if func:
-                    func(**args)
+                    if args:
+                        func(**args)
+                    else:
+                        func()
                 else:
                     log_err(self, 'failed to process, invalid operation %s' % str(op))
         except:
-            if op:
-                log_err(self, 'failed to process, op=%s' % str(op))
-        finally:
-            sock.close()
+            log_err(self, 'failed to process, op=%s' % str(op))
+    
+    @chkstat
+    def push(self, buf):
+        self._pool.push(buf)
+
+conductor = ConductorHandler()
+
+class ConductorWSHandler(tornado.websocket.WebSocketHandler):
+    def on_message(self, buf):
+        conductor.push(buf)
+
+class Conductor(Thread):
+    def create(self, manager):
+        conductor.initialize(manager)
+        self.start()
     
     def run(self):
-        while True:
-            try:
-                sock, _ = self._sock.accept()
-                self._pool.push(sock)
-            except:
-                log_err(self, 'failed to receive request')
+        log(log_get(self, 'start ...'))
+        srv = tornado.web.Application([(r'/', ConductorWSHandler)])
+        srv.listen(CONDUCTOR_PORT)
+        tornado.ioloop.IOLoop.instance().start()

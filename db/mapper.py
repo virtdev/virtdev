@@ -24,7 +24,7 @@ from random import randint
 from threading import Thread
 from lib.log import log, log_err, log_get
 from master import get_servers, get_mappers, get_finders
-from lib.util import USER_DOMAIN, DEVICE_DOMAIN, zmqaddr, ifaddr
+from lib.util import CLS_USER, CLS_DEVICE, zmqaddr, ifaddr
 from conf.virtdev import USER_MAPPER_PORT, DEVICE_MAPPER_PORT, USER_FINDER_PORT, DEVICE_FINDER_PORT
 
 PRINT = False
@@ -33,12 +33,12 @@ WAIT_TIME = 100 # seconds
 CACHE_MAX = 100000
 
 class MapperCache(object):
-    def __init__(self, domain, server):
+    def __init__(self, cls, server):
         self._cache = {}
-        self._domain = domain
+        self._cls = cls
         self._server = server
         self._finder = Member()
-        finders = get_finders(domain)
+        finders = get_finders(cls)
         if not finders:
             log_err(self, 'failed to initialize')
             raise Exception(log_get(self, 'failed to initialize'))
@@ -52,7 +52,7 @@ class MapperCache(object):
     
     def _get_finder(self, addr):
         finder = zerorpc.Client()
-        if self._domain == USER_DOMAIN:
+        if self._cls == CLS_USER:
             finder.connect(zmqaddr(addr, USER_FINDER_PORT))
         else:
             finder.connect(zmqaddr(addr, DEVICE_FINDER_PORT))
@@ -194,20 +194,20 @@ class MapperCache(object):
             return res
 
 class Mapper(Member):
-    def __init__(self, domain):
+    def __init__(self, cls):
         Member.__init__(self)
-        mappers = get_mappers(domain)
+        mappers = get_mappers(cls)
         if not mappers:
             log_err(self, 'failed to initialize')
             raise Exception(log_get(self, 'failed to initialize'))
         self.set_members(mappers)
         self._server = Member()
-        servers = get_servers(domain)
+        servers = get_servers(cls)
         if not servers:
             log_err(self, 'failed to initialize')
             raise Exception(log_get(self, 'failed to initialize'))
         self._server.set_members(servers)
-        self._cache = MapperCache(domain, self._server)
+        self._cache = MapperCache(cls, self._server)
     
     def set_servers(self, servers):
         return self._server.set_members(servers, sort=True)
@@ -225,26 +225,26 @@ class Mapper(Member):
         return self._cache.get(key)
 
 class MapperServer(Thread):
-    def __init__(self, domain):
+    def __init__(self, cls):
         Thread.__init__(self)
-        self._domain = domain
-        self._mapper = Mapper(domain)
+        self._cls = cls
+        self._mapper = Mapper(cls)
     
     def run(self):
         srv = zerorpc.Server(self._mapper)
-        if self._domain == USER_DOMAIN:
+        if self._cls == CLS_USER:
             srv.bind(zmqaddr(ifaddr(), USER_MAPPER_PORT))
-        elif self._domain == DEVICE_DOMAIN:
+        elif self._cls == CLS_DEVICE:
             srv.bind(zmqaddr(ifaddr(), DEVICE_MAPPER_PORT))
         else:
-            log_err(self, 'invalid domain')
-            raise Exception(log_get(self, 'invalid domain'))
+            log_err(self, 'invalid cls')
+            raise Exception(log_get(self, 'invalid cls'))
         srv.run()
 
 class UserMapper(MapperServer):
     def __init__(self):
-        MapperServer.__init__(self, USER_DOMAIN)
+        MapperServer.__init__(self, CLS_USER)
 
 class DeviceMapper(MapperServer):
     def __init__(self):
-        MapperServer.__init__(self, DEVICE_DOMAIN)
+        MapperServer.__init__(self, CLS_DEVICE)

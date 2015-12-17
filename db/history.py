@@ -21,9 +21,9 @@ import ast
 import json
 from threading import Lock
 from datetime import datetime
+from lib.util import CLS_USER, lock
 from conf.virtdev import RECORD_MAX
 from happybase import ConnectionPool
-from lib.util import USER_DOMAIN, lock
 from lib.log import log, log_get, log_err
 
 CF_CNT = 'cf0'
@@ -81,7 +81,7 @@ class HistoryDB(object):
         return pool
     
     def _get_pool(self, uid):
-        addr = self._router.get(uid, USER_DOMAIN)
+        addr = self._router.get(uid, CLS_USER)
         if not addr:
             log_err(self, 'failed to get pool, no address')
             return

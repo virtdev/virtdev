@@ -19,7 +19,7 @@
 
 import zmq
 import uuid
-import package
+import codec
 from log import log_err
 from util import zmqaddr
 from random import randint
@@ -30,7 +30,7 @@ from zmq import REQ, IDENTITY, POLLIN, SNDMORE, LINGER
 TIMEOUT = 120 # seconds
 RETRY_MAX = 1
 
-class Sender(object):
+class RequestSender(object):
     def _get_addr(self):
         length = len(ROOT_SERVERS)
         n = randint(0, length - 1)
@@ -94,7 +94,7 @@ class Sender(object):
         self._close_sock()
         self._context.term()
 
-class Client(object):
+class RequestHandler(object):
     def __init__(self, srv, uid, token):
         self._srv = srv
         self._uid = uid
@@ -108,10 +108,10 @@ class Client(object):
         ret = None
         try:
             cmd = {'srv':self._srv, 'op':self._op, 'args':kwargs}
-            buf = package.pack(self._uid, cmd, self._token)
-            result = Sender().send(buf)
+            buf = codec.encode(self._uid, cmd, self._token)
+            result = RequestSender().send(buf)
             if result:
-                ret = package.unpack(self._uid, result, self._token)
+                ret = codec.decode(self._uid, result, self._token)
             return ret
         except:
             log_err(self, "failed to request")
@@ -122,4 +122,4 @@ class Request(object):
         self._token = token
     
     def __getattr__(self, srv):
-        return Client(srv, self._uid, self._token)
+        return RequestHandler(srv, self._uid, self._token)

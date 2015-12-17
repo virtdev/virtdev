@@ -1,4 +1,4 @@
-#      op.py
+#      bridge.py (wrtc)
 #      
 #      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,22 +17,11 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-OP_GET = 'get'
-OP_PUT = 'put'
-OP_ADD  = 'add'
-OP_OPEN = 'open'
-OP_JOIN = 'join'
-OP_SCAN = 'scan'
-OP_POLL = 'poll'
-OP_SYNC = 'sync'
-OP_DIFF = 'diff'
-OP_MOUNT = 'mount'
-OP_TOUCH = 'touch'
-OP_CLONE = 'clone'
-OP_CLOSE = 'close'
-OP_ACCEPT = 'accept'
-OP_ENABLE = 'enable'
-OP_CREATE = 'create'
-OP_DISABLE = 'disable'
-OP_COMBINE = 'combine'
-OP_INVALIDATE = 'invalidate'
+from subprocess import call
+from lib.util import DEVNULL
+from threading import Thread
+from conf.virtdev import BRIDGE_PORT
+
+class Bridge(Thread):
+    def run(self):
+        call(['mosquitto', '-p', str(BRIDGE_PORT)], stderr=DEVNULL, stdout=DEVNULL)

@@ -22,7 +22,7 @@ import stat
 from file import File
 from lib.log import log, log_get, log_err
 from hdfs.client import Client as HDFSClient
-from lib.util import DIR_MODE, FILE_MODE, USER_DOMAIN
+from lib.util import DIR_MODE, FILE_MODE, CLS_USER
 from snakebite.client import Client as SnakebiteClient
 from conf.virtdev import FILE_SERVER_PORT, FILE_HTTP_PORT
 
@@ -38,12 +38,12 @@ class RemoteFile(File):
             log(log_get(self, text))
     
     def _get_client(self, uid):
-        addr = self._router.get(uid, USER_DOMAIN)
+        addr = self._router.get(uid, CLS_USER)
         self._print('get_client, addr=%s, uid=%s' % (addr, uid))
         return SnakebiteClient(addr, FILE_SERVER_PORT, use_trash=False)
     
     def _get_http_client(self, uid):
-        addr = self._router.get(uid, USER_DOMAIN)
+        addr = self._router.get(uid, CLS_USER)
         self._print('get_http_client, addr=%s, uid=%s' % (addr, uid))
         address = 'http://%s:%d' % (addr, FILE_HTTP_PORT)
         return HDFSClient(address)

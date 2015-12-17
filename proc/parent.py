@@ -18,7 +18,7 @@
 #      MA 02110-1301, USA.
 
 from lib.loader import Loader
-from fs.attr import ATTR_PARENT
+from lib.attributes import ATTR_PARENT
 
 class Parent(object):
     def __init__(self, uid):

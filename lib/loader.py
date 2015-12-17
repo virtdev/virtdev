@@ -19,9 +19,9 @@
 
 import os
 import json
-from fs.path import DOMAIN
 from util import unicode2str
-from fs.attr import ATTR_PROFILE
+from attributes import ATTR_PROFILE
+from domains import DOMAIN_ATTRIBUTE
 from conf.path import PATH_MOUNTPOINT
 
 BUF_LEN = 1024
@@ -31,7 +31,7 @@ class Loader(object):
         self._uid = uid
     
     def _get_path(self, name, attr):
-        return os.path.join(PATH_MOUNTPOINT, self._uid, DOMAIN['attr'], name, attr)
+        return os.path.join(PATH_MOUNTPOINT, self._uid, DOMAIN_ATTRIBUTE, name, attr)
     
     def _read(self, name, attr):
         path = self._get_path(name, attr)

@@ -1,4 +1,4 @@
-#      supernode.py
+#      token.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,30 +17,14 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from subprocess import call
-from threading import Thread
-from lib.util import DEVNULL
-from conf.virtdev import SUPERNODE_PORT, SUPERNODE_SERVERS
+from service import Service
 
-def get_supernode(key):
-    odd = 1
-    code = 0
-    length = len(SUPERNODE_SERVERS)
-    for i in key:
-        if odd:
-            code ^= ord(i)
-            odd = 0
-        else:
-            code ^= ord(i) << 8
-            odd = 1
-    return '%s:%d' % (SUPERNODE_SERVERS[code % length], SUPERNODE_PORT)
-
-class Supernode(Thread):
-    def __init__(self):
-        Thread.__init__(self)
-    
-    def start_super(self):
-        call(['supernode', '-l', str(SUPERNODE_PORT)], stderr=DEVNULL, stdout=DEVNULL)
-    
-    def run(self):
-        self.start_super()
+class Token(Service):
+    def get(self, uid, name):
+        device = self._query.device.get(name)
+        if device:
+            if uid != device['uid']:
+                guests = self._query.guest.get(uid)
+                if not guests or name not in guests:
+                    return 
+            return self._query.token.get(device['uid'])

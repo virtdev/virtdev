@@ -19,7 +19,7 @@
 
 import zerorpc
 from lib.log import log_err
-from lib.util import USER_DOMAIN, zmqaddr
+from lib.util import CLS_USER, zmqaddr
 from conf.virtdev import EVENT_COLLECTOR_PORT
 
 class EventEmitter(object):
@@ -36,7 +36,7 @@ class EventEmitter(object):
     
     def put(self, uid, name):
         try:
-            addr = self._router.get(uid, USER_DOMAIN)
+            addr = self._router.get(uid, CLS_USER)
             if addr:
                 self._put(addr, uid, name)
         except:

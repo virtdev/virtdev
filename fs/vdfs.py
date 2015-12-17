@@ -29,20 +29,25 @@ from vertex import Vertex
 from lib.loader import Loader
 from lib.lock import NamedLock
 from dev.manager import Manager
+from attribute import Attribute
+from dev.driver import FREQ_MAX
 from lib.log import log_err, log
+from lib.protocols import PROTOCOL_WRTC
 from fuse import FuseOSError, Operations
-from dev.interfaces.lo import device_name
-from dev.udo import FREQ_MAX, TIMEOUT_MAX
+from dev.interface.lo import device_name
+from conf.virtdev import EXPOSE, PROTOCOL
 from lib.util import DIR_MODE, named_lock, load_driver
-from lib.mode import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK, MODE_CLONE
-from attr import Attr, ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PARENT, ATTR_TIMEOUT
-from lib.op import OP_POLL, OP_MOUNT, OP_CLONE, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_ADD, OP_JOIN, OP_ACCEPT, OP_SCAN
+from lib.domains import DOMAIN_VERTEX, DOMAIN_EDGE, DOMAIN_ATTRIBUTE
+from lib.modes import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK, MODE_CLONE
+from lib.attributes import ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PARENT, ATTR_TIMEOUT
+from lib.operations import OP_POLL, OP_MOUNT, OP_CLONE, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_ADD, OP_JOIN, OP_ACCEPT, OP_SCAN
 
 _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
 
 PATH_MAX = 1024
 TYPE_VDEV = 'VDev'
+TIMEOUT_MAX = 600 # seconds
 
 def show_path(func):
     def _show_path(*args, **kwargs):
@@ -60,8 +65,8 @@ class VDFS(Operations):
             self._shadow = True
             manager = Manager()
             self._edge = Edge(core=manager.core)
-            self._attr = Attr(core=manager.core)
             self._vertex = Vertex(core=manager.core)
+            self._attr = Attribute(core=manager.core)
             self._data = Data(self._vertex, self._edge, self._attr, core=manager.core)
             
             from lib.link import Uplink
@@ -71,13 +76,19 @@ class VDFS(Operations):
             self._shadow = False
             self._edge = Edge(router=router)
             self._vertex = Vertex(router=router)
-            self._attr = Attr(router=router, rdonly=False)
+            self._attr = Attribute(router=router, rdonly=False)
             self._data = Data(self._vertex, self._edge, self._attr, router=router, rdonly=False)
             
             from lib.link import Downlink
             link = Downlink(query)
             self._query.link = link
             self._link = link
+            
+            if EXPOSE and PROTOCOL == PROTOCOL_WRTC:
+                from lib import channel
+                from lib.util import gen_uid, gen_key
+                from lib.protocol.wrtc.resolv import Resolv
+                channel.create(gen_uid(), Resolv().get_addr(), gen_key(), protocol=PROTOCOL_WRTC)
         
         self._manager = manager
         self._lock = NamedLock()
@@ -115,11 +126,11 @@ class VDFS(Operations):
         if total == 1:
             obj = self._data
         else:
-            if field[1] == self._vertex.label:
+            if field[1] == DOMAIN_VERTEX:
                 obj = self._vertex
-            elif field[1] == self._edge.label:
+            elif field[1] == DOMAIN_EDGE:
                 obj = self._edge
-            elif field[1] == self._attr.label:
+            elif field[1] == DOMAIN_ATTRIBUTE:
                 obj = self._attr
             else:
                 if total != 2:
@@ -130,7 +141,7 @@ class VDFS(Operations):
                     log_err(self, 'failed to parse, invalid name, path=%s' % path)
                     raise FuseOSError(EINVAL)
                 obj = self._data
-    
+            
             if total > 2:
                 if obj == self._attr:
                     if total > 4:
@@ -171,7 +182,7 @@ class VDFS(Operations):
                     log_err(self, 'failed to open, link error, op=OP_TOUCH, name=%s' % name)
                     raise FuseOSError(EINVAL)
         elif obj.is_expired(uid, name):
-            buf = self._link.put(name=obj.parent(name), op=OP_DIFF, label=obj.label, item=obj.child(name), buf=obj.signature(uid, name))
+            buf = self._link.put(name=obj.parent(name), op=OP_DIFF, domain=obj.domain, item=obj.child(name), buf=obj.signature(uid, name))
             obj.patch(uid, name, buf)
     
     def _do_release(self, obj, uid, name):
@@ -220,7 +231,7 @@ class VDFS(Operations):
         link = mode & MODE_LINK
         if link:
             mode &= ~MODE_LINK
-            
+        
         if mode & MODE_CLONE and not parent:
             log_err(self, 'failed to initialize device, no parent, name=%s' % name)
             raise FuseOSError(EINVAL)
@@ -599,11 +610,9 @@ class VDFS(Operations):
             op = OP_COMBINE
         else:
             return ''
-        
         res = self._get_result(path, op)
         if res:
             return res
-        
         if op == OP_POLL:
             res = self._poll(path)
         elif op == OP_SCAN:

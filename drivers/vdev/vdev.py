@@ -18,7 +18,7 @@
 #      MA 02110-1301, USA.
 
 from dev.driver import Driver
-from lib.mode import MODE_VIRT
+from lib.modes import MODE_VIRT
 
 class VDev(Driver):
     def __init__(self, name=None):

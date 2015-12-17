@@ -17,9 +17,9 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from fs.attr import ATTR_FREQ
 from lib.loader import Loader
 from lib.log import log, log_get
+from lib.attributes import ATTR_FREQ
 
 PRINT = True
 

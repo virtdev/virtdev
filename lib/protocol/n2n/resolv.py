@@ -1,4 +1,4 @@
-#      dhcp.py
+#      resolv.py (n2n)
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -26,7 +26,7 @@ F3_SIZE = 32
 HOST_MAX = 255 * 255 * 8
 RETRY_MAX = 3
 
-class DHCP(object):    
+class Resolv(object):    
     def _gen_addr(self):
         index = randint(0, HOST_MAX - 1)
         tmp = index % F1_SIZE
@@ -45,7 +45,7 @@ class DHCP(object):
                 return False
         return True
     
-    def allocate(self, uid, node, networks=None):
+    def get_addr(self, uid, node, networks=None):
         for _ in range(RETRY_MAX):
             addr = self._gen_addr()
             if self._check_addr(addr, networks):

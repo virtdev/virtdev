@@ -20,7 +20,7 @@
 import proc
 from lib.log import log_err
 from lib.loader import Loader
-from fs.attr import ATTR_FILTER
+from lib.attributes import ATTR_FILTER
 from conf.virtdev import PROC_ADDR, FILTER_PORT
 
 class Filter(object):

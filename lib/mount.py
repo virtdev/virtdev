@@ -19,26 +19,26 @@
 
 import os
 import time
-import tunnel
+import channel
+import resource
 from lib.log import log
 from subprocess import call
 from db.router import Router
 from conf.path import PATH_MOUNTPOINT, PATH_RUN, PATH_LIB
 from lib.util import DEVNULL, srv_start, srv_join, close_port, ifaddr
-from conf.virtdev import LO, FS, DISTRIBUTOR, DATA_SERVER, SHADOW, EXTEND, META_SERVERS, DATA_SERVERS, CACHE_SERVERS, ROOT_SERVERS, SUPERNODE_SERVERS, BROKER_SERVERS, PROCESSOR_SERVERS, MASTER, USER_FINDER, USER_MAPPER, DEVICE_FINDER, DEVICE_MAPPER, IFBACK
+from conf.virtdev import LO, FS, DISTRIBUTOR, DATA_SERVER, SHADOW, EXTEND, META_SERVERS
+from conf.virtdev import DATA_SERVERS, CACHE_SERVERS, ROOT_SERVERS, BRIDGE_SERVERS, BROKER_SERVERS
+from conf.virtdev import REQUEST_SERVERS, MASTER, USER_FINDER, USER_MAPPER, DEVICE_FINDER, DEVICE_MAPPER, IFBACK, PROXY_PORT
 
 PRINT = False
-RLIMIT = False
-
-def _print(text):
-    if PRINT:
-        log(text)
 
 def _clean():
     ports = []
-    tunnel.clean()
+    channel.clean()
     addr = ifaddr()
+    baddr = ifaddr(ifname=IFBACK)
     
+    ports.append(PROXY_PORT)
     if not SHADOW and addr in CACHE_SERVERS:
         from conf.virtdev import CACHE_PORTS
         for i in CACHE_PORTS:
@@ -48,11 +48,11 @@ def _clean():
         from conf.virtdev import LO_PORT
         ports.append(LO_PORT)
     
-    if not SHADOW and addr in SUPERNODE_SERVERS:
-        from conf.virtdev import SUPERNODE_PORT
-        ports.append(SUPERNODE_PORT)
+    if not SHADOW and addr in BRIDGE_SERVERS:
+        from conf.virtdev import BRIDGE_PORT
+        ports.append(BRIDGE_PORT)
     
-    if ifaddr(ifname=IFBACK) in BROKER_SERVERS:
+    if baddr in BROKER_SERVERS:
         from conf.virtdev import BROKER_PORT
         ports.append(BROKER_PORT)
     
@@ -84,11 +84,13 @@ def _clean():
         from conf.virtdev import EVENT_COLLECTOR_PORT    
         ports.append(EVENT_COLLECTOR_PORT)
     
-    if addr in PROCESSOR_SERVERS:
-        from conf.virtdev import PROCESSOR_PORT
-        from conf.virtdev import EVENT_RECEIVER_PORT
-        ports.append(EVENT_RECEIVER_PORT)
-        ports.append(PROCESSOR_PORT)
+    if baddr in REQUEST_SERVERS:
+        from conf.virtdev import REQUESTER_PORT
+        ports.append(REQUESTER_PORT)
+    
+    if baddr in REQUEST_SERVERS or (FS and not SHADOW):
+        from conf.virtdev import EVENT_MONITOR_PORT
+        ports.append(EVENT_MONITOR_PORT)
     
     if FS:
         from conf.virtdev import CONDUCTOR_PORT, DAEMON_PORT, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
@@ -117,26 +119,25 @@ def _mount(query, router):
     if not os.path.exists(PATH_LIB):
         os.makedirs(PATH_LIB, 0o755)
     
-    _print('Mounting VDFS ...')
+    if PRINT:
+        log('Mounting VDFS ...')
     FUSE(VDFS(query, router), PATH_MOUNTPOINT, foreground=True)
 
 def mount():
-    _clean()
     srv = []
     query = None
     addr = ifaddr()
     data_router = None
     baddr = ifaddr(ifname=IFBACK)
     
-    if RLIMIT:
-        import resource
-        resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999))
+    _clean()
+    resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999)) 
     
     if MASTER:
         from db.master import MasterServer
         srv_start([MasterServer()])
     
-    if addr in PROCESSOR_SERVERS or (FS and not SHADOW):
+    if baddr in REQUEST_SERVERS or (FS and not SHADOW):
         from db.query import Query
         meta_router = Router(META_SERVERS)
         if not EXTEND:
@@ -157,13 +158,14 @@ def mount():
         from db.cache import CacheServer
         srv.append(CacheServer())
     
-    if not SHADOW and addr in SUPERNODE_SERVERS:
-        from supernode import Supernode
-        srv.append(Supernode())
+    if not SHADOW and addr in BRIDGE_SERVERS:
+        from bridge import bridge
+        if bridge:
+            srv.append(bridge)
     
     if DATA_SERVER or addr in DATA_SERVERS:
         from event.collector import EventCollector
-        srv.append(EventCollector())
+        srv.append(EventCollector(baddr))
     
     if USER_FINDER:
         from db.finder import UserFinder
@@ -180,10 +182,10 @@ def mount():
     if DEVICE_MAPPER:
         from db.mapper import DeviceMapper
         srv.append(DeviceMapper())
-        
-    if addr in PROCESSOR_SERVERS:
-        from srv.processor import Processor
-        srv.append(Processor(baddr, query))
+    
+    if baddr in REQUEST_SERVERS:
+        from srv.requester import Requester
+        srv.append(Requester(baddr, query))
     
     if srv:
         srv_start(srv)

@@ -20,26 +20,14 @@
 import zerorpc
 from threading import Thread
 from lib.lock import NamedLock
-from lib.util import ifaddr, zmqaddr, named_lock
-from conf.virtdev import IFBACK, EVENT_COLLECTOR_PORT, EVENT_RECEIVER_PORT
+from lib.util import zmqaddr, named_lock
+from conf.virtdev import EVENT_COLLECTOR_PORT, EVENT_MONITOR_PORT
 
 class Collector(object):
-    def __init__(self, collector):
-        self._collector = collector
-    
-    def put(self, uid, name):
-        return self._collector.put(uid, name)
-    
-    def get(self, uid, addr):
-        return self._collector.get(uid, addr)
-
-class EventCollector(Thread):
     def __init__(self):
-        Thread.__init__(self)
         self._queue = {}
         self._events = {}
         self._lock = NamedLock()
-        self._collector = Collector(self)
     
     def _push(self, uid, addr):
         if self._queue.get(uid) == None:
@@ -63,7 +51,7 @@ class EventCollector(Thread):
         if not events:
             return
         cli = zerorpc.Client()
-        cli.connect(zmqaddr(addr, EVENT_RECEIVER_PORT))
+        cli.connect(zmqaddr(addr, EVENT_MONITOR_PORT))
         cli.put(uid, events)
     
     @named_lock
@@ -83,8 +71,13 @@ class EventCollector(Thread):
             self._events[uid] = {}
             if events:
                 return events
+
+class EventCollector(Thread):
+    def __init__(self, addr):
+        Thread.__init__(self)
+        self._addr = addr
     
     def run(self):
-        srv = zerorpc.Server(self._collector)
-        srv.bind(zmqaddr(ifaddr(IFBACK), EVENT_COLLECTOR_PORT))
+        srv = zerorpc.Server(Collector())
+        srv.bind(zmqaddr(self._addr, EVENT_COLLECTOR_PORT))
         srv.run()

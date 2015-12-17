@@ -21,24 +21,23 @@ import os
 import ast
 import req
 import time
+import driver
 from lib import stream
 from lib.loader import Loader
 from datetime import datetime
 from lib.log import log, log_err
 from conf.path import PATH_MOUNTPOINT
 from lib.util import lock, mount_device
-from fs.attr import ATTR_MODE, ATTR_FREQ
 from threading import Thread, Event, Lock
-from lib.op import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
-from lib.mode import MODE_POLL, MODE_VIRT, MODE_SWITCH, MODE_SYNC, MODE_TRIG, MODE_PASSIVE
+from lib.attributes import ATTR_MODE, ATTR_FREQ
+from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
+from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_SYNC, MODE_TRIG, MODE_ACTIVE
 
 PRINT = False
-WAITTIME = 2 # seconds
-RETRY_MAX = 5
-FREQ_MAX = 100
-FREQ_MIN = 0.01
-TIMEOUT_MAX = 600 # seconds
+RETRY_MAX = 2
+SLEEP_TIME = 15 # seconds
 OUTPUT_MAX = 1 << 26
+POLL_INTERVAL = 0.01  # seconds
 
 class UDO(object):
     def __init__(self, children={}, local=False):
@@ -47,19 +46,23 @@ class UDO(object):
         self._lock = Lock()
         self._local = local
         self._children = children
+        self._freq = driver.FREQ_MAX
+        self._type = self._get_type()
         self._thread_listen = None
         self._thread_poll = None
         self._requester = None
+        self._active = False
         self._atime = None
         self._index = None
         self._core = None
         self._sock = None
         self._name = None
-        self._type = None
         self._uid = None
         self._spec = {}
         self._mode = 0
-        self._freq = 0
+    
+    def _get_type(self):
+        return self.__class__.__name__
     
     def _print(self, text):
         if PRINT:
@@ -95,7 +98,7 @@ class UDO(object):
             elif 0 == index:
                 device = self
             if not device:
-                log_err(self, 'failed to read, invalid index, name=%s' % self.d_name)
+                log_err(self, 'failed to read, cannot get device, name=%s' % self.d_name)
                 return empty
             buf = device.check_output(output)
             return (device, buf)
@@ -104,7 +107,7 @@ class UDO(object):
     
     def _write(self, buf):
         if not buf:
-            log_err(self, 'failed to write, empty buf')
+            log_err(self, 'failed to write')
             return
         try:
             stream.put(self._sock, buf, self._local)
@@ -112,26 +115,11 @@ class UDO(object):
         except:
             pass
     
-    def _init(self):
+    def _initialize(self):
         if self._children:
             self._mode |= MODE_VIRT
         
-        if not self.d_freq:
-            if self._children:
-                poll = False
-                for i in self._children:
-                    if self._can_poll(self._children[i].d_mode):
-                        poll = True
-                        break
-                if poll:
-                    self._freq = FREQ_MAX
-                    self._mode |= MODE_POLL
-            elif self._mode & MODE_POLL:
-                self._freq = FREQ_MAX
-            else:
-                self._freq = FREQ_MIN
-        
-        if self.d_mode & MODE_VIRT or self.d_index == None:
+        if self._mode & MODE_VIRT or self._index == None:
             mode = None
             freq = None
             prof = None
@@ -173,12 +161,14 @@ class UDO(object):
             while True:
                 mode = self._core.get_mode(self.d_name)
                 if mode != None:
+                    self._mode = mode
                     return mode
                 cnt -= 1
                 if cnt > 0:
-                    time.sleep(WAITTIME)
+                    time.sleep(SLEEP_TIME)
                 else:
                     break
+            log_err(self, 'failed to get d_mode, name=%s' % self.d_name)
             return self._mode
     
     @property
@@ -190,12 +180,14 @@ class UDO(object):
             while True:
                 freq = self._core.get_freq(self.d_name)
                 if freq != None:
+                    self._freq = freq
                     return freq
                 cnt -= 1
                 if cnt > 0:
-                    time.sleep(WAITTIME)
+                    time.sleep(SLEEP_TIME)
                 else:
                     break
+            log_err(self, 'failed to get d_freq, name=%s' % self.d_name)
             return self._freq
     
     @property
@@ -208,10 +200,7 @@ class UDO(object):
     
     @property
     def d_type(self):
-        if not self._type:
-            return self.__class__.__name__
-        else:
-            return self._type
+        return self._type
     
     @property
     def d_intv(self):
@@ -224,19 +213,19 @@ class UDO(object):
     @property
     def d_profile(self):
         prof = {}
-        prof.update({'type':self.d_type})
-        prof.update({'spec':self.d_spec})
-        prof.update({'index':self.d_index})
+        prof.update({'type':self._type})
+        prof.update({'spec':self._spec})
+        prof.update({'index':self._index})
         return prof
     
     def set_type(self, val):
         self._type = val
     
     def set_freq(self, val):
-        if val > FREQ_MAX:
-            self._freq = FREQ_MAX
-        elif val < FREQ_MIN:
-            self._freq = FREQ_MIN
+        if val > driver.FREQ_MAX:
+            self._freq = driver.FREQ_MAX
+        elif val < driver.FREQ_MIN:
+            self._freq = driver.FREQ_MIN
         else:
             self._freq = val
     
@@ -248,6 +237,12 @@ class UDO(object):
     
     def set_mode(self, val):
         self._mode = int(val)
+    
+    def set_active(self):
+        self._active = True
+    
+    def set_inactive(self):
+        self._active = False
     
     def find(self, name):
         if self.d_name == name:
@@ -306,24 +301,38 @@ class UDO(object):
         del self._event[name]
         return buf
     
+    def check_index(self):
+        index = self.d_index
+        if index != None:
+            return index
+        else:
+            return 0
+    
     @lock
     def _check_device(self, device):
-        if device.check_atime():
-            index = device.d_index
-            if index == None:
-                index = 0
-            self._write(req.req_get(index))
+        index = device.check_index()
+        if device.can_get():
+            if device.check_atime():
+                self._write(req.req_get(index))
+        
+        if device.can_open():
+            self._write(req.req_open(index))
+            device.set_active()
+        
+        if device.can_close():
+            self._write(req.req_close(index))
+            device.set_inactive()
     
     def _poll(self):
         try:
             while True:
-                time.sleep(self.d_intv)
+                time.sleep(POLL_INTERVAL)
                 if self._children:
                     for i in self._children:
                         child = self._children[i]
-                        if self._can_poll(child.d_mode):
+                        if child.can_poll():
                             self._check_device(child)
-                elif self._can_poll(self.d_mode):
+                elif self.can_poll():
                     self._check_device(self)
         except:
             log_err(self, 'failed to poll')
@@ -349,14 +358,22 @@ class UDO(object):
             log_err(self, 'failed to listen, device=%s' % self.d_name)
             self._sock.close()
     
-    def _can_poll(self, mode):
-        return mode & MODE_POLL or (mode & MODE_TRIG and mode & MODE_PASSIVE)
+    def can_get(self):
+        return driver.has_freq(self.d_mode)
     
-    def _start(self, freq, mode):
-        if self._sock and freq > 0 and self._can_poll(mode):
+    def can_open(self):
+        return not self._active and self.d_mode & MODE_ACTIVE
+    
+    def can_close(self):
+        return self._active and not(self.d_mode & MODE_ACTIVE)
+    
+    def can_poll(self):
+        return self.can_get() or self.can_open() or self.can_close()
+    
+    def _start(self):
+        if self._sock:
             self._thread_poll = Thread(target=self._poll)
             self._thread_poll.start()
-        if self._sock:
             self._thread_listen = Thread(target=self._listen)
             self._thread_listen.start()
     
@@ -366,13 +383,8 @@ class UDO(object):
         self._core = core
         self._sock = sock
         if init:
-            self._init()
-            freq = self.d_freq
-            mode = self.d_mode
-        else:
-            freq = self._freq
-            mode = self._mode
-        self._start(freq, mode)
+            self._initialize()
+        self._start()
     
     @lock
     def proc(self, name, op, buf=None):

@@ -1,14 +1,19 @@
 #!/usr/bin/python
 
+import os
+import sys
 import zerorpc
 import argparse
+import commands
 
-import sys
-sys.path.append('..')
+_name = commands.getoutput('readlink -f %s' % sys.argv[0])
+_path = os.path.dirname(_name)
+_dir = os.path.dirname(_path)
+sys.path.append(_dir)
 
 from lib.admin import create_user, get_password
 from conf.virtdev import MASTER_ADDR, MASTER_PORT, AREA_CODE
-from lib.util import USER_DOMAIN, DEVICE_DOMAIN, zmqaddr, server_list
+from lib.util import CLS_USER, CLS_DEVICE, zmqaddr, server_list
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -31,15 +36,15 @@ if __name__ == '__main__':
     areacode = args.areacode
     
     if args.user:
-        domain = USER_DOMAIN
+        cls = CLS_USER
     elif args.device:
-        domain = DEVICE_DOMAIN
+        cls = CLS_DEVICE
     else:
-        domain = None
+        cls = None
     
     if args.finder or args.mapper or args.server:
-        if not domain:
-            print('Error: no domain')
+        if not cls:
+            print('Error: no cls')
             sys.exit()
         
         if args.server:
@@ -56,11 +61,11 @@ if __name__ == '__main__':
         c.connect(zmqaddr(MASTER_ADDR, MASTER_PORT))
         try:
             if args.server:
-                c.add_servers(domain, server_list(args.server, areacode))
+                c.add_servers(server_list(args.server, areacode), cls)
             elif args.finder:
-                c.add_finders(domain, args.finder)
+                c.add_finders(args.finder, cls)
             elif args.mapper:
-                c.add_mappers(domain, args.mapper)
+                c.add_mappers(args.mapper, cls)
         finally:
             c.close()
     

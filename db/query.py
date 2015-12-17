@@ -18,9 +18,9 @@
 #      MA 02110-1301, USA.
 
 from user import UserDB
+from event.event import Event
 from history import HistoryDB
 from lib.util import tuple2str
-from event.event import DeviceEvent
 from db import MemberDB, TokenDB, GuestDB, DeviceDB, NodeDB, KeyDB
 
 def tuplevalue(func):
@@ -118,7 +118,7 @@ class HistoryQuery(object):
 
 class EventQuery(object):
     def __init__(self, router):
-        self._event = DeviceEvent(router)
+        self._event = Event(router)
     
     def get(self, key):
         return self._event.get(key)

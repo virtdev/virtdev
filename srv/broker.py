@@ -20,12 +20,12 @@
 #      This work originally started from the example of Paranoid Pirate Pattern,
 #      which is provided by Daniel Lundin <dln(at)eintr(dot)org>
 
-import time 
+import time
 from lib.ppp import *
-from lib.log import log_err
 from threading import Thread
 from lib.util import zmqaddr
 from collections import OrderedDict
+from lib.log import log, log_get, log_err
 from zmq import Poller, Context, ROUTER, POLLIN
 from conf.virtdev import ROOT_PORT, BROKER_PORT
 
@@ -70,10 +70,16 @@ class BrokerQueue(object):
 class Broker(Thread):
     def __init__(self, faddr, baddr):
         Thread.__init__(self)
-        self._queue = BrokerQueue()
-        self._init_context()
         self._faddr = faddr
         self._baddr = baddr
+        self._initialize()
+    
+    def _initialize(self):
+        self._context = Context(1)
+        self._queue = BrokerQueue()
+        self._init_frontend()
+        self._init_backend()
+        self._init_pollers()
         self._active = True
     
     def _init_frontend(self):
@@ -91,13 +97,8 @@ class Broker(Thread):
         self._poller2.register(self._backend, POLLIN)
         self._poller2.register(self._frontend, POLLIN)
     
-    def _init_context(self):
-        self._context = Context(1)
-        self._init_frontend()
-        self._init_backend()
-        self._init_pollers()
-    
     def run(self):
+        log(log_get(self, 'start ...'))
         timeout = time.time() + PPP_HEARTBEAT_INTERVAL
         while self._active:
             if len(self._queue.queue) > 0:

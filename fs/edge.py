@@ -18,12 +18,12 @@
 #      MA 02110-1301, USA.
 
 import os
-from path import Path
+from entry import Entry
 from  errno import EINVAL
 from lib.log import log_err
 from fuse import FuseOSError
 
-class Edge(Path):
+class Edge(Entry):
     def can_touch(self):
         return True
     
@@ -41,7 +41,7 @@ class Edge(Path):
             name = os.path.join(edge[0], '.' + edge[1])
         self.create(uid, name)
     
-    def _new_edge(self, src, dest):
+    def _add_edge(self, src, dest):
         if self._core:
             if dest.startswith('.'):
                 edge = (src, dest[1:])
@@ -54,7 +54,7 @@ class Edge(Path):
             parent = self.parent(name)
             child = self.child(name)
             if parent != child:
-                self._new_edge(parent, child)
+                self._add_edge(parent, child)
     
     def create(self, uid, name):
         self.symlink(uid, name)
@@ -85,6 +85,3 @@ class Edge(Path):
     
     def getattr(self, uid, name):
         return self.lsattr(uid, name, symlink=True)
-    
-    def release(self, uid, name, fh):
-        pass

@@ -18,15 +18,15 @@
 #      MA 02110-1301, USA.
 
 import os
-from lib import mode
 from base64 import b64encode
 from dev.driver import Driver
+from lib.modes import MODE_OVP, MODE_SWITCH
 
 PATH_FILELOADER = '/opt/fileloader'
 
 class FileLoader(Driver):
     def __init__(self, name=None):
-        Driver.__init__(self, name=name, mode=mode.OVP | mode.MODE_SWITCH, freq=1)
+        Driver.__init__(self, name=name, mode=MODE_OVP | MODE_SWITCH, freq=1)
     
     def setup(self):
         if self.get_name():

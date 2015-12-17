@@ -18,8 +18,8 @@
 #      MA 02110-1301, USA.
 
 from lib.loader import Loader
-from fs.attr import ATTR_MODE
 from lib.log import log, log_get
+from lib.attributes import ATTR_MODE
 
 PRINT = True
 

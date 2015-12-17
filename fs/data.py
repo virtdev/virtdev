@@ -18,11 +18,11 @@
 #      MA 02110-1301, USA.
 
 from temp import Temp
-from path import Path
+from entry import Entry
 
-class Data(Path):
+class Data(Entry):
     def __init__(self, vertex, edge, attr, router=None, core=None, rdonly=True):
-        Path.__init__(self, router, core)
+        Entry.__init__(self, router, core)
         self._temp = Temp(self, rdonly)
         self._vertex = vertex
         self._edge = edge

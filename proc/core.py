@@ -17,7 +17,6 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
 import time
 from freq import Freq
 from mode import Mode
@@ -28,14 +27,13 @@ from threading import Event
 from handler import Handler
 from threading import Thread
 from datetime import datetime
-from conf.path import PATH_FS
 from lib.lock import NamedLock
-from lib.util import named_lock
-from fs.path import DOMAIN, load
 from dispatcher import Dispatcher
 from lib.log import log_get, log_err, log
-from lib.op import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
-from lib.mode import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT, MODE_CLONE
+from lib.domains import DOMAIN_EDGE, DOMAIN_VERTEX
+from lib.util import named_lock, member_list, device_sync
+from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
+from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT, MODE_CLONE
 
 PRINT = False
 QUEUE_LEN = 2
@@ -56,7 +54,7 @@ class Core(object):
         self._timeout = Timeout(self._uid)
         self._handler = Handler(self._uid)
         self._inspector = Thread(target=self._start_inspector)
-        self._dispatcher = Dispatcher(self._uid, manager.tunnel, self)
+        self._dispatcher = Dispatcher(self._uid, manager.channel, self)
         self._inspector.start()
     
     def _print(self, text):
@@ -71,19 +69,19 @@ class Core(object):
     
     def _check_paths(self, name):
         if not self._dispatcher.has_path(name):
-            edges = load(self._uid, name, 'edge')
+            edges = member_list(self._uid, name, DOMAIN_EDGE)
             self._dispatcher.update_paths(name, edges)
     
     def _check_members(self, name):
         if not self._members.has_key(name):
             self._members[name] = {}
-            vertices = load(self._uid, name, 'vertex')
+            vertices = member_list(self._uid, name, DOMAIN_VERTEX)
             for i in vertices:
                 self._members[name][i] = []
     
     def _count(self, name):
         cnt = 0
-        for i in self._members[name].keys():
+        for i in self._members[name]:
             if len(self._members[name][i]) > 0:
                 cnt += 1
         return cnt
@@ -127,8 +125,7 @@ class Core(object):
     def _start_inspector(self):
         while True:
             time.sleep(INSP_INTV)
-            members = self._members.keys()
-            for name in members:
+            for name in self._members:
                 self._inspect(name)
     
     def _is_ready(self, dest, src, flags):
@@ -368,10 +365,5 @@ class Core(object):
         return True
     
     def sync(self, name, buf):
-        if type(buf) != str and type(buf) != unicode:
-            buf = str(buf)
-        path = os.path.join(PATH_FS, self._uid, DOMAIN['data'], name)
-        with open(path, 'wb') as f:
-            f.write(buf)
-        self._manager.device.update(name, buf)
+        device_sync(self._manager, name, buf)
         self._print('sync, name=%s' % name)

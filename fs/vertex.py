@@ -18,12 +18,12 @@
 #      MA 02110-1301, USA.
 
 import os
-from path import Path
+from entry import Entry
 from  errno import EINVAL
 from lib.log import log_err
 from fuse import FuseOSError
 
-class Vertex(Path):
+class Vertex(Entry):
     def getattr(self, uid, name):
         return self.lsattr(uid, name, symlink=True)
     
@@ -51,6 +51,3 @@ class Vertex(Path):
         for i in vertex:
             v = os.path.join(name, i)
             self.create(uid, v)
-    
-    def release(self, uid, name, fh):
-        pass

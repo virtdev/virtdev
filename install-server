@@ -6,6 +6,7 @@ apt-get install -y libsasl2-dev
 apt-get install -y libkrb5-dev
 apt-get install -y libzmq-dev
 apt-get install -y memcached
+apt-get install -y mosquitto
 apt-get install -y mongodb
 apt-get install -y n2n
 apt-get install -y python-all-dev

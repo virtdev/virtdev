@@ -18,15 +18,14 @@
 #      MA 02110-1301, USA.
 
 import proc
-from lib.util import lock
 from lib.pool import Pool
 from threading import Lock
 from random import randint
 from lib.queue import Queue
-from fs.path import is_local
 from lib.loader import Loader
-from fs.attr import ATTR_DISPATCHER
+from lib.util import lock, is_local
 from lib.log import log, log_get, log_err
+from lib.attributes import ATTR_DISPATCHER
 from conf.virtdev import PROC_ADDR, DISPATCHER_PORT
 
 PRINT = False
@@ -50,7 +49,7 @@ class DispatcherQueue(Queue):
         self._core.put(*buf)
 
 class Dispatcher(object):
-    def __init__(self, uid, tunnel, core, addr=PROC_ADDR):
+    def __init__(self, uid, channel, core, addr=PROC_ADDR):
         self._uid = uid
         self._queue = []
         self._paths = {}
@@ -59,8 +58,8 @@ class Dispatcher(object):
         self._source = {}
         self._core = core
         self._lock = Lock()
-        self._tunnel = tunnel
         self._dispatchers = {}
+        self._channel = channel
         self._loader = Loader(self._uid)
         self._addr = (addr, DISPATCHER_PORT)
         if POOL_SIZE:
@@ -132,7 +131,7 @@ class Dispatcher(object):
         if not self._paths[src].has_key(dest):
             self._paths[src].update({dest:1})
             if not local:
-                self._tunnel.open(dest)
+                self._channel.connect(dest)
         else:
             self._paths[src][dest] += 1
         self._print('add_edge, edge=%s, local=%s' % (str(edge), str(local)))
@@ -152,7 +151,7 @@ class Dispatcher(object):
         if 0 == self._paths[src][dest]:
             del self._paths[src][dest]
             if not local:
-                self._tunnel.close(dest)
+                self._channel.disconnect(dest)
         self._print('remove_edge, edge=%s, local=%s' % (str(edge), str(local)))
     
     def remove_edges(self, name):
@@ -179,7 +178,7 @@ class Dispatcher(object):
             local = self._shown[src][dest]
         if not local:
             self._print('sendto->push, dest=%s, src=%s' % (dest, src))
-            self._tunnel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
+            self._channel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
         else:
             self._send(dest, src, buf, flags)
     
@@ -192,7 +191,7 @@ class Dispatcher(object):
         for i in dest:
             if not dest[i]:
                 self._print('send->push, dest=%s, src=%s' % (i, name))
-                self._tunnel.push(i, dest=i, src=name, buf=buf, flags=flags)
+                self._channel.push(i, dest=i, src=name, buf=buf, flags=flags)
             else:
                 self._send(i, name, buf, flags)
     
@@ -214,7 +213,7 @@ class Dispatcher(object):
                 if blocks[cnt]:
                     if not dest[i]:
                         self._print('send_blocks->push, dest=%s, src=%s' % (i, name))
-                        self._tunnel.push(i, dest=i, src=name, buf=blocks[cnt], flags=0)
+                        self._channel.push(i, dest=i, src=name, buf=blocks[cnt], flags=0)
                     else:
                         self._send(i, name, blocks[cnt], 0)
                 cnt += 1

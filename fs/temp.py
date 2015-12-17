@@ -19,6 +19,7 @@
 
 import os
 from conf.path import PATH_FS
+from lib.domains import TEMP, DOMAINS
 
 class Temp(object):
     def __init__(self, parent, rdonly):
@@ -39,18 +40,18 @@ class Temp(object):
                 ret += name[i]
         return ret
     
-    def _get_dir(self, uid, label):
-        return os.path.join(PATH_FS, uid, 'temp', label)
+    def _get_dir(self, uid, domain):
+        return os.path.join(PATH_FS, uid, TEMP, DOMAINS[domain])
     
-    def _check_dir(self, uid, label):
-        path = self._get_dir(uid, label)
+    def _check_dir(self, uid, domain):
+        path = self._get_dir(uid, domain)
         if not os.path.exists(path):
             os.makedirs(path, 0644)
         return path
     
     def _check_path(self, uid, name):
         name = self._get_name(name)
-        dirname = self._check_dir(uid, self._parent.label)
+        dirname = self._check_dir(uid, self._parent.domain)
         return self._get_path(dirname, name)
     
     def _get_path(self, dirname, name, suffix=''):
@@ -61,7 +62,7 @@ class Temp(object):
     
     def get_path(self, uid, name, suffix=''):
         name = self._get_name(name)
-        dirname = self._get_dir(uid, self._parent.label)
+        dirname = self._get_dir(uid, self._parent.domain)
         return self._get_path(dirname, name, suffix)
     
     def mtime(self, uid, name):

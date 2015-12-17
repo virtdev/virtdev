@@ -21,7 +21,7 @@ import copy
 import zerorpc
 from threading import Thread, Lock
 from lib.log import log_get, log_err, log
-from lib.util import USER_DOMAIN, DEVICE_DOMAIN, zmqaddr, lock, server_list
+from lib.util import CLS_USER, CLS_DEVICE, zmqaddr, lock, server_list
 from conf.virtdev import MASTER, MASTER_ADDR, MASTER_PORT, FINDER_SERVERS, MAPPER_SERVERS, DATA_SERVERS, USER_FINDER_PORT, DEVICE_FINDER_PORT, USER_MAPPER_PORT, DEVICE_MAPPER_PORT
 
 PRINT = False
@@ -33,32 +33,32 @@ def _print(text):
     if PRINT:
         log('Master: ' + text, time=True)
 
-def get_mappers(domain):
+def get_mappers(cls):
     c = zerorpc.Client()
     c.connect(zmqaddr(MASTER_ADDR, MASTER_PORT))
     try:
-        mappers = c.get_mappers(domain)
-        _print('domain=%s, mappers=%s' % (domain, str(mappers)))
+        mappers = c.get_mappers(cls)
+        _print('cls=%s, mappers=%s' % (cls, str(mappers)))
         return mappers
     finally:
         c.close()
 
-def get_finders(domain):
+def get_finders(cls):
     c = zerorpc.Client()
     c.connect(zmqaddr(MASTER_ADDR, MASTER_PORT))
     try:
-        finders = c.get_finders(domain)
-        _print('domain=%s, finders=%s' % (domain, str(finders)))
+        finders = c.get_finders(cls)
+        _print('cls=%s, finders=%s' % (cls, str(finders)))
         return finders
     finally:
         c.close()
 
-def get_servers(domain):
+def get_servers(cls):
     c = zerorpc.Client()
     c.connect(zmqaddr(MASTER_ADDR, MASTER_PORT))
     try:
-        servers = c.get_servers(domain)
-        _print('domain=%s, servers=%s' % (domain, str(servers)))
+        servers = c.get_servers(cls)
+        _print('cls=%s, servers=%s' % (cls, str(servers)))
         return servers
     finally:
         c.close()
@@ -213,53 +213,53 @@ class Master(object):
         self._device_finder = MasterCache('df', FINDER_SERVERS, DEVICE_FINDER_PORT)
         self._device_mapper = MasterCache('dm', MAPPER_SERVERS, DEVICE_MAPPER_PORT)
     
-    def get_servers(self, domain):
-        if domain == USER_DOMAIN:
+    def get_servers(self, cls):
+        if cls == CLS_USER:
             return self._user_server.get()
-        elif domain == DEVICE_DOMAIN:
+        elif cls == CLS_DEVICE:
             return self._device_server.get()
     
-    def get_finders(self, domain):
-        if domain == USER_DOMAIN:
+    def get_finders(self, cls):
+        if cls == CLS_USER:
             return self._user_finder.get()
-        elif domain == DEVICE_DOMAIN:
+        elif cls == CLS_DEVICE:
             return self._device_finder.get()
     
-    def get_mappers(self, domain):
-        if domain == USER_DOMAIN:
+    def get_mappers(self, cls):
+        if cls == CLS_USER:
             return self._user_mapper.get()
-        elif domain == DEVICE_DOMAIN:
+        elif cls == CLS_DEVICE:
             return self._device_mapper.get()
     
-    def add_servers(self, domain, servers):
+    def add_servers(self, servers, cls):
         if not servers:
             return
-        if domain == USER_DOMAIN:
+        if cls == CLS_USER:
             orig = self._user_server.get()
             if self._user_mapper.coordinate(servers, orig):
                 return self._user_server.put(servers)
-        elif domain == DEVICE_DOMAIN:
+        elif cls == CLS_DEVICE:
             orig = self._device_server.get()
             if self._device_mapper.coordinate(servers, orig):
                 return self._device_server.put(servers)
     
-    def add_finders(self, domain, finders):
+    def add_finders(self, finders, cls):
         if not finders:
             return
-        if domain == USER_DOMAIN:
+        if cls == CLS_USER:
             if self._user_finder.coordinate(finders):
                 return self._user_finder.put(finders)
-        elif domain == DEVICE_DOMAIN:
+        elif cls == CLS_DEVICE:
             if self._device_finder.coordinate(finders):
                 return self._device_finder.put(finders)
     
-    def add_mappers(self, domain, mappers):
+    def add_mappers(self, mappers, cls):
         if not mappers:
             return
-        if domain == USER_DOMAIN:
+        if cls == CLS_USER:
             if self._user_mapper.coordinate(mappers):
                 return self._user_mapper.put(mappers)
-        elif domain == DEVICE_DOMAIN:
+        elif cls == CLS_DEVICE:
             if self._device_mapper.coordinate(mappers):
                 return self._device_mapper.put(mappers)
 

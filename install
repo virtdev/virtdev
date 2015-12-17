@@ -44,4 +44,6 @@ pip install xattr
 pip install zerorpc
 pip install pytz
 pip install python-rake
-pip install pynetlinux 
+pip install pynetlinux
+pip install tornado
+pip install websocket-client

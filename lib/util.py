@@ -19,36 +19,41 @@
 
 import os
 import ast
+import sys
 import imp
 import uuid
 import xattr
 import struct
+import commands
 import collections
 from datetime import datetime
-from pynetlinux import ifconfig
-from op import OP_MOUNT, OP_INVALIDATE
+from domains import DOMAINS, DATA, ATTRIBUTE
+from operations import OP_MOUNT, OP_INVALIDATE
 from netifaces import AF_INET, interfaces, ifaddresses
 
-import sys
-sys.path.append('..')
+_path = commands.getoutput('readlink -f %s' % sys.argv[0])
+_dir = os.path.dirname(_path)
+sys.path.append(_dir)
+
 from conf.virtdev import IFNAME
-from conf.path import PATH_MOUNTPOINT
+from conf.path import PATH_MOUNTPOINT, PATH_FS
 
 UID_SIZE = 32
 TOKEN_SIZE = 32
 PASSWORD_SIZE = 32
 USERNAME_SIZE = UID_SIZE
-INFO_FIELDS = ['mode', 'type', 'freq', 'spec']
 
 DIR_MODE = 0o755
 FILE_MODE = 0o644
 
-USER_DOMAIN = 'U'
-DEVICE_DOMAIN = 'D'
+CLS_USER = 'U'
+CLS_DEVICE = 'D'
+INFO_FIELDS = ['mode', 'type', 'freq', 'spec']
 
 DEVNULL = open(os.devnull, 'wb')
-PATH_DRIVER = os.path.join(os.getcwd(), 'drivers')
+PATH_DRIVER = os.path.join(_dir, 'drivers')
 
+_node = None
 _ifaddr = None
 
 def zmqaddr(addr, port):
@@ -141,7 +146,10 @@ def close_port(port):
     os.system(cmd)
 
 def get_node():
-    return '%x' % uuid.getnode()
+    global _node
+    if not _node:
+        _node = '%x' % uuid.getnode()
+    return _node
 
 def get_name(ns, parent, child=None):
     if child == None:
@@ -211,7 +219,7 @@ def device_info(buf):
         if type(info) != dict:
             return
         for i in info:
-            for j in info[i].keys():
+            for j in info[i]:
                 if j not in INFO_FIELDS:
                     return
         return info
@@ -269,6 +277,54 @@ def path2temp(path):
 
 def invalidate(path):
     xattr.setxattr(path, OP_INVALIDATE, "", symlink=True)
-    
+
 def cmd(op, args):
     return op + ':' + str(args)
+
+def is_local(uid, name):
+    path = os.path.join(PATH_FS, uid, ATTRIBUTE, name)
+    return os.path.exists(path)
+
+def member_list(uid, name='', domain='', sort=False, passthrough=False):
+    if not passthrough:
+        root = PATH_MOUNTPOINT
+    else:
+        root = PATH_FS
+    if not name and not domain:
+        path = os.path.join(root, uid)
+    else:
+        if domain and domain not in DOMAINS:
+            return
+        if passthrough:
+            if domain:
+                domain = DOMAINS[domain]
+            else:
+                domain = DATA
+        path = os.path.join(root, uid, domain, name)
+    if not os.path.exists(path):
+        return
+    if not sort:
+        return os.listdir(path)
+    else:
+        key = lambda f: os.stat(os.path.join(path, f)).st_mtime
+        return sorted(os.listdir(path), key=key)
+
+def device_sync(manager, name, buf):
+    if type(buf) != str and type(buf) != unicode:
+        buf = str(buf)
+    path = os.path.join(PATH_FS, manager.uid, DATA, name)
+    with open(path, 'wb') as f:
+        f.write(buf)
+    manager.device.update(name, buf)
+
+def gen_uid():
+    return uuid.uuid4().hex
+
+def gen_key():
+    return uuid.uuid4().hex
+
+def gen_token():
+    return uuid.uuid4().hex
+
+def get_dir():
+    return _dir
