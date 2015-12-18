@@ -31,11 +31,10 @@ from lib.lock import NamedLock
 from dev.manager import Manager
 from attribute import Attribute
 from dev.driver import FREQ_MAX
+from conf.virtdev import EXPOSE
 from lib.log import log_err, log
-from lib.protocols import PROTOCOL_WRTC
 from fuse import FuseOSError, Operations
 from dev.interface.lo import device_name
-from conf.virtdev import EXPOSE, PROTOCOL
 from lib.util import DIR_MODE, named_lock, load_driver
 from lib.domains import DOMAIN_VERTEX, DOMAIN_EDGE, DOMAIN_ATTRIBUTE
 from lib.modes import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK, MODE_CLONE
@@ -84,11 +83,11 @@ class VDFS(Operations):
             self._query.link = link
             self._link = link
             
-            if EXPOSE and PROTOCOL == PROTOCOL_WRTC:
+            if EXPOSE:
                 from lib import channel
                 from lib.util import gen_uid, gen_key
                 from lib.protocol.wrtc.resolv import Resolv
-                channel.create(gen_uid(), Resolv().get_addr(), gen_key(), protocol=PROTOCOL_WRTC)
+                channel.create(gen_uid(), Resolv().get_addr(), gen_key())
         
         self._manager = manager
         self._lock = NamedLock()

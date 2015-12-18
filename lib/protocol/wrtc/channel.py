@@ -108,7 +108,7 @@ class Channel(object):
             time.sleep(CHECK_INTERVAL)
     
     def _exist(self, addr):
-        req = json.dumps({'cmd':'exist', 'add':addr})
+        req = json.dumps({'cmd':'exist', 'addr':addr})
         for _ in range(CONNECT_MAX):
             self._proxy.send(req)
             ret = self._proxy.recv()
@@ -123,7 +123,7 @@ class Channel(object):
         if self._channels.has_key(addr):
             self._channels[addr] += 1
         else:
-            req = json.dumps({'cmd':'open', 'add':addr, 'key':key, 'bridge':bridge})
+            req = json.dumps({'cmd':'open', 'addr':addr, 'key':key, 'bridge':bridge})
             self._proxy.send(req)
             if verify:
                 if not self._exist(addr):
@@ -132,7 +132,7 @@ class Channel(object):
             self._channels[addr] = 1
     
     def _disconnect(self, addr):
-        req = json.dumps({'cmd':'close', 'add':addr})
+        req = json.dumps({'cmd':'close', 'addr':addr})
         self._proxy.send(req)
     
     @chkproxy
@@ -145,7 +145,7 @@ class Channel(object):
     
     @chkproxy
     def put(self, addr, buf):
-        req = json.dumps({'cmd':'write', 'add':addr, 'buf':buf})
+        req = json.dumps({'cmd':'write', 'addr':addr, 'buf':buf})
         self._proxy.send(req)
     
     @chkproxy

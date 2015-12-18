@@ -140,14 +140,14 @@ class KeyQuery(object):
         self._key.remove(key)
 
 class Query(object):
-    def __init__(self, meta_router, data_router):
+    def __init__(self, meta, data):
         self.link = None
-        self.key = KeyQuery(meta_router)
-        self.user = UserQuery(meta_router)
-        self.node = NodeQuery(meta_router)
-        self.event = EventQuery(data_router)
-        self.token = TokenQuery(meta_router)
-        self.guest = GuestQuery(meta_router)
-        self.member = MemberQuery(meta_router)
-        self.device = DeviceQuery(meta_router)
-        self.history = HistoryQuery(data_router)
+        self.key = KeyQuery(meta)
+        self.user = UserQuery(meta)
+        self.node = NodeQuery(meta)
+        self.event = EventQuery(data)
+        self.token = TokenQuery(meta)
+        self.guest = GuestQuery(meta)
+        self.member = MemberQuery(meta)
+        self.device = DeviceQuery(meta)
+        self.history = HistoryQuery(data)

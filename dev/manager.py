@@ -269,7 +269,7 @@ class Manager(object):
         if not res:
             log_err(self, 'failed to login')
             return
-        return (res['uid'], res['host'], res['addr'], res['token'], res['key'])
+        return (res['uid'], res['addr'], res['token'], res['key'])
     
     def _init_user(self):
         user, password = self._get_password()
@@ -278,7 +278,7 @@ class Manager(object):
             raise Exception(log_get(self, 'failed to get password'))
         
         try:
-            uid, host, addr, token, key = self._login(user, password)
+            uid, addr, token, key = self._login(user, password)
         except:
             log_err(self, 'failed to login')
             raise Exception(log_get(self, 'failed to login'))
@@ -289,7 +289,6 @@ class Manager(object):
         
         self.uid = uid
         self.key = key
-        self.host = host
         self.addr = addr
         self.user = user
         self.token = token

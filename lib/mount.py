@@ -103,6 +103,12 @@ def _clean():
     for i in ports:
         close_port(i)
 
+def _check_settings():
+    from lib.protocols import PROTOCOL_WRTC
+    from conf.virtdev import PROTOCOL, EXPOSE
+    if not SHADOW and EXPOSE and PROTOCOL != PROTOCOL_WRTC:
+        raise Exception('invalid settings')
+    
 def _mount(query, router):
     from fuse import FUSE
     from fs.vdfs import VDFS
@@ -121,16 +127,18 @@ def _mount(query, router):
     
     if PRINT:
         log('Mounting VDFS ...')
+    
     FUSE(VDFS(query, router), PATH_MOUNTPOINT, foreground=True)
 
 def mount():
     srv = []
+    data = None
     query = None
     addr = ifaddr()
-    data_router = None
     baddr = ifaddr(ifname=IFBACK)
     
     _clean()
+    _check_settings()
     resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999)) 
     
     if MASTER:
@@ -139,12 +147,12 @@ def mount():
     
     if baddr in REQUEST_SERVERS or (FS and not SHADOW):
         from db.query import Query
-        meta_router = Router(META_SERVERS)
+        meta = Router(META_SERVERS)
         if not EXTEND:
-            data_router = Router(DATA_SERVERS)
+            data = Router(DATA_SERVERS)
         else:
-            data_router = meta_router
-        query = Query(meta_router, data_router)
+            data = meta
+        query = Query(meta, data)
     
     if DISTRIBUTOR:
         from srv.distributor import Distributor
@@ -191,6 +199,6 @@ def mount():
         srv_start(srv)
     
     if FS:
-        _mount(query, data_router)
+        _mount(query, data)
     elif srv:
         srv_join(srv)

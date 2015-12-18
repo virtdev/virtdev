@@ -25,10 +25,9 @@ from lib import channel, codec
 from lib.request import Request
 from operation import Operation
 from threading import Thread, Event
+from conf.virtdev import CONDUCTOR_PORT
 from lib.util import UID_SIZE, get_name
 from lib.log import log_err, log_get, log
-from lib.protocols import PROTOCOL_N2N, PROTOCOL_WRTC
-from conf.virtdev import CONDUCTOR_PORT, PROTOCOL, EXPOSE
 
 QUEUE_LEN = 2
 POOL_SIZE = 64
@@ -57,10 +56,7 @@ class ConductorHandler(object):
         uid = manager.uid
         addr = manager.addr
         token = manager.token
-        if EXPOSE or PROTOCOL == PROTOCOL_N2N:
-            channel.create(uid, addr, key, protocol=PROTOCOL_N2N)
-        if PROTOCOL == PROTOCOL_WRTC:
-            channel.create(uid, addr, key, protocol=PROTOCOL_WRTC)
+        channel.create(uid, addr, key)
         
         self._keys = {}
         self._devices = {}

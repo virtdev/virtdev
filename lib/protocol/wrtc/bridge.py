@@ -17,11 +17,18 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import os
 from subprocess import call
 from lib.util import DEVNULL
 from threading import Thread
 from conf.virtdev import BRIDGE_PORT
+from conf.path import PATH_MOSQUITTO
 
 class Bridge(Thread):
     def run(self):
-        call(['mosquitto', '-p', str(BRIDGE_PORT)], stderr=DEVNULL, stdout=DEVNULL)
+        if PATH_MOSQUITTO:
+            if not os.path.exists(PATH_MOSQUITTO):
+                raise Exception('failed to start bridge, cannot find file %s' % PATH_MOSQUITTO)
+            call(['mosquitto', '-p', str(BRIDGE_PORT), '-c', PATH_MOSQUITTO], stderr=DEVNULL, stdout=DEVNULL)
+        else:
+            call(['mosquitto', '-p', str(BRIDGE_PORT)], stderr=DEVNULL, stdout=DEVNULL)

@@ -21,8 +21,7 @@ from lib import resolv
 from service import Service
 from db.marker import Marker
 from lib.log import log_err, log_get
-from conf.virtdev import EXTEND, AREA_CODE, PROTOCOL
-from lib.protocols import PROTOCOL_N2N, PROTOCOL_WRTC
+from conf.virtdev import EXTEND, AREA_CODE
 from lib.util import CLS_DEVICE, get_name, update_device, gen_key, gen_token
 
 class User(Service):
@@ -31,7 +30,7 @@ class User(Service):
         if EXTEND:
             self._marker = Marker()
     
-    def _check_node(self, uid, node, host, mode, key):
+    def _check_node(self, uid, node, addr, mode, key):
         name = get_name(uid, node)
         if self._query.key.get(name):
             self._query.node.remove(uid, (node,))
@@ -39,8 +38,8 @@ class User(Service):
             if EXTEND:
                 self._marker.mark(name, CLS_DEVICE, AREA_CODE)
         self._query.key.put(name, key)
-        self._query.node.put(uid, (node, host, str(mode)))
-        update_device(self._query, uid, node, host, name)
+        self._query.node.put(uid, (node, addr, str(mode)))
+        update_device(self._query, uid, node, addr, name)
     
     def login(self, uid, node, networks, mode):
         key = gen_key()
@@ -51,19 +50,12 @@ class User(Service):
             if not token:
                 log_err(self, 'no token')
                 raise Exception(log_get(self, 'no token'))
-        host = resolv.get_addr(uid, node, networks, protocol=PROTOCOL_N2N)
-        if not host:
-            log_err(self, 'invalid host address')
-            raise Exception(log_get(self, 'invalid host address'))
-        self._check_node(uid, node, host, mode, key)
-        if PROTOCOL == PROTOCOL_WRTC:
-            addr = resolv.get_addr(uid, node, networks, protocol=PROTOCOL_WRTC)
-            if not addr:
-                log_err(self, 'invalid address')
-                raise Exception(log_get(self, 'invalid address'))
-        else:
-            addr = host
-        return {'uid':uid, 'host':host, 'addr':addr, 'token':token, 'key':key}
+        addr = resolv.get_addr(uid, node, networks)
+        if not addr:
+            log_err(self, 'invalid address')
+            raise Exception(log_get(self, 'invalid address'))
+        self._check_node(uid, node, addr, mode, key)
+        return {'uid':uid, 'addr':addr, 'token':token, 'key':key}
     
     def logout(self, uid, node, addr):
         self._query.node.remove(uid, (node,))

@@ -19,10 +19,15 @@
 
 from conf.virtdev import PROTOCOL
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
-from protocol.n2n.resolv import Resolv as N2NResolv
-from protocol.wrtc.resolv import Resolv as WRTCResolv
 
-resolv = {PROTOCOL_N2N:N2NResolv(), PROTOCOL_WRTC:WRTCResolv()}
+resolv = None
 
-def get_addr(uid, node, networks=None, protocol=PROTOCOL):
-    return resolv[protocol].get_addr(uid, node, networks)
+if PROTOCOL == PROTOCOL_N2N:
+    from protocol.n2n.resolv import Resolv as N2NResolv
+    resolv = N2NResolv()
+elif PROTOCOL == PROTOCOL_WRTC:
+    from protocol.wrtc.resolv import Resolv as WRTCResolv
+    resolv = WRTCResolv()
+
+def get_addr(uid, node, networks=None):
+    return resolv.get_addr(uid, node, networks)

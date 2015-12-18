@@ -23,11 +23,19 @@ from queue import Queue
 from hash_ring import HashRing
 from conf.virtdev import BRIDGE_SERVERS, PROTOCOL
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
-from protocol.n2n.channel import Channel as N2NChannel
-from protocol.wrtc.channel import Channel as WRTCChannel 
 
 QUEUE_LEN = 2
 POOL_SIZE = 0
+
+pool = None
+channel = None
+
+if PROTOCOL == PROTOCOL_N2N:
+    from protocol.n2n.channel import Channel as N2NChannel
+    channel = N2NChannel()
+elif PROTOCOL == PROTOCOL_WRTC:
+    from protocol.wrtc.channel import Channel as WRTCChannel 
+    channel = WRTCChannel()
 
 def get_bridge(key):
     ring = HashRing(BRIDGE_SERVERS)
@@ -49,32 +57,27 @@ class ChannelPool(object):
     def push(self, buf):
         self._pool.push(buf)
 
-channels = {PROTOCOL_N2N:N2NChannel(), PROTOCOL_WRTC:WRTCChannel()}
-
 if POOL_SIZE > 0:
     pool = ChannelPool()
-else:
-    pool = None
 
-def create(uid, addr, key, protocol=PROTOCOL):
+def create(uid, addr, key):
     bridge = get_bridge(uid)
-    return channels[protocol].create(addr, key, bridge)
+    return channel.create(addr, key, bridge)
 
-def connect(uid, addr, key, static=False, verify=False, protocol=PROTOCOL):
+def connect(uid, addr, key, static=False, verify=False):
     bridge = get_bridge(uid)
-    channels[protocol].connect(addr, key, static, verify, bridge)
+    channel.connect(addr, key, static, verify, bridge)
 
-def disconnect(addr, release=False, protocol=PROTOCOL):
-    channels[protocol].disconnect(addr, release)
+def disconnect(addr, release=False):
+    channel.disconnect(addr, release)
 
-def put(uid, addr, op, args, token, protocol=PROTOCOL):
+def put(uid, addr, op, args, token):
     req = {'op':op, 'args':args}
     buf = codec.encode(uid, req, token)
-    channels[protocol].put(addr, buf)
+    channel.put(addr, buf)
 
 def clean():
-    for i in channels:
-        channels[i].clean()
+    channel.clean()
 
 def push(uid, addr, op, args, token):
     if POOL_SIZE:
@@ -82,5 +85,5 @@ def push(uid, addr, op, args, token):
     else:
         put(uid, addr, op, args, token)
         
-def exist(self, addr, protocol=PROTOCOL):
-    return channels[protocol].exist(addr)
+def exist(self, addr):
+    return channel.exist(addr)
