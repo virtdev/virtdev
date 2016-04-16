@@ -26,17 +26,18 @@ import xattr
 import struct
 import commands
 import collections
+from log import log
+from socket import inet_aton
 from datetime import datetime
-from domains import DOMAINS, DATA, ATTRIBUTE
 from operations import OP_MOUNT, OP_INVALIDATE
+from fields import FIELDS, FIELD_DATA, DATA, ATTR
 from netifaces import AF_INET, interfaces, ifaddresses
 
 _path = commands.getoutput('readlink -f %s' % sys.argv[0])
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from conf.virtdev import IFNAME
-from conf.path import PATH_MOUNTPOINT, PATH_FS
+from conf.virtdev import IFNAME, PATH_MNT, PATH_VAR
 
 UID_SIZE = 32
 TOKEN_SIZE = 32
@@ -46,11 +47,8 @@ USERNAME_SIZE = UID_SIZE
 DIR_MODE = 0o755
 FILE_MODE = 0o644
 
-CLS_USER = 'U'
-CLS_DEVICE = 'D'
-INFO_FIELDS = ['mode', 'type', 'freq', 'spec']
-
 DEVNULL = open(os.devnull, 'wb')
+INFO = ['mode', 'type', 'freq', 'spec']
 PATH_DRIVER = os.path.join(_dir, 'drivers')
 
 _node = None
@@ -79,29 +77,18 @@ def hash_name(name):
     else:
         return 0
 
-def maskaddr(ifname):
+def get_network(ifname):
     iface = ifaddresses(ifname)[AF_INET][0]
-    address = iface['addr']
-    addr = address.split('.')
-    netmask = iface['netmask']
-    mask = netmask.split('.')
-    res = ''
-    for i in range(len(addr) - 1):
-        if mask[i] == '255':
-            res += addr[i] + '.'
-        else:
-            break
-    return res
+    addr = struct.unpack("I", inet_aton(iface['addr']))[0]
+    mask = struct.unpack("I", inet_aton(iface['netmask']))[0]
+    return (addr, mask)
 
-def ifaces():
+def get_ifaces():
     f = lambda x:x != 'lo' and ifaddresses(x).has_key(AF_INET)
     return filter(f, interfaces())
 
-def netaddresses(mask=False):
-    if not mask:
-        return map(ifaddr, ifaces())
-    else:
-        return map(maskaddr, ifaces())
+def get_networks():
+    return map(get_network, get_ifaces())
 
 def srv_start(srv_list):
     for srv in srv_list:
@@ -129,7 +116,7 @@ def recv_bytes(sock, length):
     while length > 0:
         buf = sock.recv(min(length, 2048))
         if not buf:
-            raise Exception('failed to receive')
+            raise Exception('Error: failed to receive')
         ret.append(buf)
         length -= len(buf) 
     return ''.join(ret)
@@ -156,14 +143,6 @@ def get_name(ns, parent, child=None):
         child = ''
     return uuid.uuid5(uuid.UUID(ns), os.path.join(str(parent), str(child))).hex
 
-def cat(*items):
-    ret = ''
-    if len(items):
-        ret = str(items[0])
-        for i in range(1, len(items)):
-            ret += ':%s' % str(items[i])
-    return ret
-
 def lock(func):
     def _lock(*args, **kwargs):
         self = args[0]
@@ -186,7 +165,7 @@ def named_lock(func):
     return _named_lock
 
 def mount(uid, attr):
-    path = os.path.join(PATH_MOUNTPOINT, uid)
+    path = os.path.join(PATH_MNT, uid)
     xattr.setxattr(path, OP_MOUNT, str(attr))
 
 def mount_device(uid, name, mode, freq, prof):
@@ -220,7 +199,7 @@ def device_info(buf):
             return
         for i in info:
             for j in info[i]:
-                if j not in INFO_FIELDS:
+                if j not in INFO:
                     return
         return info
     except:
@@ -282,25 +261,19 @@ def cmd(op, args):
     return op + ':' + str(args)
 
 def is_local(uid, name):
-    path = os.path.join(PATH_FS, uid, ATTRIBUTE, name)
+    path = os.path.join(PATH_VAR, uid, ATTR, name)
     return os.path.exists(path)
 
-def member_list(uid, name='', domain='', sort=False, passthrough=False):
-    if not passthrough:
-        root = PATH_MOUNTPOINT
+def member_list(uid, name='', field='', sort=False):
+    if not name and not field:
+        path = os.path.join(PATH_MNT, uid)
     else:
-        root = PATH_FS
-    if not name and not domain:
-        path = os.path.join(root, uid)
-    else:
-        if domain and domain not in DOMAINS:
+        if not field:
+            field = FIELD_DATA
+        elif not FIELDS.get(field):
+            log('Error: invalid filed %s' % str(field))
             return
-        if passthrough:
-            if domain:
-                domain = DOMAINS[domain]
-            else:
-                domain = DATA
-        path = os.path.join(root, uid, domain, name)
+        path = os.path.join(PATH_MNT, uid, field, name)
     if not os.path.exists(path):
         return
     if not sort:
@@ -312,7 +285,7 @@ def member_list(uid, name='', domain='', sort=False, passthrough=False):
 def device_sync(manager, name, buf):
     if type(buf) != str and type(buf) != unicode:
         buf = str(buf)
-    path = os.path.join(PATH_FS, manager.uid, DATA, name)
+    path = os.path.join(PATH_VAR, manager.uid, DATA, name)
     with open(path, 'wb') as f:
         f.write(buf)
     manager.device.update(name, buf)

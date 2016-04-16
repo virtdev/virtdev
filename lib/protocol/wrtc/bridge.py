@@ -21,14 +21,13 @@ import os
 from subprocess import call
 from lib.util import DEVNULL
 from threading import Thread
-from conf.virtdev import BRIDGE_PORT
-from conf.path import PATH_MOSQUITTO
+from conf.virtdev import BRIDGE_PORT, PATH_MQTT
 
 class Bridge(Thread):
     def run(self):
-        if PATH_MOSQUITTO:
-            if not os.path.exists(PATH_MOSQUITTO):
-                raise Exception('failed to start bridge, cannot find file %s' % PATH_MOSQUITTO)
-            call(['mosquitto', '-p', str(BRIDGE_PORT), '-c', PATH_MOSQUITTO], stderr=DEVNULL, stdout=DEVNULL)
+        if PATH_MQTT:
+            if not os.path.exists(PATH_MQTT):
+                raise Exception('Error: failed to start bridge, cannot find %s' % PATH_MQTT)
+            call(['mosquitto', '-p', str(BRIDGE_PORT), '-c', PATH_MQTT], stderr=DEVNULL, stdout=DEVNULL)
         else:
             call(['mosquitto', '-p', str(BRIDGE_PORT)], stderr=DEVNULL, stdout=DEVNULL)

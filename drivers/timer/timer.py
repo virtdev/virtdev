@@ -20,7 +20,7 @@
 import os
 import shelve
 from datetime import datetime
-from dev.driver import Driver
+from dev.driver import Driver, check_input
 
 PRINT = False
 PATH = '/opt/timer'
@@ -51,11 +51,10 @@ class Timer(Driver):
                 print('Timer: name=%s, time=%s' % (name, t))
         return True
     
-    def put(self, buf):
-        args = self.get_args(buf)
-        if args and type(args) == dict:
-            name = args.get('name')
-            if name:
-                if self._save(name):
-                    args.update({'timer':self.get_name()})
-                    return args
+    @check_input
+    def put(self, args):
+        name = args.get('name')
+        if name:
+            if self._save(name):
+                args.update({'timer':self.get_name()})
+                return args

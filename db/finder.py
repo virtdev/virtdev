@@ -18,6 +18,7 @@
 #      MA 02110-1301, USA.
 
 import zerorpc
+from lib.domains import *
 from member import Member
 from master import get_finders
 from pymongo import MongoClient
@@ -26,23 +27,23 @@ from lib.log import log_get, log_err
 from pymongo.database import Database
 from pymongo.collection import Collection
 from marker import USER_MARK, DEVICE_MARK
-from lib.util import CLS_USER, CLS_DEVICE, zmqaddr, ifaddr, lock
-from conf.virtdev import META_SERVER_PORT, USER_SERVERS, DEVICE_SERVERS, USER_FINDER_PORT, DEVICE_FINDER_PORT
+from lib.util import zmqaddr, ifaddr, lock
+from conf.virtdev import META_SERVER_PORT, USR_SERVERS, DEV_SERVERS, USR_FINDER_PORT, DEV_FINDER_PORT
 
 CACHE_MAX = 100000
 DATABASE_NAME = 'test'
 COLLECTION_MAX = 1024
 
 class FinderCache(object):
-    def __init__(self, cls):
-        self._cls = cls
+    def __init__(self, domain):
         self._cache = {}
         self._lock = Lock()
+        self._domain = domain
         self._collections = {}
-        if self._cls == CLS_USER:
-            self._servers = USER_SERVERS
+        if self._domain == DOMAIN_USR:
+            self._servers = USR_SERVERS
         else:
-            self._servers = DEVICE_SERVERS
+            self._servers = DEV_SERVERS
         if not self._servers:
             log_err(self, 'failed to initialize')
             raise Exception(log_get(self, 'failed to initialize'))
@@ -58,7 +59,7 @@ class FinderCache(object):
                 _, coll = self._collections.popitem()
                 self._close(coll)
             db = Database(MongoClient(addr, META_SERVER_PORT), DATABASE_NAME)
-            if self._cls == CLS_USER:
+            if self._domain == DOMAIN_USR:
                 coll = Collection(db, USER_MARK)
             else:
                 coll = Collection(db, DEVICE_MARK)
@@ -92,39 +93,39 @@ class FinderCache(object):
             return val
 
 class Finder(Member):
-    def __init__(self, cls):
+    def __init__(self, domain):
         Member.__init__(self)
-        finders = get_finders(cls)
+        finders = get_finders(domain)
         if not finders:
             log_err(self, 'failed to initialize')
             raise Exception(log_get(self, 'failed to initialize'))
         self.set_members(finders)
-        self._cache = FinderCache(cls)
+        self._cache = FinderCache(domain)
     
     def get(self, key):
         return self._cache.get(key)
 
 class FinderServer(Thread):
-    def __init__(self, cls):
+    def __init__(self, domain):
         Thread.__init__(self)
-        self._cls = cls
-        self._finder = Finder(cls)
+        self._domain = domain
+        self._finder = Finder(domain)
     
     def run(self):
         srv = zerorpc.Server(self._finder)
-        if self._cls == CLS_USER:
-            srv.bind(zmqaddr(ifaddr(), USER_FINDER_PORT))
-        elif self._cls == CLS_DEVICE:
-            srv.bind(zmqaddr(ifaddr(), DEVICE_FINDER_PORT))
+        if self._domain == DOMAIN_USR:
+            srv.bind(zmqaddr(ifaddr(), USR_FINDER_PORT))
+        elif self._domain == DOMAIN_DEV:
+            srv.bind(zmqaddr(ifaddr(), DEV_FINDER_PORT))
         else:
-            log_err(self, 'invalid cls')
-            raise Exception(log_get(self, 'invalid cls'))
+            log_err(self, 'invalid domain')
+            raise Exception(log_get(self, 'invalid domain'))
         srv.run()
 
 class UserFinder(FinderServer):
     def __init__(self):
-        FinderServer.__init__(self, CLS_USER)
+        FinderServer.__init__(self, DOMAIN_USR)
 
 class DeviceFinder(FinderServer):
     def __init__(self):
-        FinderServer.__init__(self, CLS_DEVICE)
+        FinderServer.__init__(self, DOMAIN_DEV)

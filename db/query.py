@@ -17,16 +17,16 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from user import UserDB
+from userdb import UserDB
 from event.event import Event
-from history import HistoryDB
 from lib.util import tuple2str
+from historydb import HistoryDB
 from db import MemberDB, TokenDB, GuestDB, DeviceDB, NodeDB, KeyDB
 
 def tuplevalue(func):
     def _tuplevalue(*args, **kwargs):
         if len(args) < 3:
-            raise Exception('invalid arguments')
+            raise Exception('Error: invalid tuple')
         return func(args[0], args[1], tuple2str(args[2]), *args[3:], **kwargs)
     return _tuplevalue
 

@@ -18,8 +18,8 @@
 #      MA 02110-1301, USA.
 
 import html2text
-from dev.driver import Driver
 from base64 import b64encode, b64decode
+from dev.driver import Driver, check_output
 
 PRINT = False
 IGNORE_LINKS = True
@@ -43,18 +43,10 @@ class HTML2Text(Driver):
                 if PRINT:
                     print('HTML2Text: failed to convert')
     
-    def put(self, buf):
-        args = self.get_args(buf)
-        if args and type(args) == dict:
-            html = args.get('content')
-            if html:
-                text = self._convert(html)
-                if text:
-                    ret = {'content':b64encode(text)}
-                    name = args.get('name')
-                    if name:
-                        ret.update({'name':name})
-                    timer = args.get('timer')
-                    if timer:
-                        ret.update({'timer':timer})
-                    return ret
+    @check_output
+    def put(self, args):
+        html = args.get('content')
+        if html:
+            text = self._convert(html)
+            if text:
+                return {'content':b64encode(text)}

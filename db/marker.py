@@ -17,16 +17,17 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from lib.domains import *
+from lib.util import lock
 from threading import Lock
 from datetime import datetime
 from pymongo import MongoClient
+from conf.log import LOG_MARKER
 from pymongo.database import Database
 from pymongo.collection import Collection
-from lib.log import log, log_get, log_err
-from lib.util import CLS_USER, CLS_DEVICE, lock
-from conf.virtdev import META_SERVER_PORT, USER_SERVERS, DEVICE_SERVERS
+from lib.log import log_debug, log_err, log_get
+from conf.virtdev import META_SERVER_PORT, USR_SERVERS, DEV_SERVERS
 
-PRINT = False
 COLLECTION_MAX = 1024
 DATABASE_NAME = 'test'
 USER_MARK = 'usermark'
@@ -41,24 +42,24 @@ class Marker(object):
     def _close(self, coll):
         pass
     
-    def _print(self, text):
-        if PRINT:
-            log(log_get(self, text))
+    def _log(self, text):
+        if LOG_MARKER:
+            log_debug(self, text)
     
-    def _get_addr(self, name, cls):
-        if cls == CLS_USER:
-            servers = USER_SERVERS
-        elif cls == CLS_DEVICE:
-            servers = DEVICE_SERVERS
+    def _get_addr(self, name, domain):
+        if domain == DOMAIN_USR:
+            servers = USR_SERVERS
+        elif domain == DOMAIN_DEV:
+            servers = DEV_SERVERS
         else:
-            log_err(self, 'invalid cls')
-            raise Exception(log_get(self, 'invalid cls'))
+            log_err(self, 'invalid domain')
+            raise Exception(log_get(self, 'invalid domain'))
         n = abs(hash(name)) % len(servers)
         return servers[n]
     
     @lock
-    def _check_collection(self, addr, cls):
-        if cls == CLS_USER:
+    def _check_collection(self, addr, domain):
+        if domain == DOMAIN_USR:
             coll = self._coll_usr.get(addr)
             if not coll:
                 if len(self._coll_usr) >= COLLECTION_MAX:
@@ -78,15 +79,15 @@ class Marker(object):
                 self._coll_dev.update({addr:coll})
         return coll
     
-    def _get_collection(self, name, cls):
-        addr = self._get_addr(name, cls)
-        return self._check_collection(addr, cls)
+    def _get_collection(self, name, domain):
+        addr = self._get_addr(name, domain)
+        return self._check_collection(addr, domain)
     
-    def mark(self, name, cls, area):
+    def mark(self, name, domain, area):
         t = (datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()
-        coll = self._get_collection(name, cls)
+        coll = self._get_collection(name, domain)
         if coll:
             coll.update({'k':name}, {'$set':{'v':(t, area)}}, upsert=True)
         else:
-            log_err(self, 'failed to mark, name=%s, cls=%s' % (str(name), str(cls)))
-        self._print('mark, name=%s, cls=%s' % (str(name), str(cls)))
+            log_err(self, 'failed to mark, name=%s, domain=%s' % (str(name), str(domain)))
+        self._log('mark, name=%s, domain=%s' % (str(name), str(domain)))

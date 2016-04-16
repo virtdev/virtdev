@@ -1,6 +1,6 @@
 #      log.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -18,23 +18,38 @@
 #      MA 02110-1301, USA.
 
 from datetime import datetime
-from conf.virtdev import DEBUG, LOG_ERR
+from conf.virtdev import LOG_DEBUG, LOG_ERR, LOG_WARNNING
 
 def _get_name(obj):
-    return obj.__class__.__name__
+    if type(obj) != str:
+        return obj.__class__.__name__
+    else:
+        return obj
 
 def log_get(obj, text):
     return _get_name(obj) + ': ' + str(text)
 
 def log(text, time=False, force=False):
-    if DEBUG or force:
+    if LOG_DEBUG or force:
         if time:
             print(str(text) + '  %s' % str(datetime.utcnow()))
         else:
             print(str(text))
 
-def log_err(obj, text):
+def log_err(obj, text, time=True):
     if LOG_ERR:
         if obj:
             text = log_get(obj, text)
-        log(text, time=True, force=True)
+        log(text, time=time, force=True)
+
+def log_warnning(obj, text, time=False):
+    if LOG_WARNNING:
+        if obj:
+            text = log_get(obj, text)
+        log(text, time=time)
+
+def log_debug(obj, text, time=False):
+    if LOG_DEBUG:
+        if obj:
+            text = log_get(obj, text)
+        log(text, time=time)

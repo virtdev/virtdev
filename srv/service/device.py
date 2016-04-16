@@ -22,17 +22,17 @@ import ast
 import json
 import librsync
 from service import Service
-from lib.log import log_err
 from db.marker import Marker
 from StringIO import StringIO
 from lib.modes import MODE_LINK
-from conf.path import PATH_MOUNTPOINT
+from lib.domains import DOMAIN_DEV
 from base64 import b64encode, b64decode
-from conf.virtdev import EXTEND, AREA_CODE
-from lib.util import CLS_DEVICE, mount_device, update_device
+from lib.log import log_err, log_warnning
+from lib.util import mount_device, update_device
+from conf.virtdev import EXTEND, RSYNC, AREA_CODE, PATH_MNT
 
-ATTR_LEN = 1024
-RECORD_LEN = 1 << 26
+MAX_LEN = 1 << 24
+RECORD_LEN = 1 << 24
 
 class Device(Service):
     def __init__(self, query):
@@ -42,7 +42,7 @@ class Device(Service):
     
     def _mark(self, name):
         if EXTEND:
-            self._marker.mark(name, CLS_DEVICE, AREA_CODE)
+            self._marker.mark(name, DOMAIN_DEV, AREA_CODE)
     
     def get(self, uid, name):
         device = self._query.device.get(name)
@@ -80,23 +80,30 @@ class Device(Service):
         if len(record) > RECORD_LEN:
             log_err(self, 'failed to update, name=%s' % str(name))
             return
-        path = os.path.join(PATH_MOUNTPOINT, uid, name)
+        path = os.path.join(PATH_MNT, uid, name)
         with open(path, 'w') as f:
             f.write(record)
         self._query.history.put(uid, name, **fields)
         self._query.event.put(uid, name)
         return True
     
-    def diff(self, uid, name, domain, item, buf):
-        sig = StringIO(b64decode(buf))
-        path = os.path.join(PATH_MOUNTPOINT, uid, domain, name, item)
+    def diff(self, uid, name, field, item, buf):
+        if RSYNC:
+            sig = StringIO(b64decode(buf))
+        path = os.path.join(PATH_MNT, uid, field, name, item)
         fd = os.open(path, os.O_RDONLY)
-        if fd < 0:
-            log_err(self, 'failed to diff, name=%s' % str(name))
-            return
         try:
-            dest = StringIO(os.read(fd, ATTR_LEN))
+            res = os.read(fd, MAX_LEN)
+        except:
+            log_err(self, 'failed to read, name=%s' % str(name))
+            return
         finally:
             os.close(fd)
-        delta = librsync.delta(dest, sig)
-        return b64encode(delta.read())
+        if not res:
+            log_warnning(self, 'no content, name=%s' % str(name))
+            return
+        if RSYNC:
+            tmp = StringIO(res)
+            delta = librsync.delta(tmp, sig)
+            res = delta.read()
+        return b64encode(res)

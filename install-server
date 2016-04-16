@@ -1,9 +1,9 @@
 #!/bin/sh
 apt-get install -y build-essential
 apt-get install -y isc-dhcp-server
+apt-get install -y libkrb5-dev
 apt-get install -y librsync-dev
 apt-get install -y libsasl2-dev
-apt-get install -y libkrb5-dev
 apt-get install -y libzmq-dev
 apt-get install -y memcached
 apt-get install -y mosquitto
@@ -19,21 +19,24 @@ apt-get install -y python-memcache
 apt-get install -y python-numpy
 apt-get install -y python-pip
 pip install fusepy
+pip install hdfs
 pip install happybase
 pip install hash_ring
-pip install hdfs
 pip install isodate
 pip install netifaces
 pip install psutil
 pip install pycrypto
 pip install pymongo
+pip install pynetlinux
 pip install python-librsync
+pip install python-memcached
+pip install python-inotify==0.6-test
+pip install pytz
 pip install pyzmq
 pip install RestrictedPython
 pip install snakebite
 pip install sophia
+pip install tornado
+pip install websocket-client
 pip install xattr
 pip install zerorpc
-pip install pytz
-pip install pynetlinux 
-pip install python-inotify==0.6-test

@@ -12,8 +12,8 @@ _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
 from lib.util import cmd
+from conf.virtdev import PATH_MNT
 from lib.operations import OP_CREATE
-from conf.path import PATH_MOUNTPOINT
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -31,6 +31,6 @@ if __name__ == '__main__':
     attr['type'] = device_type
     if parent:
         attr['parent'] = parent
-    path = os.path.join(PATH_MOUNTPOINT, uid)
+    path = os.path.join(PATH_MNT, uid)
     name = xattr.getxattr(path, cmd(OP_CREATE, attr))
     print str(name)

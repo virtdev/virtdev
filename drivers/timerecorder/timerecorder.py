@@ -20,7 +20,7 @@
 import os
 import shelve
 from datetime import datetime
-from dev.driver import Driver
+from dev.driver import Driver, check_input
 
 PRINT = False
 INTERVAL = 1
@@ -62,21 +62,20 @@ class TimeRecorder(Driver):
             print('TimeRecorder: name=%s, time=%f' % (name, t))
         return t
     
-    def put(self, buf):
-        args = self.get_args(buf)
-        if args and type(args) == dict:
-            name = args.get('name')
-            timer = args.get('timer')
-            if name and timer:
-                if not self._cnt.has_key(name):
-                    cnt = 0
-                else:
-                    cnt = self._cnt.get(name)
+    @check_input
+    def put(self, args):
+        name = args.get('name')
+        timer = args.get('timer')
+        if name and timer:
+            if not self._cnt.has_key(name):
+                cnt = 0
+            else:
+                cnt = self._cnt.get(name)
             
-                if cnt < INTERVAL:
-                    cnt += 1
-                    self._cnt.update({name:cnt})
-                    if cnt == INTERVAL: 
-                        t = self._save(timer, name)
-                        if t:
-                            return {'name':name, 'time':t}
+            if cnt < INTERVAL:
+                cnt += 1
+                self._cnt.update({name:cnt})
+                if cnt == INTERVAL: 
+                    t = self._save(timer, name)
+                    if t:
+                        return {'name':name, 'time':t}

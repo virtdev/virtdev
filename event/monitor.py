@@ -18,10 +18,11 @@
 #      MA 02110-1301, USA.
 
 import zerorpc
+from lib.domains import *
 from lib.log import log_err
 from lib.lock import NamedLock
 from threading import Thread, Event
-from lib.util import CLS_USER, zmqaddr, named_lock
+from lib.util import zmqaddr, named_lock
 from conf.virtdev import EVENT_COLLECTOR_PORT, EVENT_MONITOR_PORT
 
 WAIT_TIME = 3600 # seconds
@@ -76,7 +77,7 @@ class Monitor(object):
     def get(self, uid):
         ret = ''
         cli = zerorpc.Client()
-        addr = self._router.get(uid, CLS_USER)
+        addr = self._router.get(uid, DOMAIN_USR)
         cli.connect(zmqaddr(addr, EVENT_COLLECTOR_PORT))
         try:
             while not ret:

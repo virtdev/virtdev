@@ -20,31 +20,32 @@
 import os
 import stat
 from file import File
-from lib.log import log, log_get, log_err
+from conf.log import LOG_REMOTE
+from lib.domains import DOMAIN_USR
+from lib.util import DIR_MODE, FILE_MODE
 from hdfs.client import Client as HDFSClient
-from lib.util import DIR_MODE, FILE_MODE, CLS_USER
+from lib.log import log_debug, log_get, log_err
 from snakebite.client import Client as SnakebiteClient
 from conf.virtdev import FILE_SERVER_PORT, FILE_HTTP_PORT
 
-PRINT = False
 FILE_SIZE = 1000000
 
 class RemoteFile(File):
     def __init__(self, router):
         self._router = router
     
-    def _print(self, text):
-        if PRINT:
-            log(log_get(self, text))
+    def _log(self, text):
+        if LOG_REMOTE:
+            log_debug(self, text)
     
     def _get_client(self, uid):
-        addr = self._router.get(uid, CLS_USER)
-        self._print('get_client, addr=%s, uid=%s' % (addr, uid))
+        addr = self._router.get(uid, DOMAIN_USR)
+        self._log('get_client, addr=%s, uid=%s' % (addr, uid))
         return SnakebiteClient(addr, FILE_SERVER_PORT, use_trash=False)
     
     def _get_http_client(self, uid):
-        addr = self._router.get(uid, CLS_USER)
-        self._print('get_http_client, addr=%s, uid=%s' % (addr, uid))
+        addr = self._router.get(uid, DOMAIN_USR)
+        self._log('get_http_client, addr=%s, uid=%s' % (addr, uid))
         address = 'http://%s:%d' % (addr, FILE_HTTP_PORT)
         return HDFSClient(address)
     

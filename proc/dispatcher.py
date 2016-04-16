@@ -24,11 +24,11 @@ from random import randint
 from lib.queue import Queue
 from lib.loader import Loader
 from lib.util import lock, is_local
-from lib.log import log, log_get, log_err
+from conf.log import LOG_DISPATCHER
+from lib.log import log_debug, log_err
 from lib.attributes import ATTR_DISPATCHER
 from conf.virtdev import PROC_ADDR, DISPATCHER_PORT
 
-PRINT = False
 QUEUE_LEN = 2
 POOL_SIZE = 0
 
@@ -69,9 +69,9 @@ class Dispatcher(object):
         else:
             self._pool = None
     
-    def _print(self, text):
-        if PRINT:
-            log(log_get(self, text))
+    def _log(self, text):
+        if LOG_DISPATCHER:
+            log_debug(self, text)
     
     def _get_code(self, name):
         buf = self._dispatchers.get(name)
@@ -100,7 +100,7 @@ class Dispatcher(object):
                 del self._source[name]
     
     def _send(self, dest, src, buf, flags):
-        self._print('send, dest=%s, src=%s' % (dest, src))
+        self._log('send, dest=%s, src=%s' % (dest, src))
         if POOL_SIZE:
             if self._check_source(src):
                 queue = self._pool.select(src)
@@ -134,7 +134,7 @@ class Dispatcher(object):
                 self._channel.connect(dest)
         else:
             self._paths[src][dest] += 1
-        self._print('add_edge, edge=%s, local=%s' % (str(edge), str(local)))
+        self._log('add_edge, edge=%s, local=%s' % (str(edge), str(local)))
     
     def remove_edge(self, edge, hidden=False):
         src = edge[0]
@@ -152,7 +152,7 @@ class Dispatcher(object):
             del self._paths[src][dest]
             if not local:
                 self._channel.disconnect(dest)
-        self._print('remove_edge, edge=%s, local=%s' % (str(edge), str(local)))
+        self._log('remove_edge, edge=%s, local=%s' % (str(edge), str(local)))
     
     def remove_edges(self, name):
         paths = self._shown.get(name)
@@ -177,7 +177,7 @@ class Dispatcher(object):
         else:
             local = self._shown[src][dest]
         if not local:
-            self._print('sendto->push, dest=%s, src=%s' % (dest, src))
+            self._log('sendto->push, dest=%s, src=%s' % (dest, src))
             self._channel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
         else:
             self._send(dest, src, buf, flags)
@@ -190,7 +190,7 @@ class Dispatcher(object):
             return
         for i in dest:
             if not dest[i]:
-                self._print('send->push, dest=%s, src=%s' % (i, name))
+                self._log('send->push, dest=%s, src=%s' % (i, name))
                 self._channel.push(i, dest=i, src=name, buf=buf, flags=flags)
             else:
                 self._send(i, name, buf, flags)
@@ -212,7 +212,7 @@ class Dispatcher(object):
             for _ in range(window):
                 if blocks[cnt]:
                     if not dest[i]:
-                        self._print('send_blocks->push, dest=%s, src=%s' % (i, name))
+                        self._log('send_blocks->push, dest=%s, src=%s' % (i, name))
                         self._channel.push(i, dest=i, src=name, buf=blocks[cnt], flags=0)
                     else:
                         self._send(i, name, blocks[cnt], 0)

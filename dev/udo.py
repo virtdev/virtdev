@@ -23,17 +23,17 @@ import req
 import time
 import driver
 from lib import stream
+from conf.log import LOG_UDO
 from lib.loader import Loader
 from datetime import datetime
-from lib.log import log, log_err
-from conf.path import PATH_MOUNTPOINT
+from conf.virtdev import PATH_MNT
+from lib.log import log_debug, log_err
 from lib.util import lock, mount_device
 from threading import Thread, Event, Lock
 from lib.attributes import ATTR_MODE, ATTR_FREQ
 from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
 from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_SYNC, MODE_TRIG, MODE_ACTIVE
 
-PRINT = False
 RETRY_MAX = 2
 SLEEP_TIME = 15 # seconds
 OUTPUT_MAX = 1 << 26
@@ -64,9 +64,9 @@ class UDO(object):
     def _get_type(self):
         return self.__class__.__name__
     
-    def _print(self, text):
-        if PRINT:
-            log(text)
+    def _log(self, text):
+        if LOG_UDO:
+            log_debug(self, text)
     
     def _read(self):
         empty = (None, None)
@@ -80,7 +80,7 @@ class UDO(object):
             
             output = ast.literal_eval(buf)
             if type(output) != dict:
-                log_err(self, 'failed to read, invalid type, name=%s' % self.d_name)
+                log_err(self, 'failed to read, cannot parse, name=%s' % self.d_name)
                 return empty
             
             if len(output) != 1:
@@ -127,7 +127,7 @@ class UDO(object):
             mode = self._mode
             freq = self._freq
             prof = self.d_profile
-            path = os.path.join(PATH_MOUNTPOINT, self._uid, self._name)
+            path = os.path.join(PATH_MNT, self._uid, self._name)
             if os.path.exists(path):
                 loader = Loader(self._uid)
                 curr_prof = loader.get_profile(self._name)
@@ -146,7 +146,7 @@ class UDO(object):
         
         if not self._children:
             mount_device(self._uid, self.d_name, mode, freq, prof)
-            self._print('mount: type=%s [%s*]' % (self.d_type, self.d_name[:8]))
+            self._log('mount->type=%s [%s*]' % (self.d_type, self.d_name[:8]))
     
     @property
     def d_name(self):
@@ -168,7 +168,7 @@ class UDO(object):
                     time.sleep(SLEEP_TIME)
                 else:
                     break
-            log_err(self, 'failed to get d_mode, name=%s' % self.d_name)
+            log_err(self, 'failed to get mode, name=%s' % self.d_name)
             return self._mode
     
     @property
@@ -187,7 +187,7 @@ class UDO(object):
                     time.sleep(SLEEP_TIME)
                 else:
                     break
-            log_err(self, 'failed to get d_freq, name=%s' % self.d_name)
+            log_err(self, 'failed to get freq, name=%s' % self.d_name)
             return self._freq
     
     @property
@@ -269,7 +269,7 @@ class UDO(object):
                 val = output[i]
                 typ = item['type']
                 if (type(val) == int or type(val) == float) and type(typ) == list and (val < typ[0] or val > typ[1]):
-                    log_err(self, 'failed to check output, out of range')
+                    log_err(self, 'failed to check output')
                     return
             except:
                 log_err(self, 'failed to check output')

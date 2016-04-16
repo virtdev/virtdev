@@ -19,33 +19,27 @@
 
 from base64 import b64decode
 from textblob import TextBlob
-from dev.driver import Driver
+from dev.driver import Driver, check_output
 
 PRINT = False
 
-class Blob(Driver):    
+class Blob(Driver):
     def _get_sentiment(self, text):
         buf = b64decode(text)
         if buf:
             blob = TextBlob(buf.decode('utf8'))
-            return (blob.sentiment.polarity,  blob.sentiment.subjectivity)
+            polarity = blob.sentiment.polarity
+            subjectivity = blob.sentiment.subjectivity
+            if PRINT:
+                print('Blob: polarity=%f, subjectivity=%f' % (polarity, subjectivity))
+            return (polarity,  subjectivity)
         else:
             return (None, None)
     
-    def put(self, buf):
-        args = self.get_args(buf)
-        if args and type(args) == dict:
-            text = args.get('content')
-            if text:
-                polarity, subjectivity = self._get_sentiment(text)
-                if polarity != None and subjectivity != None:
-                    if PRINT:
-                        print('Blob: polarity=%f, subjectivity=%f' % (polarity, subjectivity))
-                    ret = {'polarity':polarity, 'subjectivity':subjectivity}
-                    name = args.get('name')
-                    if name:
-                        ret.update({'name':name})
-                    timer = args.get('timer')
-                    if timer:
-                        ret.update({'timer':timer})
-                    return ret
+    @check_output
+    def put(self, args):
+        text = args.get('content')
+        if text:
+            polarity, subjectivity = self._get_sentiment(text)
+            if polarity != None and subjectivity != None:
+                return {'polarity':polarity, 'subjectivity':subjectivity}

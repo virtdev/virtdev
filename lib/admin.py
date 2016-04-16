@@ -18,8 +18,8 @@
 #      MA 02110-1301, USA.
 
 import uuid
-from util import CLS_USER
-from db.user import UserDB
+from domains import *
+from db.userdb import UserDB
 from db.marker import Marker
 from db.router import Router
 from conf.virtdev import META_SERVERS, AREA_CODE
@@ -34,7 +34,7 @@ class User(object):
         ret = self._user.get(user, 'uid')
         if not ret:
             self._user.put(user, password=password, uid=uid)
-            self._marker.mark(uid, CLS_USER, AREA_CODE)
+            self._marker.mark(uid, DOMAIN_USR, AREA_CODE)
             return True
     
     def get_password(self, user):
@@ -45,7 +45,7 @@ _user = User()
 def create_user(user, password):
     uid = uuid.uuid4().hex
     if not _user.add(user, password, uid):
-        raise Exception('User %s exists' % user)
+        raise Exception('Error: failed to create user %s' % user)
 
 def get_password(user):
     return _user.get_password(user)

@@ -60,7 +60,7 @@ class Controller(Driver):
             if not self._info:
                 if sock:
                     sock.close()
-                raise Exception('Controller: failed to setup')
+                raise Exception('Error: failed to setup controller')
     
     def _exec(self, cmd):
         output = self._pyb.enter(cmd)

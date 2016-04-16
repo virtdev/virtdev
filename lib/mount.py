@@ -1,6 +1,6 @@
 #      mount.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2014-2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -24,13 +24,12 @@ import resource
 from lib.log import log
 from subprocess import call
 from db.router import Router
-from conf.path import PATH_MOUNTPOINT, PATH_RUN, PATH_LIB
+from conf.log import LOG_MOUNT
+from conf.virtdev import PATH_MNT, PATH_RUN, PATH_LIB
 from lib.util import DEVNULL, srv_start, srv_join, close_port, ifaddr
-from conf.virtdev import LO, FS, DISTRIBUTOR, DATA_SERVER, SHADOW, EXTEND, META_SERVERS
-from conf.virtdev import DATA_SERVERS, CACHE_SERVERS, ROOT_SERVERS, BRIDGE_SERVERS, BROKER_SERVERS
-from conf.virtdev import REQUEST_SERVERS, MASTER, USER_FINDER, USER_MAPPER, DEVICE_FINDER, DEVICE_MAPPER, IFBACK, PROXY_PORT
-
-PRINT = False
+from conf.virtdev import LO, FS, SHADOW, EXTEND, IFBACK, ADAPTER_PORT
+from conf.virtdev import MASTER, DISTRIBUTOR, DATA_SERVER, USR_FINDER, USR_MAPPER, DEV_FINDER, DEV_MAPPER
+from conf.virtdev import META_SERVERS, DATA_SERVERS, CACHE_SERVERS, ROOT_SERVERS, BRIDGE_SERVERS, BROKER_SERVERS, WORKER_SERVERS
 
 def _clean():
     ports = []
@@ -38,7 +37,7 @@ def _clean():
     addr = ifaddr()
     baddr = ifaddr(ifname=IFBACK)
     
-    ports.append(PROXY_PORT)
+    ports.append(ADAPTER_PORT)
     if not SHADOW and addr in CACHE_SERVERS:
         from conf.virtdev import CACHE_PORTS
         for i in CACHE_PORTS:
@@ -64,31 +63,31 @@ def _clean():
         from conf.virtdev import MASTER_PORT
         ports.append(MASTER_PORT)
         
-    if USER_FINDER:
-        from conf.virtdev import USER_FINDER_PORT
-        ports.append(USER_FINDER_PORT)
+    if USR_FINDER:
+        from conf.virtdev import USR_FINDER_PORT
+        ports.append(USR_FINDER_PORT)
     
-    if DEVICE_FINDER:
-        from conf.virtdev import DEVICE_FINDER_PORT
-        ports.append(DEVICE_FINDER_PORT)
+    if DEV_FINDER:
+        from conf.virtdev import DEV_FINDER_PORT
+        ports.append(DEV_FINDER_PORT)
         
-    if USER_MAPPER:
-        from conf.virtdev import USER_MAPPER_PORT
-        ports.append(USER_MAPPER_PORT)
+    if USR_MAPPER:
+        from conf.virtdev import USR_MAPPER_PORT
+        ports.append(USR_MAPPER_PORT)
     
-    if DEVICE_MAPPER:
-        from conf.virtdev import DEVICE_MAPPER_PORT
-        ports.append(DEVICE_MAPPER_PORT)
+    if DEV_MAPPER:
+        from conf.virtdev import DEV_MAPPER_PORT
+        ports.append(DEV_MAPPER_PORT)
     
     if DATA_SERVER or addr in DATA_SERVERS:
         from conf.virtdev import EVENT_COLLECTOR_PORT    
         ports.append(EVENT_COLLECTOR_PORT)
     
-    if baddr in REQUEST_SERVERS:
+    if baddr in WORKER_SERVERS:
         from conf.virtdev import REQUESTER_PORT
         ports.append(REQUESTER_PORT)
     
-    if baddr in REQUEST_SERVERS or (FS and not SHADOW):
+    if baddr in WORKER_SERVERS or (FS and not SHADOW):
         from conf.virtdev import EVENT_MONITOR_PORT
         ports.append(EVENT_MONITOR_PORT)
     
@@ -107,17 +106,17 @@ def _check_settings():
     from lib.protocols import PROTOCOL_WRTC
     from conf.virtdev import PROTOCOL, EXPOSE
     if not SHADOW and EXPOSE and PROTOCOL != PROTOCOL_WRTC:
-        raise Exception('invalid settings')
+        raise Exception('Error: invalid settings')
     
 def _mount(query, router):
     from fuse import FUSE
     from fs.vdfs import VDFS
     
-    call(['umount', '-lf', PATH_MOUNTPOINT], stderr=DEVNULL, stdout=DEVNULL)
+    call(['umount', '-lf', PATH_MNT], stderr=DEVNULL, stdout=DEVNULL)
     time.sleep(1)
     
-    if not os.path.exists(PATH_MOUNTPOINT):
-        os.makedirs(PATH_MOUNTPOINT, 0o755)
+    if not os.path.exists(PATH_MNT):
+        os.makedirs(PATH_MNT, 0o755)
     
     if not os.path.exists(PATH_RUN):
         os.makedirs(PATH_RUN, 0o755)
@@ -125,10 +124,10 @@ def _mount(query, router):
     if not os.path.exists(PATH_LIB):
         os.makedirs(PATH_LIB, 0o755)
     
-    if PRINT:
+    if LOG_MOUNT:
         log('Mounting VDFS ...')
     
-    FUSE(VDFS(query, router), PATH_MOUNTPOINT, foreground=True)
+    FUSE(VDFS(query, router), PATH_MNT, foreground=True)
 
 def mount():
     srv = []
@@ -145,7 +144,7 @@ def mount():
         from db.master import MasterServer
         srv_start([MasterServer()])
     
-    if baddr in REQUEST_SERVERS or (FS and not SHADOW):
+    if baddr in WORKER_SERVERS or (FS and not SHADOW):
         from db.query import Query
         meta = Router(META_SERVERS)
         if not EXTEND:
@@ -175,25 +174,25 @@ def mount():
         from event.collector import EventCollector
         srv.append(EventCollector(baddr))
     
-    if USER_FINDER:
+    if USR_FINDER:
         from db.finder import UserFinder
         srv.append(UserFinder())
     
-    if DEVICE_FINDER:
+    if DEV_FINDER:
         from db.finder import DeviceFinder
         srv.append(DeviceFinder())
     
-    if USER_MAPPER:
+    if USR_MAPPER:
         from db.mapper import UserMapper
         srv.append(UserMapper())
     
-    if DEVICE_MAPPER:
+    if DEV_MAPPER:
         from db.mapper import DeviceMapper
         srv.append(DeviceMapper())
     
-    if baddr in REQUEST_SERVERS:
-        from srv.requester import Requester
-        srv.append(Requester(baddr, query))
+    if baddr in WORKER_SERVERS:
+        from srv.worker import Worker
+        srv.append(Worker(baddr, query))
     
     if srv:
         srv_start(srv)

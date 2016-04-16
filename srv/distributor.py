@@ -22,16 +22,17 @@
 
 import time
 import uuid
+import socket
 import random
-import zerorpc
+from lib import bson
 from lib.ppp import *
 from random import randint
 from threading import Thread
 from lib.log import log_err, log_get, log
 from multiprocessing.pool import ThreadPool
-from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, hash_name
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
-from conf.virtdev import BROKER_SERVERS, BROKER_PORT, REQUEST_SERVERS, REQUESTER_PORT
+from conf.virtdev import BROKER_SERVERS, BROKER_PORT, WORKER_SERVERS, REQUESTER_PORT
+from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, hash_name, send_pkt, recv_pkt, unicode2str
 
 POOL_SIZE = 64
 SLEEP_TIME = 10 # seconds
@@ -66,9 +67,9 @@ class Distributor(Thread):
         length = len(BROKER_SERVERS)
         return BROKER_SERVERS[randint(0, length - 1)]
     
-    def _get_processor(self, uid):
-        length = len(REQUEST_SERVERS)
-        return REQUEST_SERVERS[hash_name(uid) % length]
+    def _get_requester(self, uid):
+        length = len(WORKER_SERVERS)
+        return WORKER_SERVERS[hash_name(uid) % length]
     
     def _get_user(self, buf):
         if len(buf) < USERNAME_SIZE:
@@ -102,16 +103,25 @@ class Distributor(Thread):
         msg = [identity, '', seq, buf]
         self._sock.send_multipart(msg)
     
+    def _request(self, addr, **args):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((addr, REQUESTER_PORT))
+        try:
+            buf = bson.dumps(args)
+            send_pkt(sock, buf)
+            res = recv_pkt(sock)
+            return unicode2str(bson.loads(res)[''])
+        finally:
+            sock.close()
+    
     def _proc(self, identity, seq, buf):
         try:
             uid, token = self._get_token(buf)
             if not uid or not token:
                 log_err(self, 'failed to process, invalid token')
                 return
-            c = zerorpc.Client()
-            addr = self._get_processor(uid)
-            c.connect(zmqaddr(addr, REQUESTER_PORT))
-            ret = c.proc(uid, token, buf)
+            addr = self._get_requester(uid)
+            ret = self._request(addr, uid=uid, token=token, buf=buf)
             self._reply(identity, seq, ret)
         except:
             log_err(self, 'failed to process')

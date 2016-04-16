@@ -30,7 +30,7 @@ from lib.util import UID_SIZE, get_name
 from lib.log import log_err, log_get, log
 
 QUEUE_LEN = 2
-POOL_SIZE = 64
+POOL_SIZE = 16
 
 def chkstat(func):
     def _chkstat(*args, **kwargs):

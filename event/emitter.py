@@ -18,8 +18,9 @@
 #      MA 02110-1301, USA.
 
 import zerorpc
+from lib.domains import *
 from lib.log import log_err
-from lib.util import CLS_USER, zmqaddr
+from lib.util import zmqaddr
 from conf.virtdev import EVENT_COLLECTOR_PORT
 
 class EventEmitter(object):
@@ -36,7 +37,7 @@ class EventEmitter(object):
     
     def put(self, uid, name):
         try:
-            addr = self._router.get(uid, CLS_USER)
+            addr = self._router.get(uid, DOMAIN_USR)
             if addr:
                 self._put(addr, uid, name)
         except:

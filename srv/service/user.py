@@ -18,11 +18,12 @@
 #      MA 02110-1301, USA.
 
 from lib import resolv
+from lib.domains import *
 from service import Service
 from db.marker import Marker
 from lib.log import log_err, log_get
 from conf.virtdev import EXTEND, AREA_CODE
-from lib.util import CLS_DEVICE, get_name, update_device, gen_key, gen_token
+from lib.util import get_name, update_device, gen_key, gen_token
 
 class User(Service):
     def __init__(self, query):
@@ -36,12 +37,12 @@ class User(Service):
             self._query.node.remove(uid, (node,))
         else:
             if EXTEND:
-                self._marker.mark(name, CLS_DEVICE, AREA_CODE)
+                self._marker.mark(name, DOMAIN_DEV, AREA_CODE)
         self._query.key.put(name, key)
         self._query.node.put(uid, (node, addr, str(mode)))
         update_device(self._query, uid, node, addr, name)
     
-    def login(self, uid, node, networks, mode):
+    def login(self, uid, node, mode):
         key = gen_key()
         token = self._query.token.get(uid)
         if not token:
@@ -50,7 +51,7 @@ class User(Service):
             if not token:
                 log_err(self, 'no token')
                 raise Exception(log_get(self, 'no token'))
-        addr = resolv.get_addr(uid, node, networks)
+        addr = resolv.get_addr(uid, node)
         if not addr:
             log_err(self, 'invalid address')
             raise Exception(log_get(self, 'invalid address'))

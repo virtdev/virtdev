@@ -21,8 +21,11 @@ import os
 import re
 import time
 import shelve
-import notifier
+import struct
+import socket
+from json import dumps
 from lib import channel
+from lib import notifier
 from daemon import Daemon
 from proc.core import Core
 from proc.proc import Proc
@@ -33,11 +36,12 @@ from threading import Lock, Thread
 from lib.log import log_err, log_get
 from conductor import Conductor, conductor
 from lib.operations import OP_OPEN, OP_CLOSE
-from conf.path import PATH_LIB, PATH_RUN, PATH_MOUNTPOINT
-from lib.util import USERNAME_SIZE, PASSWORD_SIZE, netaddresses, get_node, get_name, cat, lock, named_lock
-from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
+from lib.util import USERNAME_SIZE, PASSWORD_SIZE, get_networks, get_node, get_name, lock, named_lock
+from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT, PATH_LIB, PATH_RUN, PATH_MNT
 
+LOGIN_RETRY_MAX = 2
 CONNECT_RETRY_MAX = 2
+LOGIN_RETRY_INTERVAL = 5 # seconds
 
 class DeviceManager(object):
     def __init__(self): 
@@ -72,8 +76,8 @@ class DeviceManager(object):
         return conductor.request.device.get(name=name)
     
     @named_lock
-    def diff(self, name, domain, item, buf):
-        return conductor.request.device.diff(name=name, domain=domain, item=item, buf=buf)
+    def diff(self, name, field, item, buf):
+        return conductor.request.device.diff(name=name, field=field, item=item, buf=buf)
     
     @named_lock
     def remove(self, name):
@@ -85,11 +89,11 @@ class GuestManager(object):
     
     @lock
     def join(self, dest, src):
-        return conductor.request.guest.join(dest=dest, src=src)
+        return conductor.request.guest.join(user=conductor.user, dest=dest, src=src)
     
     @lock
     def accept(self, dest, src):
-        return conductor.request.guest.accept(dest=dest, src=src)
+        return conductor.request.guest.accept(user=conductor.user, dest=dest, src=src)
     
     @lock
     def drop(self, dest, src):
@@ -100,12 +104,8 @@ class NodeManager(object):
         self._lock = Lock()
     
     @lock
-    def search(self, user, random, limit):
-        return conductor.request.node.search(user=user, random=random, limit=limit)
-    
-    @lock
     def find(self, user, node):
-        return conductor.request.node.search(user=user, node=node)
+        return conductor.request.node.find(user=user, node=node)
 
 class ChannelManager(object):
     def __init__(self):
@@ -168,10 +168,10 @@ class MemberManager(object):
             keys = d.keys()
             if len(keys) > 0:
                 i = keys[0]
-                res = cat(i, d[i]['user'], d[i]['node'], d[i]['state'])
+                res = dumps({'name':i, 'user':d[i]['user'], 'node':d[i]['node'], 'state':d[i]['state']})
                 for j in range(1, len(keys)):
                     i = keys[j]
-                    res += ';%s' % cat(i, d[i]['user'], d[i]['node'], d[i]['state'])
+                    res += ';' + dumps({'name':i, 'user':d[i]['user'], 'node':d[i]['node'], 'state':d[i]['state']})
                 return res
         finally:
             d.close()
@@ -247,6 +247,15 @@ class Manager(object):
             d.close()
         return (user, password)
     
+    def _check_addr(self, addr):
+        networks = get_networks()
+        address = struct.unpack("I", socket.inet_aton(addr))[0]
+        for n in networks:
+            network, mask = n
+            if address & mask == network:
+                return False
+        return True
+    
     def _login(self, user, password):
         length = len(user)
         if length > 0 and length < USERNAME_SIZE and re.match('^[0-9a-zA-Z]+$', user):
@@ -264,12 +273,13 @@ class Manager(object):
         else:
             mode = 0
         
-        req = Request(name, password)
-        res = req.user.login(node=get_node(), networks=netaddresses(mask=True), mode=mode)
-        if not res:
-            log_err(self, 'failed to login')
-            return
-        return (res['uid'], res['addr'], res['token'], res['key'])
+        for _ in range(LOGIN_RETRY_MAX):
+            req = Request(name, password)
+            res = req.user.login(node=get_node(), mode=mode)
+            if res and self._check_addr(res['addr']):
+                return (res['uid'], res['addr'], res['token'], res['key'])
+            time.sleep(LOGIN_RETRY_INTERVAL)
+        log_err(self, 'failed to login')
     
     def _init_user(self):
         user, password = self._get_password()
@@ -336,17 +346,19 @@ class Manager(object):
             d.close()
     
     def _start(self):
-        path = os.path.join(PATH_MOUNTPOINT, self.uid)
+        while not self.uid:
+            time.sleep(0.1)
+        path = os.path.join(PATH_MNT, self.uid)
         while not os.path.exists(path):
             time.sleep(0.1)
         for device in self.devices:
             device.start()
+        self._save_addr()
     
     def start(self):
         if not self._active:
-            Thread(target=self._start).start()
-            self._save_addr()
             self._active = True
+            Thread(target=self._start).start()
     
     def chkaddr(self, name):
         if name:
@@ -365,6 +377,6 @@ class Manager(object):
         if self._lo:
             return self._lo.create(device, init)
     
-    def get_passive(self):
+    def get_passive_device(self):
         if self._lo:
-            return self._lo.get_passive()
+            return self._lo.get_passive_device()

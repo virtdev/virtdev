@@ -22,9 +22,7 @@ from random import randint
 F1_SIZE = 255 * 8
 F2_SIZE = 8
 F3_SIZE = 32
-
 HOST_MAX = 255 * 255 * 8
-RETRY_MAX = 3
 
 class Resolv(object):    
     def _gen_addr(self):
@@ -35,18 +33,5 @@ class Resolv(object):
         f3 = (tmp % F2_SIZE) * F3_SIZE + 1
         return '10.%d.%d.%d' % (f1, f2, f3)
     
-    def _check_addr(self, addr, networks):
-        field = addr.split('.')
-        net = '%s.%s.%s.' % (field[0], field[1], field[2])
-        len_net = len(net)
-        for n in networks:
-            length = len(n)
-            if len_net >= length and net[0:length] == n:
-                return False
-        return True
-    
-    def get_addr(self, uid, node, networks=None):
-        for _ in range(RETRY_MAX):
-            addr = self._gen_addr()
-            if self._check_addr(addr, networks):
-                return addr
+    def get_addr(self, uid, node):
+        return self._gen_addr()

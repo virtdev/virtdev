@@ -39,7 +39,7 @@ class Camera(Driver):
     def setup(self):
         cameras = camera.list_cameras()
         if CAMERA_INDEX >= len(cameras):
-            raise Exception('no camera')
+            raise Exception('Error: no camera')
         self._cam = camera.Camera(cameras[CAMERA_INDEX], (CAMERA_WIDTH, CAMERA_HEIGHT))
         self._cam.start()
     

@@ -26,25 +26,26 @@ from modes import MODE_LINK, MODE_CLONE
 from util import str2tuple, update_device, get_name
 from operations import OP_ADD, OP_DIFF, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
+RETRY = True
+RETRY_MAX = 2
+RETRY_INTERVAL = 15 # seconds
+
 QUEUE_LEN = 4
 POOL_SIZE = 0
-DOWNLINK_RETRY = True
-DOWNLINK_RETRY_MAX = 2
-DOWNLINK_RETRY_INTERVAL = 15 # seconds
 
-def chkargs(func):
-    def _chkargs(self, name, op, **args):
-        if not name or op not in self.operations:
-            raise Exception('invalid link, name=%s, op=%s' % (str(name), str(op)))
+def chkop(func):
+    def _chkop(self, name, op, **args):
+        if op not in self.operations:
+            raise Exception('Error: invalid operation, op=%s' % str(op))
         return func(self, name, op, **args)
-    return _chkargs
+    return _chkop
 
 class Uplink(object):
     def __init__(self, manager):
         self.operations = [OP_ADD, OP_DIFF]
         self._manager = manager
     
-    @chkargs
+    @chkop
     def put(self, name, op, **args):
         if op == OP_DIFF:
             return self._manager.device.diff(name, **args)
@@ -57,13 +58,7 @@ class DownlinkQueue(Queue):
         self._link = link
     
     def _proc(self, name, op, **args):
-        res = self._link.get_device(name)
-        uid = res['uid']
-        addr = res['addr']
-        node = res['node']
-        if self._link.connect(uid, node, addr):
-            self._link.request(uid, addr, op, args)
-            self._link.disconnect(addr)
+        self._link.request(name, op, **args)
     
     def proc(self, buf):
         self._proc(**buf)
@@ -79,10 +74,10 @@ class Downlink(object):
         else:
             self._pool = None
     
-    def get_device(self, name):
+    def _get_device(self, name):
         return self._query.device.get(name)
     
-    def connect(self, uid, node, addr, verify=False):
+    def _connect(self, uid, node, addr, verify=False):
         key = self._query.key.get(get_name(uid, node))
         if not key:
             log_err(self, 'failed to connect, no key')
@@ -93,28 +88,26 @@ class Downlink(object):
         except:
             pass
     
-    def request(self, uid, addr, op, args, token=None):
+    def _request(self, uid, addr, op, args, token):
         try:
-            if not token:
-                token = self._query.token.get(uid)
             channel.put(uid, addr, op, args, token)
             return True
         except:
             log_err(self, 'failed to request, addr=%s, op=%s' % (addr, op))
     
-    def disconnect(self, addr):
+    def _disconnect(self, addr):
         try:
             channel.disconnect(addr, release=True)
         except:
             pass
     
     def _retry(self, uid, addr, key, op, args, token):
-        if not DOWNLINK_RETRY:
+        if not RETRY:
             return
-        for _ in range(DOWNLINK_RETRY_MAX):
+        for _ in range(RETRY_MAX):
             try:
                 channel.disconnect(addr, release=True)
-                time.sleep(DOWNLINK_RETRY_INTERVAL)
+                time.sleep(RETRY_INTERVAL)
                 channel.connect(uid, addr, key, static=True, verify=True)
                 try:
                     channel.put(uid, addr, op, args, token)
@@ -125,28 +118,34 @@ class Downlink(object):
                 pass
         log_err(self, 'failed to retry, addr=%s, op=%s' % (addr, op))
     
-    def mount(self, uid, name, mode, vertex, typ, parent, timeout):
+    def mount(self, uid, name, mode, vrtx, typ, parent, timeout):
         key = None
         node = None
         addr = None
         
-        if vertex and not parent:
-            parent = vertex[0]
+        if vrtx and not parent:
+            parent = vrtx[0]
         
         if parent:
             res = self._query.device.get(parent)
-            if res['uid'] != uid:
+            if not res or res.get('uid') != uid:
                 log_err(self, 'failed to mount, invalid uid')
                 raise Exception(log_get(self, 'failed to mount'))
-            addr = res['addr']
+            
+            addr = res.get('addr')
+            if not addr:
+                log_err(self, 'failed to mount, invalid addr')
+                raise Exception(log_get(self, 'failed to mount'))
+            
             members = self._query.member.get(uid)
             if not members:
                 log_err(self, 'failed to mount, cannot get members')
                 raise Exception(log_get(self, 'failed to mount'))
+            
             for i in members:
                 p, node = str2tuple(i)
                 if p == parent:
-                    key = self.connect(uid, node, addr)
+                    key = self._connect(uid, node, addr)
                     if not key:
                         log_err(self, 'failed to mount, no connection')
                         raise Exception(log_get(self, 'failed to mount'))
@@ -156,9 +155,10 @@ class Downlink(object):
             if not nodes:
                 log_err(self, 'failed to mount, cannot get nodes')
                 raise Exception(log_get(self, 'failed to mount'))
+            
             for i in nodes:
                 node, addr, _ = str2tuple(i)
-                key = self.connect(uid, node, addr, verify=True)
+                key = self._connect(uid, node, addr, verify=True)
                 if key:
                     break
         
@@ -169,41 +169,46 @@ class Downlink(object):
         attr = {}
         attr.update({'type':typ})
         attr.update({'name':name})
-        attr.update({'vertex':vertex})
+        attr.update({'vertex':vrtx})
         attr.update({'mode':mode | MODE_LINK})
         if mode & MODE_CLONE:
             attr.update({'parent':parent})
-        if vertex:
+        if vrtx:
             attr.update({'timeout':timeout})
         
         args = {'attr':str(attr)}
         try:
             token = self._query.token.get(uid)
-            ret = self.request(uid, addr, OP_MOUNT, args, token=token)
+            ret = self._request(uid, addr, OP_MOUNT, args, token)
             update_device(self._query, uid, node, addr, name)
         finally:
-            self.disconnect(addr)
+            self._disconnect(addr)
         
         if not ret:
-            return self._retry(uid, addr, key, OP_MOUNT, args, token=token)
+            return self._retry(uid, addr, key, OP_MOUNT, args, token)
         
         return ret
     
-    def _put(self, name, op, **args):
-        res = self.get_device(name)
-        uid = res['uid']
-        addr = res['addr']
-        node = res['node']
-        key = self.connect(uid, node, addr)
+    def request(self, name, op, **args):
+        if name:
+            res = self._get_device(name)
+            uid = res['uid']
+            addr = res['addr']
+            node = res['node']
+        else:
+            uid = args.pop('uid')
+            addr = args.pop('addr')
+            node = args.pop('node')
+        key = self._connect(uid, node, addr)
         if key:
             token = self._query.token.get(uid)
-            ret = self.request(uid, addr, op, args, token=token)
-            self.disconnect(addr)
+            ret = self._request(uid, addr, op, args, token)
+            self._disconnect(addr)
             if not ret:
-                return self._retry(uid, addr, key, op, args, token=token)
+                return self._retry(uid, addr, key, op, args, token)
             return ret
     
-    @chkargs
+    @chkop
     def put(self, name, op, **args):
         if self._pool:
             buf = {'name':name, 'op':op}
@@ -212,4 +217,4 @@ class Downlink(object):
             self._pool.push(buf)
             return True
         else:
-            return self._put(name, op, **args)
+            return self.request(name, op, **args)

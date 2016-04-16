@@ -1,4 +1,4 @@
-#      attribute.py
+#      attr.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -22,22 +22,21 @@ import json
 import librsync
 from temp import Temp
 from entry import Entry
+from conf.log import LOG_ATTR
 from StringIO import StringIO
 from lib.util import path2temp
+from conf.virtdev import RSYNC
 from base64 import b64encode, b64decode
-from lib.log import log_err, log_get, log
-from lib.attributes import ATTR_MODE, ATTR_FREQ, ATTR_FILTER, ATTR_HANDLER, ATTR_PARENT, ATTR_PROFILE, ATTR_TIMEOUT, ATTR_DISPATCHER
+from lib.log import log_err, log_get, log_warnning, log
+from lib.attributes import ATTRIBUTES, ATTR_MODE, ATTR_FREQ, ATTR_FILTER, ATTR_HANDLER, ATTR_PROFILE, ATTR_TIMEOUT, ATTR_DISPATCHER
 
-PRINT = False
-ATTRIBUTES = [ATTR_MODE, ATTR_FREQ, ATTR_FILTER, ATTR_HANDLER, ATTR_PARENT, ATTR_PROFILE, ATTR_TIMEOUT, ATTR_DISPATCHER]
-
-class Attribute(Entry):
+class Attr(Entry):
     def __init__(self, router=None, core=None, rdonly=True):
         Entry.__init__(self, router, core)
         self._temp = Temp(self, rdonly)
     
-    def _print(self, text):
-        if PRINT:
+    def _log(self, text):
+        if LOG_ATTR:
             log(log_get(self, text))
     
     def can_invalidate(self):
@@ -92,7 +91,7 @@ class Attribute(Entry):
         self._unlink(uid, name)
     
     def invalidate(self, uid, name):
-        self._print('invalidate, name=%s' % name)
+        self._log('invalidate, name=%s' % str(name))
         path = self.get_path(uid, name)
         temp = path2temp(path)
         if self._file.exists(uid, path):
@@ -109,20 +108,27 @@ class Attribute(Entry):
     
     def patch(self, uid, name, buf):
         if not buf:
-            log_err(self, 'failed to patch')
-            raise Exception(log_get(self, 'failed to patch'))
-        delta = StringIO(b64decode(buf))
+            log_warnning(self, 'no content, name=%s' % str(name))
+            return
         dest = self.get_path(uid, name)
         src = path2temp(dest)
-        with open(dest, 'wb') as f_dest:
-            with open(src, 'rb') as f_src:
-                try:
-                    librsync.patch(f_src, delta, f_dest)
-                except:
-                    # FIXME:
-                    self._file.rename(uid, src, dest)
-                    return
-        self._file.remove(uid, src)
+        tmp = b64decode(buf)
+        if RSYNC:
+            delta = StringIO(tmp)
+            with open(dest, 'wb') as f_dest:
+                with open(src, 'rb') as f_src:
+                    try:
+                        librsync.patch(f_src, delta, f_dest)
+                    except:
+                        # FIXME:
+                        log_warnning(self, 'failed to patch, name=%s' % str(name))
+                        self._file.rename(uid, src, dest)
+                        return
+            self._file.remove(uid, src)
+        else:
+            with open(src, 'wb') as f:
+                f.write(tmp)
+            self._file.rename(uid, src, dest)
     
     def readdir(self, uid, name):
         return self.lsdir(uid, name)
@@ -144,7 +150,7 @@ class Attribute(Entry):
     
     def initialize(self, uid, name, attr, val):
         if attr not in ATTRIBUTES:
-            log_err(self, 'failed to initialize, invalid attribute %s' % str(attr))
+            log_err(self, 'failed to initialize, invalid attribute %s, name=%s' % (str(attr), str(name)))
             raise Exception(log_get(self, 'failed to initialize'))
         if attr == ATTR_PROFILE:
             val = json.dumps(val)

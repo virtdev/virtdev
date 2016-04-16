@@ -19,10 +19,11 @@
 
 import os
 import json
+from log import log_warnning
 from util import unicode2str
+from fields import FIELD_ATTR
+from conf.virtdev import PATH_MNT
 from attributes import ATTR_PROFILE
-from domains import DOMAIN_ATTRIBUTE
-from conf.path import PATH_MOUNTPOINT
 
 BUF_LEN = 1024
 
@@ -31,7 +32,7 @@ class Loader(object):
         self._uid = uid
     
     def _get_path(self, name, attr):
-        return os.path.join(PATH_MOUNTPOINT, self._uid, DOMAIN_ATTRIBUTE, name, attr)
+        return os.path.join(PATH_MNT, self._uid, FIELD_ATTR, name, attr)
     
     def _read(self, name, attr):
         path = self._get_path(name, attr)
@@ -42,7 +43,7 @@ class Loader(object):
             finally:
                 os.close(fd)
         except:
-            pass
+            log_warnning(self, 'failed to read, name=%s' % str(name))
     
     def get_attr(self, name, attr, typ):
         buf = self._read(name, attr)

@@ -19,15 +19,15 @@
 
 from cache import Cache
 from lib.util import lock
+from lib.domains import *
 from threading import Lock
+from conf.log import LOG_DB
 from pymongo import MongoClient
 from pymongo.database import Database
 from conf.virtdev import META_SERVER_PORT
 from pymongo.collection import Collection
-from lib.log import log, log_err, log_get
-from lib.util import CLS_USER, CLS_DEVICE
+from lib.log import log_debug, log_err, log_get
 
-PRINT = False
 DATABASE_NAME = 'test'
 COLLECTION_MAX = 1024
 
@@ -35,15 +35,15 @@ class DB(object):
     def __str__(self):
         return self.__class__.__name__.lower()
     
-    def _print(self, text):
-        if PRINT:
-            log(log_get(self, text))
+    def _log(self, text):
+        if LOG_DB:
+            log_debug(self, text)
     
-    def __init__(self, router=None, multi=False, increase=False, cache_port=0, cls=None):
-        self._cls = cls
+    def __init__(self, router=None, multi=False, increase=False, cache_port=0, domain=None):
         self._cache = None
         self._lock = Lock()
         self._multi = multi
+        self._domain = domain
         self._router = router
         self._collections = {}
         self._increase = increase
@@ -79,9 +79,9 @@ class DB(object):
             log_err(self, 'failed to get collection, no key')
             raise Exception(log_get(self, 'failed to get collection'))
         
-        addr = self._router.get(key, self._cls)
+        addr = self._router.get(key, self._domain)
         if addr:
-            self._print('get_collection, addr=%s, key=%s' % (addr, key))
+            self._log('get_collection, addr=%s, key=%s' % (addr, key))
             return self._check_collection(addr)
     
     def put(self, key, value):
@@ -147,24 +147,24 @@ class DB(object):
 
 class TokenDB(DB):
     def __init__(self, router):
-        DB.__init__(self, router, multi=True, cls=CLS_USER)
+        DB.__init__(self, router, multi=True, domain=DOMAIN_USR)
 
 class GuestDB(DB):
     def __init__(self, router):
-        DB.__init__(self, router, multi=True, cls=CLS_USER)
+        DB.__init__(self, router, multi=True, domain=DOMAIN_USR)
 
 class NodeDB(DB):
     def __init__(self, router):
-        DB.__init__(self, router, multi=True, cls=CLS_USER)
+        DB.__init__(self, router, multi=True, domain=DOMAIN_USR)
 
 class MemberDB(DB):
     def __init__(self, router):
-        DB.__init__(self, router, multi=True, cls=CLS_USER)
+        DB.__init__(self, router, multi=True, domain=DOMAIN_USR)
 
 class DeviceDB(DB):
     def __init__(self, router):
-        DB.__init__(self, router, cls=CLS_DEVICE)
+        DB.__init__(self, router, domain=DOMAIN_DEV)
 
 class KeyDB(DB):
     def __init__(self, router):
-        DB.__init__(self, router, cls=CLS_DEVICE)
+        DB.__init__(self, router, domain=DOMAIN_DEV)

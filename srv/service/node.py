@@ -17,12 +17,9 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from random import randint
 from service import Service
 from lib.util import str2tuple
 from lib.modes import MODE_VISI
-
-NODE_MAX = 256
 
 class Node(Service):
     def _get_uid(self, user):
@@ -37,28 +34,3 @@ class Node(Service):
             n, _, mode = str2tuple(item)
             if mode and int(mode) & MODE_VISI and n == node:
                 return {'uid':uid}
-    
-    def search(self, uid, user, random, limit):
-        res = []
-        uid = self._get_uid(user)
-        if not uid:
-            return
-        if random:
-            limit = NODE_MAX
-        elif limit > NODE_MAX:
-            limit = NODE_MAX
-        node_list = []
-        nodes = self._query.node.get(uid)
-        for item in nodes:
-            node, _, mode = str2tuple(item)
-            if mode and int(mode) & MODE_VISI:
-                node_list.append(node)
-                if len(node_list) >= limit:
-                    break
-        if node_list:
-            if random:
-                res.append(node_list[randint(0, len(node_list) - 1)])
-            else:
-                res = node_list
-        if res:
-            return {'node':res, 'uid':uid}

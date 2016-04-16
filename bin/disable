@@ -10,8 +10,8 @@ _path = os.path.dirname(_name)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
+from conf.virtdev import PATH_MNT
 from lib.operations import OP_DISABLE
-from conf.path import PATH_MOUNTPOINT
 
 def usage():
     print('usage: disable [uid] [name]')
@@ -23,5 +23,5 @@ if __name__ == '__main__':
         sys.exit()
     uid = sys.argv[1]
     name = sys.argv[2]
-    path = os.path.join(PATH_MOUNTPOINT, uid, name)
+    path = os.path.join(PATH_MNT, uid, name)
     xattr.setxattr(path, OP_DISABLE, '')

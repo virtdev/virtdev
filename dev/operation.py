@@ -20,8 +20,8 @@
 import os
 import json
 from subprocess import call
-from conf.path import PATH_MOUNTPOINT
-from lib.util import DEVNULL, cat, invalidate, mount
+from conf.virtdev import PATH_MNT
+from lib.util import DEVNULL, invalidate, mount
 
 RETRY_MAX = 2
 
@@ -31,7 +31,7 @@ class Operation(object):
         self._uid = manager.uid
     
     def _get_path(self, path):
-        return os.path.join(PATH_MOUNTPOINT, self._uid, path)
+        return os.path.join(PATH_MNT, self._uid, path)
     
     def mount(self, attr):
         mount(self._uid, attr)
@@ -57,13 +57,12 @@ class Operation(object):
     def disable(self, path):
         self._manager.device.close(path)
     
-    def join(self, dest, src):
-        self._manager.notify('wait', json.dumps({'dest':dest, 'src':src}))
+    def join(self, req):
+        self._manager.notify('wait', json.dumps(req))
     
-    def accept(self, dest, src):
-        uid = str(src['uid'])
-        name = str(src['name'])
-        user = str(src['user'])
-        node = str(src['node'])
-        self._manager.member.update({name:{'uid':uid, 'user':user, 'node':node, 'state':'join'}})
-        self._manager.notify('list', cat(name, 'join'))
+    def accept(self, req):
+        user = str(req['user'])
+        node = str(req['node'])
+        name = str(req['name'])
+        self._manager.member.update({name:{'user':user, 'node':node, 'state':'join'}})
+        self._manager.notify('list', json.dumps({'state':'join', 'name':name}))

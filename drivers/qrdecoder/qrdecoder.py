@@ -20,8 +20,8 @@
 import zbar
 import Image
 from base64 import b64decode
-from dev.driver import Driver
 from StringIO import StringIO
+from dev.driver import Driver, check_output
 
 PRINT = False
 
@@ -39,22 +39,15 @@ class QRDecoder(Driver):
             scanner.scan(img)
             for symbol in img:
                 if str(symbol.type) == 'QRCODE':
-                    return str(symbol.data).lower()
+                    url = str(symbol.data).lower()
+                    if PRINT:
+                        print('QRDecoder: url=%s' % url)
+                    return url
     
-    def put(self, buf):
-        args = self.get_args(buf)
-        if args and type(args) == dict:
+    @check_output
+    def put(self, args):
             image = args.get('content')
             if image:
                 url = self._decode(image)
                 if url:
-                    if PRINT:
-                        print('QRDecoder: url=%s' % url)
-                    ret = {'url':url}
-                    name = args.get('name')
-                    if name:
-                        ret.update({'name':name})
-                    timer = args.get('timer')
-                    if timer:
-                        ret.update({'timer':timer})
-                    return ret
+                    return {'url':url}

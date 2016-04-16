@@ -29,5 +29,5 @@ elif PROTOCOL == PROTOCOL_WRTC:
     from protocol.wrtc.resolv import Resolv as WRTCResolv
     resolv = WRTCResolv()
 
-def get_addr(uid, node, networks=None):
-    return resolv.get_addr(uid, node, networks)
+def get_addr(uid, node):
+    return resolv.get_addr(uid, node)

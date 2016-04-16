@@ -19,12 +19,13 @@
 
 import time
 import zerorpc
+from lib.domains import *
 from member import Member
 from random import randint
+from lib.util import zmqaddr
 from threading import Thread
 from lib.log import log_get, log_err
-from lib.util import CLS_USER, CLS_DEVICE, zmqaddr
-from conf.virtdev import EXTEND, MASTER_ADDR, MASTER_PORT, USER_MAPPER_PORT, DEVICE_MAPPER_PORT
+from conf.virtdev import EXTEND, MASTER_ADDR, MASTER_PORT, USR_MAPPER_PORT, DEV_MAPPER_PORT
 
 ID_SIZE = 32
 GROUP_MAX = 32
@@ -38,12 +39,12 @@ class Router(object):
         self._user_mapper = Member()
         self._device_mapper = Member()
         if EXTEND and sync:
-            mappers = self._load_mappers(CLS_USER)
+            mappers = self._load_mappers(DOMAIN_USR)
             if not mappers:
                 log_err('failed to initialize')
                 raise Exception(log_get(self, 'failed to initialize'))
             self._user_mapper.set_members(mappers)
-            mappers = self._load_mappers(CLS_DEVICE)
+            mappers = self._load_mappers(DOMAIN_DEV)
             if not mappers:
                 log_err('failed to initialize')
                 raise Exception(log_get(self, 'failed to initialize'))
@@ -51,19 +52,19 @@ class Router(object):
             self._thread = Thread(target=self._update_mappers)
             self._thread.start()
     
-    def _load_mappers(self, cls):
+    def _load_mappers(self, domain):
         c = zerorpc.Client()
         c.connect(zmqaddr(MASTER_ADDR, MASTER_PORT))
         try:
-            return c.get_mappers(cls)
+            return c.get_mappers(domain)
         finally:
             c.close()
     
-    def _check_mappers(self, addr, pos, cls):
-        if cls == CLS_USER:
-            port = USER_MAPPER_PORT
+    def _check_mappers(self, addr, pos, domain):
+        if domain == DOMAIN_USR:
+            port = USR_MAPPER_PORT
         else:
-            port = DEVICE_MAPPER_PORT
+            port = DEV_MAPPER_PORT
         c = zerorpc.Client()
         c.connect(zmqaddr(addr, port))
         try:
@@ -71,11 +72,11 @@ class Router(object):
         finally:
             c.close()
     
-    def _get(self, addr, key, cls):
-        if cls == CLS_USER:
-            port = USER_MAPPER_PORT
+    def _get(self, addr, key, domain):
+        if domain == DOMAIN_USR:
+            port = USR_MAPPER_PORT
         else:
-            port = DEVICE_MAPPER_PORT
+            port = DEV_MAPPER_PORT
         c = zerorpc.Client()
         c.connect(zmqaddr(addr, port))
         try:
@@ -83,8 +84,8 @@ class Router(object):
         finally:
             c.close()
     
-    def get(self, key, cls=None):
-        if not EXTEND or not cls:
+    def get(self, key, domain=None):
+        if not EXTEND or not domain:
             if not self._servers:
                 log_err(self, 'failed to get')
                 raise Exception(log_get(self, 'failed to get'))
@@ -98,13 +99,13 @@ class Router(object):
             if addr:
                 return addr
             
-            if cls == CLS_USER:
+            if domain == DOMAIN_USR:
                 mapper = self._user_mapper
-            elif cls == CLS_DEVICE:
+            elif domain == DOMAIN_DEV:
                 mapper = self._device_mapper
             else:
-                log_err(self, 'failed to get, invalid cls')
-                raise Exception(log_get(self, 'failed to get, invalid cls'))
+                log_err(self, 'failed to get, invalid domain')
+                raise Exception(log_get(self, 'failed to get, invalid domain'))
             
             length = mapper.length()
             if length < GROUP_MAX:
@@ -118,21 +119,21 @@ class Router(object):
                 raise Exception(log_get(self, 'failed to get, invalid group size'))
             n = g * sz + randint(0, sz - 1)
             addr = mapper.get(n)
-            val = self._get(addr, key, cls)
+            val = self._get(addr, key, domain)
             if val:
                 if len(self._cache) >= CACHE_MAX:
                     self._cache.popitem()
                 self._cache.update({key:val})
                 return val
     
-    def _do_update_mappers(self, cls):
-        if cls == CLS_USER:
+    def _do_update_mappers(self, domain):
+        if domain == DOMAIN_USR:
             mapper = self._user_mapper
         else:
             mapper = self._device_mapper
         pos = mapper.length()
         addr = mapper.get(randint(0, pos - 1))
-        members = self._check_mappers(addr, pos, cls)
+        members = self._check_mappers(addr, pos, domain)
         if members:
             mapper.add_members(members, pos)
     
@@ -142,10 +143,10 @@ class Router(object):
             try:
                 time.sleep(WAIT_TIME)
                 if not cnt:
-                    self._do_update_mappers(CLS_USER)
+                    self._do_update_mappers(DOMAIN_USR)
                     cnt += 1
                 else:
-                    self._do_update_mappers(CLS_DEVICE)
+                    self._do_update_mappers(DOMAIN_DEV)
                     cnt = 0
             except:
                 pass

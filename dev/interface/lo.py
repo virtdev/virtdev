@@ -128,7 +128,7 @@ class Lo(UDI):
     def connect(self, device):
         return (connect(device), True)
     
-    def get_passive(self):
+    def get_passive_device(self):
         if not self._lo:
             return
         keys = self._lo.keys()

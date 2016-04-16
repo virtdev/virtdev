@@ -1,4 +1,4 @@
-#      vertex.py
+#      vrtx.py
 #      
 #      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -23,7 +23,7 @@ from  errno import EINVAL
 from lib.log import log_err
 from fuse import FuseOSError
 
-class Vertex(Entry):
+class Vrtx(Entry):
     def getattr(self, uid, name):
         return self.lsattr(uid, name, symlink=True)
     
@@ -43,11 +43,11 @@ class Vertex(Entry):
     def readlink(self, uid, name):
         return self.lslink(uid, name)
     
-    def initialize(self, uid, name, vertex):
-        if type(vertex) != list:
+    def initialize(self, uid, name, vrtx):
+        if type(vrtx) != list:
             log_err(self, 'failed to initialize')
             raise FuseOSError(EINVAL)
         
-        for i in vertex:
+        for i in vrtx:
             v = os.path.join(name, i)
             self.create(uid, v)

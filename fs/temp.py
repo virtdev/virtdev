@@ -18,8 +18,9 @@
 #      MA 02110-1301, USA.
 
 import os
-from conf.path import PATH_FS
-from lib.domains import TEMP, DOMAINS
+from conf.virtdev import PATH_VAR
+from lib.fields import TEMP, FIELDS
+from lib.util import DIR_MODE, FILE_MODE
 
 class Temp(object):
     def __init__(self, parent, rdonly):
@@ -40,18 +41,18 @@ class Temp(object):
                 ret += name[i]
         return ret
     
-    def _get_dir(self, uid, domain):
-        return os.path.join(PATH_FS, uid, TEMP, DOMAINS[domain])
+    def _get_dir(self, uid, field):
+        return os.path.join(PATH_VAR, uid, TEMP, FIELDS[field])
     
-    def _check_dir(self, uid, domain):
-        path = self._get_dir(uid, domain)
+    def _check_dir(self, uid, field):
+        path = self._get_dir(uid, field)
         if not os.path.exists(path):
-            os.makedirs(path, 0644)
+            os.makedirs(path, DIR_MODE)
         return path
     
     def _check_path(self, uid, name):
         name = self._get_name(name)
-        dirname = self._check_dir(uid, self._parent.domain)
+        dirname = self._check_dir(uid, self._parent.field)
         return self._get_path(dirname, name)
     
     def _get_path(self, dirname, name, suffix=''):
@@ -62,7 +63,7 @@ class Temp(object):
     
     def get_path(self, uid, name, suffix=''):
         name = self._get_name(name)
-        dirname = self._get_dir(uid, self._parent.domain)
+        dirname = self._get_dir(uid, self._parent.field)
         return self._get_path(dirname, name, suffix)
     
     def mtime(self, uid, name):
@@ -81,7 +82,7 @@ class Temp(object):
     
     def create(self, uid, name):
         path = self._check_path(uid, name)
-        ret = os.open(path, os.O_RDWR | os.O_CREAT, 0644)
+        ret = os.open(path, os.O_RDWR | os.O_CREAT, FILE_MODE)
         if ret >= 0 and self._watcher:
             self._watcher.push(path)
         return ret
@@ -99,10 +100,10 @@ class Temp(object):
             self._parent.load_file(uid, parent, path)
             if t:
                 self.set_mtime(uid, name, t)
-        mode = os.O_RDWR
+        flg = os.O_RDWR
         if flags & os.O_TRUNC:
-            mode |= os.O_TRUNC
-        ret = os.open(path, mode, 0644)
+            flg |= os.O_TRUNC
+        ret = os.open(path, flg, FILE_MODE)
         if ret >= 0 and self._watcher:
             self._watcher.register(path)
         return ret

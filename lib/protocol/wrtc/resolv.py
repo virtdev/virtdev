@@ -20,5 +20,5 @@
 import uuid
 
 class Resolv(object):
-    def get_addr(self, uid=None, node=None, networks=None):
+    def get_addr(self, uid, node):
         return uuid.uuid4().hex

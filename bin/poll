@@ -10,8 +10,9 @@ _path = os.path.dirname(_name)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
+from conf.virtdev import PATH_MNT
 from lib.operations import OP_POLL
-from conf.path import PATH_MOUNTPOINT
+
 
 def usage():
     print('usage: poll [uid]')
@@ -22,6 +23,6 @@ if __name__ == '__main__':
         usage()
         sys.exit()
     uid = sys.argv[1]
-    path = os.path.join(PATH_MOUNTPOINT, uid)
+    path = os.path.join(PATH_MNT, uid)
     ret = xattr.getxattr(path, OP_POLL)
     print(str(ret))

@@ -84,8 +84,8 @@ class ProcQueue(Queue):
         Queue.__init__(self, QUEUE_LEN)
         self._srv = srv
     
-    def proc(self, buf):
-        self._srv.proc(buf)
+    def proc(self, sock):
+        self._srv.proc(sock)
 
 class Proc(Thread):
     def _init_sock(self, addr):
@@ -112,7 +112,7 @@ class Proc(Thread):
                 if type(req) == dict:
                     device = None
                     if HA:
-                        device = self._manager.get_passive()
+                        device = self._manager.get_passive_device()
                     ret = _exec(device, req['code'], req['args'])
                     if ret:
                         res = ret

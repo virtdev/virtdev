@@ -19,16 +19,17 @@
 
 import os
 import time
+import struct
+import socket
 import psutil
 import signal
-from conf.path import PATH_RUN
 from lib.lock import NamedLock
 from subprocess import Popen, call
 from lib.log import log_err, log_get
 from websocket import create_connection
 from pynetlinux.ifconfig import Interface
 from lib.util import DEVNULL, ifaddr, named_lock
-from conf.virtdev import CONDUCTOR_PORT, BRIDGE_PORT
+from conf.virtdev import CONDUCTOR_PORT, BRIDGE_PORT, PATH_RUN
 
 NETSIZE = 30
 RETRY_MAX = 5
@@ -57,11 +58,7 @@ class Channel(object):
         return '%s.%s.%s.%d' % (fields[0], fields[1], fields[2], n + NETSIZE - 1)
     
     def _get_iface(self, addr): 
-        name = ''
-        fields = addr.split('.')
-        for i in range(1, 4):
-            name += '%02x' % int(fields[i])
-        return name
+        return '%08x' % struct.unpack('I', socket.inet_aton(addr))[0]
     
     def _get_channel(self, addr):
         return self._get_iface(addr)
@@ -86,8 +83,8 @@ class Channel(object):
         address = None
         for _ in range(RETRY_MAX):
             try:
-                ifname = self._get_iface(addr)
-                address = ifaddr(ifname)
+                iface = self._get_iface(addr)
+                address = ifaddr(iface)
                 if address:
                     return address
                 time.sleep(SLEEP_TIME)
@@ -116,7 +113,9 @@ class Channel(object):
         with open(PATH, 'w') as f:
             f.writelines(cfg)
         bridge = '%s:%d' % (bridge, BRIDGE_PORT)
-        pid = Popen(['edge', '-r', '-d', self._get_iface(addr), '-a', addr, '-s', NETMASK, '-c', self._get_channel(addr), '-k', key, '-l', bridge], stdout=DEVNULL, stderr=DEVNULL).pid
+        iface = self._get_iface(addr)
+        channel = self._get_channel(addr)
+        pid = Popen(['edge', '-r', '-d', iface, '-a', addr, '-s', NETMASK, '-c', channel, '-k', key, '-l', bridge], stdout=DEVNULL, stderr=DEVNULL).pid
         if CLEAN_DHCP:
             call(['killall', '-9', 'dhcpd'], stderr=DEVNULL, stdout=DEVNULL)
         call(['dhcpd', '-q'], stderr=DEVNULL, stdout=DEVNULL)
@@ -151,14 +150,16 @@ class Channel(object):
         else:
             address = self._get_reserved_address(addr)
         bridge = '%s:%d' % (bridge, BRIDGE_PORT)
-        pid = Popen(['edge', '-r', '-d', self._get_iface(addr), '-a', address, '-s', NETMASK, '-c', self._get_channel(addr), '-k', key, '-l', bridge], stdout=DEVNULL, stderr=DEVNULL).pid
+        iface = self._get_iface(addr)
+        channel = self._get_channel(addr)
+        pid = Popen(['edge', '-r', '-d', iface, '-a', address, '-s', NETMASK, '-c', channel, '-k', key, '-l', bridge], stdout=DEVNULL, stderr=DEVNULL).pid
         if not self._check_pid(pid):
             log_err(self, 'failed to connect')
             raise Exception(log_get(self, 'failed to connect'))
         with open(self._get_path(addr), 'w') as f:
             f.write(str(pid))
         if not static:
-            call(['dhclient', '-q', self._get_iface(addr)], stderr=DEVNULL, stdout=DEVNULL)
+            call(['dhclient', '-q', iface], stderr=DEVNULL, stdout=DEVNULL)
         return self._chkiface(addr)
     
     def _exist(self, addr):
@@ -220,8 +221,7 @@ class Channel(object):
             return
         with open(path, 'r') as f:
             pid = int(f.readlines()[0].strip())
-        iface = Interface(self._get_iface(addr))
-        iface.down()
+        Interface(self._get_iface(addr)).down()
         os.kill(pid, signal.SIGKILL)
         os.remove(path)
     

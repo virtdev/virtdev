@@ -11,8 +11,8 @@ _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
 from lib.util import cmd
+from conf.virtdev import PATH_MNT
 from lib.operations import OP_CLONE
-from conf.path import PATH_MOUNTPOINT
 
 def usage():
     print('usage: clone [uid] [parent]')
@@ -24,6 +24,6 @@ if __name__ == '__main__':
         sys.exit()
     uid = sys.argv[1]
     attr = {'parent':sys.argv[2]}
-    path = os.path.join(PATH_MOUNTPOINT, uid)
+    path = os.path.join(PATH_MNT, uid)
     ret = xattr.getxattr(path, cmd(OP_CLONE, attr))
     print(str(ret))

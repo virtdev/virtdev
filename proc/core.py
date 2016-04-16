@@ -22,20 +22,19 @@ from freq import Freq
 from mode import Mode
 from filter import Filter
 from parent import Parent
-from timeout import Timeout
-from threading import Event
 from handler import Handler
-from threading import Thread
+from timeout import Timeout
 from datetime import datetime
+from conf.log import LOG_CORE
 from lib.lock import NamedLock
 from dispatcher import Dispatcher
-from lib.log import log_get, log_err, log
-from lib.domains import DOMAIN_EDGE, DOMAIN_VERTEX
+from threading import Event, Thread
+from lib.fields import FIELD_EDGE, FIELD_VRTX
+from lib.log import log_debug, log_err, log_get
 from lib.util import named_lock, member_list, device_sync
 from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
 from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT, MODE_CLONE
 
-PRINT = False
 QUEUE_LEN = 2
 INSP_INTV = 5 # seconds
 WAIT_TIME = 0.1 # seconds
@@ -57,9 +56,9 @@ class Core(object):
         self._dispatcher = Dispatcher(self._uid, manager.channel, self)
         self._inspector.start()
     
-    def _print(self, text):
-        if PRINT:
-            log(log_get(self, text))
+    def _log(self, text):
+        if LOG_CORE:
+            log_debug(self, text)
     
     def _can_put(self, dest, src, flags):
         if flags & MODE_REFLECT:
@@ -69,13 +68,13 @@ class Core(object):
     
     def _check_paths(self, name):
         if not self._dispatcher.has_path(name):
-            edges = member_list(self._uid, name, DOMAIN_EDGE)
+            edges = member_list(self._uid, name, FIELD_EDGE)
             self._dispatcher.update_paths(name, edges)
     
     def _check_members(self, name):
         if not self._members.has_key(name):
             self._members[name] = {}
-            vertices = member_list(self._uid, name, DOMAIN_VERTEX)
+            vertices = member_list(self._uid, name, FIELD_VRTX)
             for i in vertices:
                 self._members[name][i] = []
     
@@ -236,12 +235,12 @@ class Core(object):
     def dispatch(self, name, buf):
         self._check_paths(name)
         if not self._dispatcher.check(name):
-            self._print('dispatch->send, name=%s' % name)
+            self._log('dispatch->send, name=%s' % name)
             self._dispatcher.send(name, buf)
         else:
             blocks = self._dispatcher.put(name, buf)
             if blocks and type(blocks) == list:
-                self._print('dispatch->send_blocks, name=%s' % name)
+                self._log('dispatch->send_blocks, name=%s' % name)
                 self._dispatcher.send_blocks(name, blocks)
     
     def get_oper(self, buf, mode):
@@ -276,7 +275,7 @@ class Core(object):
             for device in self._manager.devices:
                 dev = device.find(name)
                 if dev:
-                    self._print('handle, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
+                    self._log('handle, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
                     return dev.proc(name, oper, buf)
         else:
             return buf
@@ -340,7 +339,7 @@ class Core(object):
     
     def put(self, dest, src, buf, flags):
         if not buf:
-            self._print('put, no content, dest=%s, src=%s' % (dest, src))
+            self._log('put, no content, dest=%s, src=%s' % (dest, src))
             return
         res = None
         mode = self._mode.get(dest)
@@ -360,10 +359,10 @@ class Core(object):
             if not flags & MODE_REFLECT:
                 self.dispatch(dest, res)
             else:
-                self._print('put->sendto, dest=%s, src=%s' % (src, dest))
+                self._log('put->sendto, dest=%s, src=%s' % (src, dest))
                 self._dispatcher.sendto(src, dest, res, hidden=True, flags=flags)
         return True
     
     def sync(self, name, buf):
         device_sync(self._manager, name, buf)
-        self._print('sync, name=%s' % name)
+        self._log('sync, name=%s' % name)

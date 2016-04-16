@@ -1,6 +1,6 @@
 #      domains.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,16 +17,5 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-EDGE = 'e'
-TEMP = 't'
-DATA = 'd'
-VERTEX = 'v'
-ATTRIBUTE = 'a'
-
-DOMAIN_EDGE = 'edge'
-DOMAIN_TEMP = 'temp'
-DOMAIN_DATA = 'data'
-DOMAIN_VERTEX = 'vertex'
-DOMAIN_ATTRIBUTE = 'attribute'
-
-DOMAINS = {DOMAIN_VERTEX:VERTEX, DOMAIN_EDGE:EDGE, DOMAIN_DATA:DATA, DOMAIN_ATTRIBUTE:ATTRIBUTE, DOMAIN_TEMP:TEMP}
+DOMAIN_USR = 'U'
+DOMAIN_DEV = 'D'

@@ -44,7 +44,7 @@ def get_bridge(key):
 class ChannelQueue(Queue):
     def __init__(self):
         Queue.__init__(self, QUEUE_LEN)
-        
+    
     def proc(self, buf):
         put(*buf)
 
@@ -61,11 +61,11 @@ if POOL_SIZE > 0:
     pool = ChannelPool()
 
 def create(uid, addr, key):
-    bridge = get_bridge(uid)
+    bridge = get_bridge(key)
     return channel.create(addr, key, bridge)
 
 def connect(uid, addr, key, static=False, verify=False):
-    bridge = get_bridge(uid)
+    bridge = get_bridge(key)
     channel.connect(addr, key, static, verify, bridge)
 
 def disconnect(addr, release=False):
@@ -84,6 +84,6 @@ def push(uid, addr, op, args, token):
         pool.push((uid, addr, op, args, token))
     else:
         put(uid, addr, op, args, token)
-        
-def exist(self, addr):
+
+def exist(addr):
     return channel.exist(addr)

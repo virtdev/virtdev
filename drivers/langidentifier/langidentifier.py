@@ -1,6 +1,6 @@
-#      kwget.py
+#      langidentifier.py
 #      
-#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,29 +17,26 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
-from RAKE import Rake
+import langid
 from base64 import b64decode
 from dev.driver import Driver, check_output
 
 PRINT = False
-STOPWORDS = 'stoplist'
 
-class KWGet(Driver):
-    def setup(self):
-        path = os.path.join(os.path.dirname(__file__), STOPWORDS)
-        self._rake = Rake(path)
-    
-    def _get_keywords(self, text):
+class LangIdentifiyer(Driver):
+    def _get_lang(self, text):
         buf = b64decode(text)
-        keywords = self._rake.run(buf)
-        if PRINT:
-            print('KWGet: keywords=%s' % str(keywords))
-        return keywords
+        if buf:
+            doc = buf.decode('utf8')
+            lang = langid.classify(doc)[0]
+            if PRINT:
+                print('LangIdentifier: lang=%s' % lang)
+            return lang
     
     @check_output
     def put(self, args):
         text = args.get('content')
-        keywords = self._get_keywords(text)
-        if keywords:
-            return {'keywords':keywords}
+        if text:
+            lang = self._get_lang(text)
+            if lang:
+                return {'lang':lang}

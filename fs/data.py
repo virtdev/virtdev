@@ -21,10 +21,10 @@ from temp import Temp
 from entry import Entry
 
 class Data(Entry):
-    def __init__(self, vertex, edge, attr, router=None, core=None, rdonly=True):
+    def __init__(self, vrtx, edge, attr, router=None, core=None, rdonly=True):
         Entry.__init__(self, router, core)
         self._temp = Temp(self, rdonly)
-        self._vertex = vertex
+        self._vrtx = vrtx
         self._edge = edge
         self._attr = attr
     
@@ -50,7 +50,7 @@ class Data(Entry):
     
     def create(self, uid, name):
         self.check_path(uid, name)
-        self._vertex.check_path(uid, parent=name)
+        self._vrtx.check_path(uid, parent=name)
         self._edge.check_path(uid, parent=name)
         self._attr.check_path(uid, parent=name)
         return self._temp.create(uid, name)
@@ -66,7 +66,7 @@ class Data(Entry):
             self._core.remove(name)
     
     def unlink(self, uid, name):
-        self._vertex.remove(uid, name)
+        self._vrtx.remove(uid, name)
         self._edge.unlink(uid, name)
         self._attr.unlink(uid, name)
         self._temp.remove(uid, name)

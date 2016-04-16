@@ -63,7 +63,7 @@ def get(sock, local=False):
                     if len(buf) < STREAM_MAX:
                         buf += DLE
                     else:
-                        raise Exception('Invalid length of stream')
+                        raise Exception('Error: invalid length of stream')
             elif ch == STX:
                 start = True
                 buf = ''
@@ -79,4 +79,4 @@ def get(sock, local=False):
             if len(buf) < STREAM_MAX:
                 buf += ch
             else:
-                raise Exception('Invalid length of stream')
+                raise Exception('Error: invalid length of stream')

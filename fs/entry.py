@@ -23,19 +23,19 @@ from lib.log import log_err
 from fuse import FuseOSError
 from lib.util import path2temp
 from errno import EINVAL, ENOENT
-from conf.path import PATH_FS, PATH_MOUNTPOINT
-from lib.domains import DOMAINS, DOMAIN_DATA, DOMAIN_ATTRIBUTE
+from conf.virtdev import PATH_VAR, PATH_MNT
+from lib.fields import FIELDS, FIELD_DATA, FIELD_ATTR
 
 class Entry(object):
     def __init__(self, router=None, core=None):
-        if not os.path.exists(PATH_FS):
-            os.mkdir(PATH_FS)
+        if not os.path.exists(PATH_VAR):
+            os.mkdir(PATH_VAR)
         name = self.__class__.__name__.lower()
-        if name in DOMAINS:
-            self._domain = name
+        if name in FIELDS:
+            self._field = name
         else:
             log_err(self, 'invalid entry')
-            raise Exception('invalid entry')
+            raise Exception('Error: invalid entry')
         if not router:
             from local import LocalFile
             self._file = LocalFile()
@@ -49,8 +49,8 @@ class Entry(object):
         raise FuseOSError(EINVAL)
     
     @property
-    def domain(self):
-        return self._domain
+    def field(self):
+        return self._field
     
     def can_load(self):
         return False
@@ -73,17 +73,26 @@ class Entry(object):
     def can_disable(self):
         return False
     
-    def signature(self, uid, name):
-        self._undefined_op()
-    
-    def patch(self, uid, name, buf):
-        self._undefined_op()
-    
     def is_expired(self, uid, name):
         return False
     
     def release(self, uid, name, fh):
         pass
+    
+    def truncate(self, uid, name, length):
+        pass
+    
+    def drop(self, uid, name):
+        pass
+    
+    def update(self, uid, name):
+        pass
+    
+    def signature(self, uid, name):
+        self._undefined_op()
+    
+    def patch(self, uid, name, buf):
+        self._undefined_op()
     
     def get_mtime(self, uid, path):
         return self._file.mtime(uid, path)
@@ -105,20 +114,20 @@ class Entry(object):
         return str(name).split('/')[-1] 
     
     def real(self, name):
-        if self._domain == DOMAIN_DATA:
+        if self._field == FIELD_DATA:
             return name
-        elif self._domain == DOMAIN_ATTRIBUTE:
-            return os.path.join(self._domain, name)
+        elif self._field == FIELD_ATTR:
+            return os.path.join(self._field, name)
         else:
             tmp = name.split('/')
             if len(tmp) >= 2:
                 name = tmp[-2:]
             else:
                 name = tmp[0]
-            return os.path.join(self._domain, *name)
+            return os.path.join(self._field, *name)
     
     def get_path(self, uid, name='', parent=''):
-        return str(os.path.join(PATH_FS, uid, DOMAINS[self._domain], parent, name))
+        return str(os.path.join(PATH_VAR, uid, FIELDS[self._field], parent, name))
     
     def check_path(self, uid, name='', parent=''):
         path = self.get_path(uid, name, parent)
@@ -145,16 +154,13 @@ class Entry(object):
         path = self.get_path(uid, name)
         self._file.remove(uid, path)
     
-    def truncate(self, uid, name, length):
-        pass
-    
     def lsdir(self, uid, name):
         path = self.get_path(uid, name)
         return self._file.lsdir(uid, path)
     
     def lslink(self, uid, name):
         child = self.child(name)
-        return os.path.join(PATH_MOUNTPOINT, uid, self._domain, child)
+        return os.path.join(PATH_MNT, uid, self._field, child)
     
     def lsattr(self, uid, name, symlink=False):
         st = None
@@ -184,9 +190,3 @@ class Entry(object):
                     st['st_mode'] = mode
                     st['st_nlink'] = 2
         return st
-    
-    def drop(self, uid, name):
-        pass
-    
-    def update(self, uid, name):
-        pass

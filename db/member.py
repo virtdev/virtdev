@@ -18,18 +18,17 @@
 #      MA 02110-1301, USA.
 
 from threading import Lock
-from lib.log import log, log_get, log_err
-
-PRINT = False
+from conf.log import LOG_MEMBER
+from lib.log import log_debug, log_err
 
 class Member(object):
     def __init__(self):
         self.__members = []
         self.__lock = Lock()
     
-    def __print(self, text):
-        if PRINT:
-            log(log_get(self, text), time=True)
+    def _log(self, text):
+        if LOG_MEMBER:
+            log_debug(self, text)
     
     def get(self, pos):
         if pos >= 0 and pos < len(self.__members):
@@ -42,7 +41,7 @@ class Member(object):
         if not members or type(members) != list:
             log_err(self, 'invalid members')
             return
-        self.__print('set_members %s' % str(members))
+        self._log('set_members %s' % str(members))
         self.__lock.acquire()
         try:
             self.__members = members
@@ -55,7 +54,7 @@ class Member(object):
         if not members or type(members) != list:
             log_err(self, 'invalid members')
             return
-        self.__print('check_members %s (pos=%d)' % (str(members), pos))
+        self._log('check_members %s (pos=%d)' % (str(members), pos))
         self.__lock.acquire()
         try:
             if len(self.__members) != pos:
@@ -71,7 +70,7 @@ class Member(object):
         if not members or type(members) != list:
             log_err(self, 'invalid members')
             return
-        self.__print('add_members %s (pos=%d)' % (str(members), pos))
+        self._log('add_members %s (pos=%d)' % (str(members), pos))
         self.__lock.acquire()
         try:
             if len(self.__members) != pos:
@@ -87,7 +86,7 @@ class Member(object):
             self.__lock.release()
     
     def get_members(self, pos):
-        self.__print('get_members (pos=%d)' % pos)
+        self._log('get_members (pos=%d)' % pos)
         self.__lock.acquire()
         try:
             if pos < len(self.__members):

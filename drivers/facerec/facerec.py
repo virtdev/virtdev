@@ -21,8 +21,8 @@ import cv2
 import numpy
 from PIL import Image
 from base64 import b64decode
-from dev.driver import Driver
 from StringIO import StringIO
+from dev.driver import Driver, check_output
 
 PRINT = False
 RESIZE = False
@@ -52,18 +52,10 @@ class FaceRec(Driver):
             if PRINT:
                 print('FaceRec: failed to recognize')
     
-    def put(self, buf):
-        args = self.get_args(buf)
-        if args and type(args) == dict:
-            image = args.get('content')
-            if self._recognize(image):
-                ret = {'enable':'true'}
-            else:
-                ret = {'enable': 'false'}
-            name = args.get('name')
-            if name:
-                ret.update({'name':name})
-            timer = args.get('timer')
-            if timer:
-                ret.update({'timer':timer})
-            return ret
+    @check_output
+    def put(self, args):
+        image = args.get('content')
+        if self._recognize(image):
+            return {'enable':'true'}
+        else:
+            return {'enable': 'false'}

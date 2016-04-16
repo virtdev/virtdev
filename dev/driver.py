@@ -26,8 +26,43 @@ from dev.req import REQ_OPEN, REQ_CLOSE, REQ_GET, REQ_PUT, REQ_MOUNT, parse
 FREQ_MIN = 1 # HZ
 FREQ_MAX = 100 # HZ
 
+def _get_arguments(buf):
+    try:
+        args = ast.literal_eval(buf)
+        if type(args) != dict:
+            return
+        return args
+    except:
+        pass
+
 def has_freq(mode):
     return mode & MODE_POLL or (mode & MODE_TRIG and mode & MODE_PASSIVE)
+
+def check_input(func):
+    def _check_input(*args, **kwargs):
+        self = args[0]
+        buf = args[1]
+        arguments = _get_arguments(buf)
+        if arguments:
+            return func(self, arguments)
+    return _check_input
+
+def check_output(func):
+    def _check_output(*args, **kwargs):
+        self = args[0]
+        buf = args[1]
+        arguments = _get_arguments(buf)
+        if arguments:
+            ret = func(self, arguments)
+            if ret and type(ret) == dict:
+                name = arguments.get('name')
+                if name:
+                    ret.update({'name':name})
+                timer = arguments.get('timer')
+                if timer:
+                    ret.update({'timer':timer})
+                return ret
+    return _check_output
 
 class Driver(object):
     def __init__(self, name=None, mode=MODE_IV, freq=None, spec=None):
@@ -89,15 +124,6 @@ class Driver(object):
     
     def get_mode(self):
         return self.__mode | MODE_LO
-    
-    def get_args(self, buf):
-        try:
-            args = ast.literal_eval(buf)
-            if type(args) not in [dict, list]:
-                return
-            return args
-        except:
-            pass
     
     def get_index(self):
         return self.__index

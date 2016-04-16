@@ -20,7 +20,7 @@
 import os
 import wget
 from threading import Thread
-from dev.driver import Driver
+from dev.driver import Driver, check_output
 
 PRINT = False
 PATH_DOWNLOADER = "/opt/downloads"
@@ -43,22 +43,9 @@ class Downloader(Driver):
         Thread(target=self._do_download, args=(url,)).start()
         return True
     
-    def put(self, buf):
-        args = self.get_args(buf)
-        if args and type(args) == dict:
-            url = args.get('url')
-            name = args.get('name')
-            if url:
-                if self._download(url):
-                    if name:
-                        ret = {'name':name, 'enable':'true'}
-                    else:
-                        ret = {'enable':'true'}
-                    timer = args.get('timer')
-                    if timer:
-                        ret.update({'timer':timer})
-                    return ret
-                    
-        else:
-            if PRINT:
-                print('Downloader: invalid args')
+    @check_output
+    def put(self, args):
+        url = args.get('url')
+        if url:
+            if self._download(url):
+                return {'enable':'true'}
