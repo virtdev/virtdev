@@ -32,10 +32,10 @@ from lib.util import DEVNULL, ifaddr, named_lock
 from conf.virtdev import CONDUCTOR_PORT, BRIDGE_PORT, PATH_RUN
 
 NETSIZE = 30
-RETRY_MAX = 5
-SLEEP_TIME = 2 # seconds
+RETRY_MAX = 10
+SLEEP_TIME = 3 # seconds
 CONNECT_MAX = 1
-CHANNEL_MAX = 4096
+CHANNEL_MAX = 1024
 CREATE_RETRY = 1
 CHECK_INTERVAL = 0.1 #seconds
 CONNECT_INTERVAL = 5 # seconds
@@ -165,13 +165,15 @@ class Channel(object):
     def _exist(self, addr):
         addr = "ws://%s:%d" % (addr, CONDUCTOR_PORT)
         for _ in range(CONNECT_MAX):
+            ws = None
             try:
                 ws = create_connection(addr)
                 return True
             except:
                 time.sleep(CONNECT_INTERVAL)
             finally:
-                ws.close()
+                if ws:
+                    ws.close()
     
     def _do_release(self, addr):
         self._disconnect(addr)

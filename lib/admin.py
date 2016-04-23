@@ -1,6 +1,6 @@
 #      admin.py
 #      
-#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -18,13 +18,13 @@
 #      MA 02110-1301, USA.
 
 import uuid
-from domains import *
 from db.userdb import UserDB
 from db.marker import Marker
 from db.router import Router
+from domains import DOMAIN_USR
 from conf.virtdev import META_SERVERS, AREA_CODE
 
-class User(object):
+class UserInfo(object):
     def __init__(self):
         router = Router(META_SERVERS, sync=False)
         self._user = UserDB(router)
@@ -40,12 +40,12 @@ class User(object):
     def get_password(self, user):
         return self._user.get(user, 'password')
 
-_user = User()
+_user_info = UserInfo()
 
 def create_user(user, password):
     uid = uuid.uuid4().hex
-    if not _user.add(user, password, uid):
+    if not _user_info.add(user, password, uid):
         raise Exception('Error: failed to create user %s' % user)
 
 def get_password(user):
-    return _user.get_password(user)
+    return _user_info.get_password(user)

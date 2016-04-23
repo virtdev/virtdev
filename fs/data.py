@@ -1,6 +1,6 @@
 #      data.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ class Data(Entry):
     def initialize(self, uid, name):
         f = self.create(uid, name)
         self.release(uid, name, f)
-        
+    
     def drop(self, uid, name):
         return self._temp.drop(uid, name)
     

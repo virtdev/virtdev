@@ -1,6 +1,6 @@
 #      mount.py
 #      
-#      Copyright (C) 2014-2016 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -25,9 +25,10 @@ from lib.log import log
 from subprocess import call
 from db.router import Router
 from conf.log import LOG_MOUNT
+from lib.protocols import PROTOCOL_WRTC
 from conf.virtdev import PATH_MNT, PATH_RUN, PATH_LIB
 from lib.util import DEVNULL, srv_start, srv_join, close_port, ifaddr
-from conf.virtdev import LO, FS, SHADOW, EXTEND, IFBACK, ADAPTER_PORT
+from conf.virtdev import LO, FS, SHADOW, EXTEND, IFBACK, ADAPTER_PORT, PROTOCOL, EXPOSE
 from conf.virtdev import MASTER, DISTRIBUTOR, DATA_SERVER, USR_FINDER, USR_MAPPER, DEV_FINDER, DEV_MAPPER
 from conf.virtdev import META_SERVERS, DATA_SERVERS, CACHE_SERVERS, ROOT_SERVERS, BRIDGE_SERVERS, BROKER_SERVERS, WORKER_SERVERS
 
@@ -36,6 +37,10 @@ def _clean():
     channel.clean()
     addr = ifaddr()
     baddr = ifaddr(ifname=IFBACK)
+    
+    if not SHADOW and addr in BRIDGE_SERVERS:
+        import bridge
+        bridge.clean()
     
     ports.append(ADAPTER_PORT)
     if not SHADOW and addr in CACHE_SERVERS:
@@ -103,11 +108,9 @@ def _clean():
         close_port(i)
 
 def _check_settings():
-    from lib.protocols import PROTOCOL_WRTC
-    from conf.virtdev import PROTOCOL, EXPOSE
     if not SHADOW and EXPOSE and PROTOCOL != PROTOCOL_WRTC:
         raise Exception('Error: invalid settings')
-    
+
 def _mount(query, router):
     from fuse import FUSE
     from fs.vdfs import VDFS
@@ -125,7 +128,7 @@ def _mount(query, router):
         os.makedirs(PATH_LIB, 0o755)
     
     if LOG_MOUNT:
-        log('Mounting VDFS ...')
+        log('starting vdfs ...')
     
     FUSE(VDFS(query, router), PATH_MNT, foreground=True)
 
@@ -166,9 +169,8 @@ def mount():
         srv.append(CacheServer())
     
     if not SHADOW and addr in BRIDGE_SERVERS:
-        from bridge import bridge
-        if bridge:
-            srv.append(bridge)
+        import bridge
+        srv.append(bridge.bridge)
     
     if DATA_SERVER or addr in DATA_SERVERS:
         from event.collector import EventCollector

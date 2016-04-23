@@ -29,18 +29,19 @@ from service.key import Key
 from threading import Thread
 from service.user import User
 from service.node import Node
+from conf.log import LOG_WORKER
 from service.token import Token
 from service.guest import Guest
 from service.device import Device
+from lib.log import log_debug, log_err
 from conf.virtdev import REQUESTER_PORT
-from multiprocessing import TimeoutError
-from lib.log import log, log_err, log_get
 from multiprocessing.pool import ThreadPool
+from multiprocessing import TimeoutError, cpu_count
 from lib.util import UID_SIZE, send_pkt, recv_pkt, unicode2str
 
 TIMEOUT = 120 # seconds
 QUEUE_LEN = 2
-POOL_SIZE = 32
+POOL_SIZE = cpu_count() * 4
 
 class WorkerQueue(Queue):
     def __init__(self, srv):
@@ -74,6 +75,10 @@ class Worker(Thread):
         self._add_service(Guest(query))
         self._add_service(Token(query))
         self._add_service(Device(query))
+    
+    def _log(self, text):
+        if LOG_WORKER:
+            log_debug(self, text)
     
     def _add_service(self, srv):
         self._services.update({str(srv):srv})
@@ -120,7 +125,7 @@ class Worker(Thread):
             sock.close()
     
     def run(self):
-        log(log_get(self, 'start ...'))
+        self._log('start ...')
         while True:
             try:
                 sock, _ = self._sock.accept()

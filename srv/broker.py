@@ -1,6 +1,6 @@
 #      broker.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -24,8 +24,9 @@ import time
 from lib.ppp import *
 from threading import Thread
 from lib.util import zmqaddr
+from conf.log import LOG_BROKER
 from collections import OrderedDict
-from lib.log import log, log_get, log_err
+from lib.log import log_debug, log_err
 from zmq import Poller, Context, ROUTER, POLLIN
 from conf.virtdev import ROOT_PORT, BROKER_PORT
 
@@ -74,6 +75,10 @@ class Broker(Thread):
         self._baddr = baddr
         self._initialize()
     
+    def _log(self, text):
+        if LOG_BROKER:
+            log_debug(self, text)
+    
     def _initialize(self):
         self._context = Context(1)
         self._queue = BrokerQueue()
@@ -98,7 +103,7 @@ class Broker(Thread):
         self._poller2.register(self._frontend, POLLIN)
     
     def run(self):
-        log(log_get(self, 'start ...'))
+        self._log('start ...')
         timeout = time.time() + PPP_HEARTBEAT_INTERVAL
         while self._active:
             if len(self._queue.queue) > 0:

@@ -1,6 +1,6 @@
 #      bridge.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -28,3 +28,6 @@ if PROTOCOL == PROTOCOL_N2N:
 elif PROTOCOL == PROTOCOL_WRTC:
     from protocol.wrtc.bridge import Bridge as WRTCBridge
     bridge = WRTCBridge()
+
+def clean():
+    bridge.clean()

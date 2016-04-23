@@ -1,6 +1,6 @@
 #      distributor.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -28,13 +28,15 @@ from lib import bson
 from lib.ppp import *
 from random import randint
 from threading import Thread
-from lib.log import log_err, log_get, log
+from conf.log import LOG_DISTRIBUTOR
+from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
+from lib.log import log_debug, log_err, log_get
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
 from conf.virtdev import BROKER_SERVERS, BROKER_PORT, WORKER_SERVERS, REQUESTER_PORT
 from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, hash_name, send_pkt, recv_pkt, unicode2str
 
-POOL_SIZE = 64
+POOL_SIZE = cpu_count() * 4
 SLEEP_TIME = 10 # seconds
 
 class Distributor(Thread):        
@@ -44,6 +46,10 @@ class Distributor(Thread):
         self._identity = bytes(uuid.uuid4())
         self._query = query
         self._init_sock()
+    
+    def _log(self, text):
+        if LOG_DISTRIBUTOR:
+            log_debug(self, text)
     
     def _init_sock(self):
         self._context = Context(1)
@@ -127,7 +133,7 @@ class Distributor(Thread):
             log_err(self, 'failed to process')
     
     def run(self):
-        log(log_get(self, 'start ...'))
+        self._log('start ...')
         liveness = PPP_HEARTBEAT_LIVENESS
         timeout = time.time() + PPP_HEARTBEAT_INTERVAL
         while True:

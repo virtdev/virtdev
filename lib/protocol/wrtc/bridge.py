@@ -31,3 +31,6 @@ class Bridge(Thread):
             call(['mosquitto', '-p', str(BRIDGE_PORT), '-c', PATH_MQTT], stderr=DEVNULL, stdout=DEVNULL)
         else:
             call(['mosquitto', '-p', str(BRIDGE_PORT)], stderr=DEVNULL, stdout=DEVNULL)
+    
+    def clean(self):
+        pass

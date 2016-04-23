@@ -25,3 +25,6 @@ from conf.virtdev import BRIDGE_PORT
 class Bridge(Thread):
     def run(self):
         call(['supernode', '-l', str(BRIDGE_PORT)], stderr=DEVNULL, stdout=DEVNULL)
+    
+    def clean(self):
+        call(['killall', '-9', 'supernode'], stderr=DEVNULL, stdout=DEVNULL)

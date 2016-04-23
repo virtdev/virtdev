@@ -1,6 +1,6 @@
 #      queue.py
 #      
-#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -30,8 +30,12 @@ class Queue(object):
         self.__timeout = timeout
         self.__event = Event()
         self.__lock = Lock()
+        self.__parent = None
         self.__queue = []
         self.__thread.start()
+    
+    def set_parent(self, parent):
+        self.__parent = parent
     
     def proc(self, buf):
         pass
@@ -95,6 +99,8 @@ class Queue(object):
         while True:
             self.__event.wait()
             buf = self.__pop()
+            if self.__parent:
+                self.__parent.wakeup()
             if buf:
                 try:
                     self.__proc(buf)

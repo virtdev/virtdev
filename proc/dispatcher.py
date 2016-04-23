@@ -1,6 +1,6 @@
 #      dispatcher.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -45,8 +45,11 @@ class DispatcherQueue(Queue):
         self._dispatcher.add_source(buf[0])
     
     def proc(self, buf):
-        self._dispatcher.remove_source(buf[0])
-        self._core.put(*buf)
+        try:
+            self._dispatcher.remove_source(buf[0])
+            self._core.put(*buf)
+        except:
+            log_err(self, 'failed to process')
 
 class Dispatcher(object):
     def __init__(self, uid, channel, core, addr=PROC_ADDR):
@@ -101,14 +104,17 @@ class Dispatcher(object):
     
     def _send(self, dest, src, buf, flags):
         self._log('send, dest=%s, src=%s' % (dest, src))
-        if POOL_SIZE:
-            if self._check_source(src):
-                queue = self._pool.select(src)
-                queue.insert((dest, src, buf, flags))
+        try:
+            if POOL_SIZE:
+                if self._check_source(src):
+                    queue = self._pool.select(src)
+                    queue.insert((dest, src, buf, flags))
+                else:
+                    self._pool.push((dest, src, buf, flags))
             else:
-                self._pool.push((dest, src, buf, flags))
-        else:
-            self._core.put(dest, src, buf, flags)
+                self._core.put(dest, src, buf, flags)
+        except:
+            log_err(self, 'failed to send, dest=%s, src=%s' % (dest, src))
     
     def add_edge(self, edge, hidden=False):
         src = edge[0]
@@ -134,7 +140,7 @@ class Dispatcher(object):
                 self._channel.connect(dest)
         else:
             self._paths[src][dest] += 1
-        self._log('add_edge, edge=%s, local=%s' % (str(edge), str(local)))
+        self._log('add edge, edge=%s, local=%s' % (str(edge), str(local)))
     
     def remove_edge(self, edge, hidden=False):
         src = edge[0]
@@ -152,7 +158,7 @@ class Dispatcher(object):
             del self._paths[src][dest]
             if not local:
                 self._channel.disconnect(dest)
-        self._log('remove_edge, edge=%s, local=%s' % (str(edge), str(local)))
+        self._log('remove edge, edge=%s, local=%s' % (str(edge), str(local)))
     
     def remove_edges(self, name):
         paths = self._shown.get(name)
@@ -177,7 +183,7 @@ class Dispatcher(object):
         else:
             local = self._shown[src][dest]
         if not local:
-            self._log('sendto->push, dest=%s, src=%s' % (dest, src))
+            self._log('sendto, dest=%s, src=%s' % (dest, src))
             self._channel.push(dest, dest=dest, src=src, buf=buf, flags=flags)
         else:
             self._send(dest, src, buf, flags)
@@ -190,7 +196,7 @@ class Dispatcher(object):
             return
         for i in dest:
             if not dest[i]:
-                self._log('send->push, dest=%s, src=%s' % (i, name))
+                self._log('send, dest=%s, src=%s' % (i, name))
                 self._channel.push(i, dest=i, src=name, buf=buf, flags=flags)
             else:
                 self._send(i, name, buf, flags)
@@ -212,7 +218,7 @@ class Dispatcher(object):
             for _ in range(window):
                 if blocks[cnt]:
                     if not dest[i]:
-                        self._log('send_blocks->push, dest=%s, src=%s' % (i, name))
+                        self._log('send blocks, dest=%s, src=%s' % (i, name))
                         self._channel.push(i, dest=i, src=name, buf=blocks[cnt], flags=0)
                     else:
                         self._send(i, name, blocks[cnt], 0)

@@ -1,6 +1,6 @@
 #      core.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -18,15 +18,15 @@
 #      MA 02110-1301, USA.
 
 import time
-from freq import Freq
-from mode import Mode
-from filter import Filter
-from parent import Parent
-from handler import Handler
-from timeout import Timeout
-from datetime import datetime
+from attr.freq import Freq
+from attr.mode import Mode
 from conf.log import LOG_CORE
+from datetime import datetime
 from lib.lock import NamedLock
+from attr.filter import Filter
+from attr.parent import Parent
+from attr.handler import Handler
+from attr.timeout import Timeout
 from dispatcher import Dispatcher
 from threading import Event, Thread
 from lib.fields import FIELD_EDGE, FIELD_VRTX
@@ -35,9 +35,8 @@ from lib.util import named_lock, member_list, device_sync
 from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
 from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT, MODE_CLONE
 
-QUEUE_LEN = 2
 INSP_INTV = 5 # seconds
-WAIT_TIME = 0.1 # seconds
+QUEUE_LEN = 2
 
 class Core(object):
     def __init__(self, manager):
@@ -74,8 +73,8 @@ class Core(object):
     def _check_members(self, name):
         if not self._members.has_key(name):
             self._members[name] = {}
-            vertices = member_list(self._uid, name, FIELD_VRTX)
-            for i in vertices:
+            members = member_list(self._uid, name, FIELD_VRTX)
+            for i in members:
                 self._members[name][i] = []
     
     def _count(self, name):
@@ -235,12 +234,12 @@ class Core(object):
     def dispatch(self, name, buf):
         self._check_paths(name)
         if not self._dispatcher.check(name):
-            self._log('dispatch->send, name=%s' % name)
+            self._log('dispatch, name=%s' % name)
             self._dispatcher.send(name, buf)
         else:
             blocks = self._dispatcher.put(name, buf)
             if blocks and type(blocks) == list:
-                self._log('dispatch->send_blocks, name=%s' % name)
+                self._log('dispatch blocks, name=%s' % name)
                 self._dispatcher.send_blocks(name, blocks)
     
     def get_oper(self, buf, mode):
@@ -287,30 +286,39 @@ class Core(object):
         return self._handler.put(name, buf)
     
     def _proc(self, name, buf):
-        if not self.has_handler(name):
-            return self._handle(name, buf)
-        else:
-            return self.handle(name, buf)
+        try:
+            if not self.has_handler(name):
+                return self._handle(name, buf)
+            else:
+                return self.handle(name, buf)
+        except:
+            log_err(self, 'failed to process, name=%s' % name)
     
     def _get_args(self, dest, src, buf, flags):
-        args = {}
-        args[src] = buf
-        if not flags & MODE_REFLECT:
-            for i in self._members[dest]:
-                if i != src and len(self._members[dest][i]) > 0:
-                    args[i] = self._members[dest][i][0][0]
-                    self._members[dest][i].pop(0)
-                    self._set_event(dest, i)
-        return args
+        try:
+            args = {}
+            args[src] = buf
+            if not flags & MODE_REFLECT:
+                for i in self._members[dest]:
+                    if i != src and len(self._members[dest][i]) > 0:
+                        args[i] = self._members[dest][i][0][0]
+                        self._members[dest][i].pop(0)
+                        self._set_event(dest, i)
+            return args
+        except:
+            log_err(self, 'failed to get args, dest=%s, src=%s' % (dest, src))
     
     def _pop_args(self, name):
-        args = {}
-        for i in self._members[name]:
-            if len(self._members[name][i]) > 0:
-                args[i] = self._members[name][i][0][0]
-                self._members[name][i].pop(0)
-                self._set_event(name, i)
-        return args
+        try:
+            args = {}
+            for i in self._members[name]:
+                if len(self._members[name][i]) > 0:
+                    args[i] = self._members[name][i][0][0]
+                    self._members[name][i].pop(0)
+                    self._set_event(name, i)
+            return args
+        except:
+            log_err(self, 'failed to pop args, name=%s' % name)
     
     def _check_queue(self, dest, src):
         while len(self._members[dest][src]) >= QUEUE_LEN:
@@ -323,19 +331,22 @@ class Core(object):
             self._put_event(dest, src)
     
     def _try_put(self, dest, src, buf, flags):
-        args = None
-        if not self._is_ready(dest, src, flags):
-            self._check_queue(dest, src)
-            self._members[dest][src].append((buf, datetime.utcnow()))
-            if self._check_timeout(dest):
-                args = self._pop_args(dest)
-        else:
-            args = self._get_args(dest, src, buf, flags)
-        if args:
-            if self._filter.check(dest):
-                args = self._filter.put(dest, args)
-            if args and type(args) == dict:
-                return self._proc(dest, args)
+        try:
+            args = None
+            if not self._is_ready(dest, src, flags):
+                self._check_queue(dest, src)
+                self._members[dest][src].append((buf, datetime.utcnow()))
+                if self._check_timeout(dest):
+                    args = self._pop_args(dest)
+            else:
+                args = self._get_args(dest, src, buf, flags)
+            if args:
+                if self._filter.check(dest):
+                    args = self._filter.put(dest, args)
+                if args and type(args) == dict:
+                    return self._proc(dest, args)
+        except:
+            log_err(self, 'failed to put, dest=%s, src=%s' % (dest, src))
     
     def put(self, dest, src, buf, flags):
         if not buf:
@@ -359,7 +370,7 @@ class Core(object):
             if not flags & MODE_REFLECT:
                 self.dispatch(dest, res)
             else:
-                self._log('put->sendto, dest=%s, src=%s' % (src, dest))
+                self._log('put, dest=%s, src=%s' % (src, dest))
                 self._dispatcher.sendto(src, dest, res, hidden=True, flags=flags)
         return True
     

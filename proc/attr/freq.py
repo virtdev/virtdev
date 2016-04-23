@@ -1,4 +1,4 @@
-#      bt.py
+#      freq.py
 #      
 #      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,39 +17,34 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import time
-import bluetooth
-from conf.virtdev import BT_PORT
+from lib.log import log_debug
+from conf.log import LOG_FREQ
+from lib.loader import Loader
+from lib.attributes import ATTR_FREQ
 
-TIMEOUT = 0.5
-WAIT_TIME = 0.5 # seconds
-
-class BluetoothSocket(object):
-    def __init__(self, name):
-        self._socket = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-        self._socket.connect((name, BT_PORT))
-        self._socket.settimeout(TIMEOUT)
+class Freq(object):
+    def __init__(self, uid):
+        self._freq = {}
+        self._loader = Loader(uid)
+        
+    def _log(self, text):
+        if LOG_FREQ:
+            log_debug(self, text)
     
-    def sendall(self, buf):
-        if self._socket:
-            self._socket.sendall(buf)
+    def _get(self, name):
+        freq = self._loader.get_attr(name, ATTR_FREQ, float)
+        if freq != None:
+            self._freq[name] = freq
+            self._log('name=%s, freq=%s' % (str(name), str(freq)))
+            return freq
     
-    def send(self, buf):
-        if self._socket:
-            self._socket.send(buf)
+    def get(self, name):
+        if self._freq.has_key(name):
+            ret = self._freq.get(name)
+            if ret != None:
+                return ret
+        return self._get(name)
     
-    def recv(self, length):
-        if self._socket:
-            return self._socket.recv(length)
-    
-    def close(self):
-        try:
-            if self._socket:
-                self._socket.close()
-                self._socket = None
-                time.sleep(WAIT_TIME)
-        except:
-            pass
-    
-    def __del__(self):
-        self.close()
+    def remove(self, name):
+        if self._freq.has_key(name):
+            del self._freq[name]

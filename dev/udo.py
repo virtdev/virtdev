@@ -1,6 +1,6 @@
 #      udo.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -103,17 +103,18 @@ class UDO(object):
             buf = device.check_output(output)
             return (device, buf)
         except:
+            log_err(self, 'failed to read, name=%s' % self.d_name)
             return empty
     
     def _write(self, buf):
         if not buf:
-            log_err(self, 'failed to write')
+            log_err(self, 'failed to write, no data, name=%s' % self.d_name)
             return
         try:
             stream.put(self._sock, buf, self._local)
             return True
         except:
-            pass
+            log_err(self, 'failed to write, name=%s' % self.d_name)
     
     def _initialize(self):
         if self._children:
@@ -146,7 +147,7 @@ class UDO(object):
         
         if not self._children:
             mount_device(self._uid, self.d_name, mode, freq, prof)
-            self._log('mount->type=%s [%s*]' % (self.d_type, self.d_name[:8]))
+            self._log('mount %s [%s*]' % (self.d_type, self.d_name[:8]))
     
     @property
     def d_name(self):
@@ -347,13 +348,24 @@ class UDO(object):
                         res = None
                         name = device.d_name
                         if mode & MODE_SYNC:
-                            self._core.sync(name, buf)
+                            try:
+                                self._core.sync(name, buf)
+                            except:
+                                log_err(self, 'failed to sync, name=%s' % name)
+                                continue
                         if self._core.has_handler(name):
-                            res = self._core.handle(name, {name:buf})
+                            try:
+                                res = self._core.handle(name, {name:buf})
+                            except:
+                                log_err(self, 'failed to handle, name=%s' % name)
+                                continue
                         else:
                             res = buf
                         if res:
-                            self._core.dispatch(name, res)
+                            try:
+                                self._core.dispatch(name, res)
+                            except:
+                                log_err(self, 'failed to dispatch, name=%s' % name)
         except:
             log_err(self, 'failed to listen, device=%s' % self.d_name)
             self._sock.close()

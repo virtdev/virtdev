@@ -1,6 +1,6 @@
 #      proc.py
 #      
-#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -24,11 +24,12 @@ from conf.virtdev import HA
 from lib.queue import Queue
 from lib.log import log, log_err
 from threading import Lock, Thread
+from multiprocessing import cpu_count
 from RestrictedPython import compile_restricted
 from lib.util import send_pkt, recv_pkt, unicode2str
 
 QUEUE_LEN = 2
-POOL_SIZE = 32
+POOL_SIZE = cpu_count() * 2
 
 def put(addr, **args):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -1,6 +1,6 @@
 #      vdfs.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -27,12 +27,13 @@ from edge import Edge
 from data import Data
 from vrtx import Vrtx
 from errno import EINVAL
+from conf.log import LOG_VDFS
 from lib.loader import Loader
 from lib.lock import NamedLock
 from dev.driver import FREQ_MAX
 from dev.manager import Manager
 from conf.virtdev import EXPOSE
-from lib.log import log_err, log
+from lib.log import log_debug, log_err
 from fuse import FuseOSError, Operations
 from dev.interface.lo import device_name
 from lib.util import DIR_MODE, named_lock, load_driver
@@ -51,8 +52,8 @@ TIMEOUT_MAX = 600 # seconds
 
 def show_path(func):
     def _show_path(*args, **kwargs):
-        path = args[1]
-        log('%s: path=%s' % (func.func_name, str(path)), time=True)
+        if LOG_VDFS:
+            log_debug(func.func_name, 'path=' + str(args[1]), time=True)
         return func(*args, **kwargs)
     return _show_path
 

@@ -1,6 +1,6 @@
-#      parent.py
+#      mode.py
 #      
-#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,27 +17,34 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from lib.log import log_debug
+from conf.log import LOG_MODE
 from lib.loader import Loader
-from lib.attributes import ATTR_PARENT
+from lib.attributes import ATTR_MODE
 
-class Parent(object):
+class Mode(object):
     def __init__(self, uid):
-        self._parent = {}
+        self._mode = {}
         self._loader = Loader(uid)
     
+    def _log(self, text):
+        if LOG_MODE:
+            log_debug(self, text)
+    
     def _get(self, name):
-        parent = self._loader.get_attr(name, ATTR_PARENT, str)
-        if parent != None:
-            self._parent[name] = parent
-            return parent
+        mode = self._loader.get_attr(name, ATTR_MODE, int)
+        if mode != None:
+            self._mode[name] = mode
+            self._log('name=%s, mode=%s' % (str(name), str(mode)))
+            return mode
     
     def get(self, name):
-        if self._parent.has_key(name):
-            ret = self._parent.get(name)
+        if self._mode.has_key(name):
+            ret = self._mode.get(name)
             if ret != None:
                 return ret
         return self._get(name)
     
     def remove(self, name):
-        if self._parent.has_key(name):
-            del self._parent[name]
+        if self._mode.has_key(name):
+            del self._mode[name]

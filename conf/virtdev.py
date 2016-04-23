@@ -3,7 +3,9 @@ LO = True
 BT = False
 HA = False
 USB = False
+
 RSYNC = False
+HADOOP = True
 SHADOW = False
 EXPOSE = False
 MASTER = False
@@ -15,10 +17,6 @@ DEV_FINDER = False
 DEV_MAPPER = False
 DISTRIBUTOR = True
 DATA_SERVER = False
-
-LOG_ERR = True
-LOG_DEBUG = True
-LOG_WARNNING = False
 
 BT_PORT = 1
 LO_PORT = 15101

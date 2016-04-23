@@ -1,6 +1,6 @@
-#      timeout.py
+#      hbase.py
 #      
-#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,27 +17,24 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from lib.loader import Loader
-from lib.attributes import ATTR_TIMEOUT
+from database import Database
+from happybase import ConnectionPool
+from multiprocessing import cpu_count
 
-class Timeout(object):
-    def __init__(self, uid):
-        self._timeout = {}
-        self._loader = Loader(uid)
+POOL_SIZE = cpu_count() * 2
+
+class HBase(Database):
+    def connect(self, addr):
+        return ConnectionPool(size=POOL_SIZE, host=addr)
     
-    def _get(self, name):
-        timeout = self._loader.get_attr(name, ATTR_TIMEOUT, float)
-        if timeout != None:
-            self._timeout[name] = timeout
-            return timeout
+    def get_table(self, conn, table):
+        return conn.table(table)
     
-    def get(self, name):
-        if self._timeout.has_key(name):
-            ret = self._timeout.get(name)
-            if ret != None:
-                return ret
-        return self._get(name)
+    def open(self, collection):
+        return collection.connection()
     
-    def remove(self, name):
-        if self._timeout.has_key(name):
-            del self._timeout[name]
+    def find(self, table, key):
+        return table.row(key)
+    
+    def update(self, table, key, val):
+        table.put(key, val)

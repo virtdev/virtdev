@@ -1,6 +1,6 @@
 #      link.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ RETRY = True
 RETRY_MAX = 2
 RETRY_INTERVAL = 15 # seconds
 
-QUEUE_LEN = 4
+QUEUE_LEN = 2
 POOL_SIZE = 0
 
 def chkop(func):

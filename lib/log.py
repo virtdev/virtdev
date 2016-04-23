@@ -18,7 +18,7 @@
 #      MA 02110-1301, USA.
 
 from datetime import datetime
-from conf.virtdev import LOG_DEBUG, LOG_ERR, LOG_WARNNING
+from conf.log import LOG_DEBUG, LOG_ERR, LOG_WARNNING
 
 def _get_name(obj):
     if type(obj) != str:
@@ -40,16 +40,22 @@ def log_err(obj, text, time=True):
     if LOG_ERR:
         if obj:
             text = log_get(obj, text)
+        else:
+            text = log_get('Error', text)
         log(text, time=time, force=True)
 
 def log_warnning(obj, text, time=False):
     if LOG_WARNNING:
         if obj:
             text = log_get(obj, text)
+        else:
+            text = log_get('Warnning', text)
         log(text, time=time)
 
 def log_debug(obj, text, time=False):
     if LOG_DEBUG:
         if obj:
             text = log_get(obj, text)
+        else:
+            text = log_get('Debug', text)
         log(text, time=time)

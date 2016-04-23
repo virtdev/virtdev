@@ -1,6 +1,6 @@
 #      conductor.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,20 +17,24 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import tornado.web
 import tornado.ioloop
 import tornado.websocket
+import tornado.httpserver
 from lib.pool import Pool
 from lib.queue import Queue
 from lib import channel, codec
 from lib.request import Request
 from operation import Operation
+from conf.log import LOG_CONDUCTOR
 from threading import Thread, Event
+from multiprocessing import cpu_count
 from conf.virtdev import CONDUCTOR_PORT
 from lib.util import UID_SIZE, get_name
-from lib.log import log_err, log_get, log
+from lib.log import log_debug, log_err, log_get
 
+POOL_SIZE = cpu_count() * 2
 QUEUE_LEN = 2
-POOL_SIZE = 16
 
 def chkstat(func):
     def _chkstat(*args, **kwargs):
@@ -169,19 +173,24 @@ class ConductorHandler(object):
     def push(self, buf):
         self._pool.push(buf)
 
-conductor = ConductorHandler()
-
 class ConductorWSHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, buf):
         conductor.push(buf)
 
+conductor = ConductorHandler()
+application = tornado.web.Application([(r'/', ConductorWSHandler)], debug=False)
+
 class Conductor(Thread):
+    def _log(self, text):
+        if LOG_CONDUCTOR:
+            log_debug(self, text)
+    
     def create(self, manager):
         conductor.initialize(manager)
         self.start()
     
     def run(self):
-        log(log_get(self, 'start ...'))
-        srv = tornado.web.Application([(r'/', ConductorWSHandler)])
-        srv.listen(CONDUCTOR_PORT)
+        self._log('start ...')
+        server = tornado.httpserver.HTTPServer(application)
+        server.listen(CONDUCTOR_PORT)
         tornado.ioloop.IOLoop.instance().start()

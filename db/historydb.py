@@ -1,6 +1,6 @@
-#      history.py
+#      historydb.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -19,74 +19,27 @@
 
 import ast
 import json
-from lib.domains import *
-from lib.util import lock
-from threading import Lock
+from lib.log import log_err
 from datetime import datetime
-from conf.log import LOG_HISTORYDB
+from interface.hbase import HBase
+from lib.domains import DOMAIN_USR
 from conf.virtdev import RECORD_MAX
-from happybase import ConnectionPool
-from lib.log import log_debug, log_err
 
 CF_CNT = 'cf0'
 CF_KEY = 'cf1'
 CF_DATE = 'cf2'
 CF_VALUE = 'cf3'
-
+HISTORY = 'history'
 COL_KEY = CF_KEY + ':k'
 COL_CNT = CF_CNT + ':c'
-
-TABLE_HISTORY = 'history'
 HEAD_DATE = CF_DATE + ':'
 HEAD_VALUE = CF_VALUE + ':'
 LEN_HEAD_DATE = len(HEAD_DATE)
 LEN_HEAD_VALUE = len(HEAD_VALUE)
 
-POOL_MAX = 1024
-POOL_SIZE = 3
-
-class HistoryDB(object):
-    def __str__(self):
-        return self.__class__.__name__.lower()
-    
+class HistoryDB(HBase):
     def __init__(self, router):
-        self._pools = {}
-        self._lock = Lock()
-        self._router = router
-    
-    def _log(self, text):
-        if LOG_HISTORYDB:
-            log_debug(self, text)
-    
-    def _close(self, pool):
-        pass
-    
-    def _find(self, table, key):
-        return table.row(key)
-    
-    def _update(self, table, key, val):
-        table.put(key, val)
-    
-    def _get_table(self, conn, name):
-        return conn.table(name)
-    
-    @lock
-    def _check_pool(self, addr):
-        pool = self._pools.get(addr)
-        if not pool:
-            if len(self._pools) >= POOL_MAX:
-                _, pool = self._pools.popitem()
-                self._close(pool)
-            pool = ConnectionPool(size=POOL_SIZE, host=addr)
-            self._pools.update({addr:pool})
-        return pool
-    
-    def _get_pool(self, uid):
-        addr = self._router.get(uid, DOMAIN_USR)
-        if not addr:
-            log_err(self, 'failed to get pool, no address')
-            return
-        return self._check_pool(addr)
+        HBase.__init__(self, router, DOMAIN_USR)
     
     def _check_counter(self, table, key):
         cnt = table.counter_get(key, COL_CNT)
@@ -102,13 +55,13 @@ class HistoryDB(object):
             log_err(self, 'failed to put, invalid arguments')
             return
         
-        pool = self._get_pool(uid)
-        if not pool:
+        coll = self.get_collection(uid)
+        if not coll:
             log_err(self, 'failed to put')
             return
         
-        with pool.connection() as conn:
-            table = self._get_table(conn, TABLE_HISTORY)
+        with self.open(coll) as conn:
+            table = self.get_table(conn, HISTORY)
             pos = self._check_counter(table, key)
         
         if 0 == pos:
@@ -123,9 +76,9 @@ class HistoryDB(object):
         value = str(fields.values())
         val.update({col_date:date, col_value:value})
         
-        with pool.connection() as conn:
-            table = self._get_table(conn, TABLE_HISTORY)
-            self._update(table, key, val)
+        with self.open(coll) as conn:
+            table = self.get_table(conn, HISTORY)
+            self.update(table, key, val)
         
         self._log('put, key=%s' % key)
     
@@ -151,17 +104,17 @@ class HistoryDB(object):
     def get(self, uid, key):
         res = ''
         if not key:
-            log_err(self, 'failed to get, no key')
+            log_err(self, 'failed to get, invalid key')
             return res
         
-        pool = self._get_pool(uid)
-        if not pool:
-            log_err(self, 'failed to get, no pool')
+        coll = self.get_collection(uid)
+        if not coll:
+            log_err(self, 'failed to get, invalid collection')
             return res
         
-        with pool.connection() as conn:
-            table = self._get_table(conn, TABLE_HISTORY)
-            row = self._find(table, key)
+        with self.open(coll) as conn:
+            table = self.get_table(conn, HISTORY)
+            row = self.find(table, key)
         
         if row:
             keys, values, dates = self._extract_row(row)

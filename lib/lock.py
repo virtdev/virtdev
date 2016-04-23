@@ -1,6 +1,6 @@
 #      lock.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@ from log import log_get, log_err
 
 POS_CNT = 0
 POS_LOCK = 1
-LOCK_SIZE = 2
 LOCK_MAX = 65536
+LOCK_SIZE = 2
 
 class NamedLock(object):
     def __init__(self):

@@ -1,6 +1,6 @@
-#      user.py
+#      userdb.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,54 +17,15 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA
 
-from lib.util import lock
-from threading import Lock
-from pymongo import MongoClient
-from lib.log import log_err, log_get
-from pymongo.database import Database
-from pymongo.collection import Collection
-from conf.virtdev import META_SERVER_PORT
+from interface.mongodb import MongoDB
 
-DATABASE_NAME = 'test'
-COLLECTION_MAX = 1024
-
-class UserDB(object):
-    def __str__(self):
-        return self.__class__.__name__.lower()
-    
+class UserDB(MongoDB):
     def __init__(self, router):
-        self._lock = Lock()
-        self._router = router
-        self._collections = {}
-    
-    def _close(self, coll):
-        pass
-    
-    @lock
-    def _check_collection(self, addr):
-        coll = self._collections.get(addr)
-        if not coll:
-            if len(self._collections) >= COLLECTION_MAX:
-                _, coll = self._collections.popitem()
-                self._close(coll)
-            db = Database(MongoClient(addr, META_SERVER_PORT), DATABASE_NAME)
-            coll = Collection(db, str(self))
-            self._collections.update({addr:coll})
-        return coll
-    
-    def _get_collection(self, user):
-        if not user:
-            log_err(self, 'failed to get collection, no user')
-            raise Exception(log_get(self, 'failed to get collection'))
-        addr = self._router.get(user)
-        if not addr:
-            log_err(self, 'failed to get collection, no address')
-            raise Exception(log_get(self, 'failed to get collection'))
-        return self._check_collection(addr)
+        MongoDB.__init__(self, router, key='user')
     
     def get(self, user, *fields):
-        coll = self._get_collection(user)
-        res = coll.find_one({'user':user})
+        coll = self.get_collection(user)
+        res = self.find(coll, user)
         if not fields or not res:
             return res
         if 1 == len(fields):
@@ -78,5 +39,5 @@ class UserDB(object):
             return ret
     
     def put(self, user, **fields):
-        coll = self._get_collection(user)
-        coll.update({'user':user}, {'$set':fields}, upsert=True)
+        coll = self.get_collection(user)
+        self.update(coll, user, {'$set':fields}, upsert=True)

@@ -1,6 +1,6 @@
 #      attr.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ from StringIO import StringIO
 from lib.util import path2temp
 from conf.virtdev import RSYNC
 from base64 import b64encode, b64decode
-from lib.log import log_err, log_get, log_warnning, log
+from lib.log import log_debug, log_err, log_get, log_warnning
 from lib.attributes import ATTRIBUTES, ATTR_MODE, ATTR_FREQ, ATTR_FILTER, ATTR_HANDLER, ATTR_PROFILE, ATTR_TIMEOUT, ATTR_DISPATCHER
 
 class Attr(Entry):
@@ -37,7 +37,7 @@ class Attr(Entry):
     
     def _log(self, text):
         if LOG_ATTR:
-            log(log_get(self, text))
+            log_debug(self, text)
     
     def can_invalidate(self):
         return True

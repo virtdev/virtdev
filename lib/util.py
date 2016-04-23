@@ -1,6 +1,6 @@
 #      util.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ import xattr
 import struct
 import commands
 import collections
-from log import log
+from log import log_err
 from socket import inet_aton
 from datetime import datetime
 from operations import OP_MOUNT, OP_INVALIDATE
@@ -271,7 +271,7 @@ def member_list(uid, name='', field='', sort=False):
         if not field:
             field = FIELD_DATA
         elif not FIELDS.get(field):
-            log('Error: invalid filed %s' % str(field))
+            log_err(None, 'invalid filed %s' % str(field))
             return
         path = os.path.join(PATH_MNT, uid, field, name)
     if not os.path.exists(path):
