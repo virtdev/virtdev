@@ -26,9 +26,9 @@ import socket
 from json import dumps
 from lib import channel
 from lib import notifier
-from daemon import Daemon
 from proc.core import Core
 from proc.proc import Proc
+from lib.daemon import Daemon
 from lib.lock import NamedLock
 from lib.request import Request
 from lib.modes import MODE_VISI
@@ -36,12 +36,13 @@ from threading import Lock, Thread
 from lib.log import log_err, log_get
 from conductor import Conductor, conductor
 from lib.operations import OP_OPEN, OP_CLOSE
+from conf.path import PATH_LIB, PATH_RUN, PATH_MNT
 from lib.util import USERNAME_SIZE, PASSWORD_SIZE, get_networks, get_node, get_name, lock, named_lock
-from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT, PATH_LIB, PATH_RUN, PATH_MNT
+from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, COMPUTE_UNIT, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
 
-LOGIN_RETRY_MAX = 2
-CONNECT_RETRY_MAX = 2
-LOGIN_RETRY_INTERVAL = 5 # seconds
+LOGIN_RETRY = 1
+CONNECT_RETRY = 1
+LOGIN_INTERVAL = 5 # seconds
 
 class DeviceManager(object):
     def __init__(self): 
@@ -68,20 +69,20 @@ class DeviceManager(object):
         return conductor.request.device.add(node=get_node(), addr=conductor.addr, name=name, mode=mode, freq=freq, prof=prof)
     
     @named_lock
-    def update(self, name, buf):
-        return conductor.request.device.update(name=name, buf=buf)
+    def put(self, name, buf):
+        return conductor.request.device.put(name=name, buf=buf)
     
     @named_lock
-    def get(self, name):
-        return conductor.request.device.get(name=name)
+    def find(self, name):
+        return conductor.request.device.find(name=name)
     
     @named_lock
-    def diff(self, name, field, item, buf):
-        return conductor.request.device.diff(name=name, field=field, item=item, buf=buf)
+    def get(self, name, field, item, buf):
+        return conductor.request.device.get(name=name, field=field, item=item, buf=buf)
     
     @named_lock
-    def remove(self, name):
-        return conductor.request.device.remove(node=get_node(), name=name)
+    def delete(self, name):
+        return conductor.request.device.delete(node=get_node(), name=name)
 
 class GuestManager(object):
     def __init__(self):
@@ -130,7 +131,7 @@ class ChannelManager(object):
     
     @named_lock
     def connect(self, name):
-        for _ in range(CONNECT_RETRY_MAX):
+        for _ in range(CONNECT_RETRY + 1):
             if self._try_connect(name):
                 return    
         log_err(self, 'failed to connect')
@@ -188,7 +189,7 @@ class MemberManager(object):
             d.close()
     
     @lock
-    def remove(self, name):
+    def delete(self, name):
         name = str(name)
         d = shelve.open(self._path)
         try:
@@ -199,9 +200,9 @@ class MemberManager(object):
 
 class Manager(object):    
     def _init_proc(self):
-        self._filter = Proc(self, (PROC_ADDR, FILTER_PORT))
-        self._handler = Proc(self, (PROC_ADDR, HANDLER_PORT))
-        self._dispatcher = Proc(self, (PROC_ADDR, DISPATCHER_PORT))
+        self._filter = Proc(self, PROC_ADDR, FILTER_PORT)
+        self._handler = Proc(self, PROC_ADDR, HANDLER_PORT)
+        self._dispatcher = Proc(self, PROC_ADDR, DISPATCHER_PORT)
         self._filter.start()
         self._handler.start()
         self._dispatcher.start()
@@ -273,12 +274,12 @@ class Manager(object):
         else:
             mode = 0
         
-        for _ in range(LOGIN_RETRY_MAX):
+        for _ in range(LOGIN_RETRY + 1):
             req = Request(name, password)
             res = req.user.login(node=get_node(), mode=mode)
             if res and self._check_addr(res['addr']):
                 return (res['uid'], res['addr'], res['token'], res['key'])
-            time.sleep(LOGIN_RETRY_INTERVAL)
+            time.sleep(LOGIN_INTERVAL)
         log_err(self, 'failed to login')
     
     def _init_user(self):
@@ -377,6 +378,8 @@ class Manager(object):
         if self._lo:
             return self._lo.create(device, init)
     
-    def get_passive_device(self):
-        if self._lo:
-            return self._lo.get_passive_device()
+    @property
+    def compute_unit(self):
+        if COMPUTE_UNIT:
+            if self._lo:
+                return self._lo.compute_unit

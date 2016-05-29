@@ -40,3 +40,4 @@ pip install tornado
 pip install websocket-client
 pip install xattr
 pip install zerorpc
+pip install leveldb

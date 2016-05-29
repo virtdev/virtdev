@@ -25,10 +25,12 @@ from lib.log import log
 from subprocess import call
 from db.router import Router
 from conf.log import LOG_MOUNT
+from conf.types import TYPE_PROTOCOL
 from lib.protocols import PROTOCOL_WRTC
-from conf.virtdev import PATH_MNT, PATH_RUN, PATH_LIB
+from lib.domains import DOMAIN_DEV, DOMAIN_USR
+from conf.path import PATH_MNT, PATH_RUN, PATH_LIB
 from lib.util import DEVNULL, srv_start, srv_join, close_port, ifaddr
-from conf.virtdev import LO, FS, SHADOW, EXTEND, IFBACK, ADAPTER_PORT, PROTOCOL, EXPOSE
+from conf.virtdev import LO, FS, SHADOW, EXTEND, IFBACK, ADAPTER_PORT, EXPOSE
 from conf.virtdev import MASTER, DISTRIBUTOR, DATA_SERVER, USR_FINDER, USR_MAPPER, DEV_FINDER, DEV_MAPPER
 from conf.virtdev import META_SERVERS, DATA_SERVERS, CACHE_SERVERS, ROOT_SERVERS, BRIDGE_SERVERS, BROKER_SERVERS, WORKER_SERVERS
 
@@ -75,7 +77,7 @@ def _clean():
     if DEV_FINDER:
         from conf.virtdev import DEV_FINDER_PORT
         ports.append(DEV_FINDER_PORT)
-        
+    
     if USR_MAPPER:
         from conf.virtdev import USR_MAPPER_PORT
         ports.append(USR_MAPPER_PORT)
@@ -89,8 +91,8 @@ def _clean():
         ports.append(EVENT_COLLECTOR_PORT)
     
     if baddr in WORKER_SERVERS:
-        from conf.virtdev import REQUESTER_PORT
-        ports.append(REQUESTER_PORT)
+        from conf.virtdev import WORKER_PORT
+        ports.append(WORKER_PORT)
     
     if baddr in WORKER_SERVERS or (FS and not SHADOW):
         from conf.virtdev import EVENT_MONITOR_PORT
@@ -108,8 +110,13 @@ def _clean():
         close_port(i)
 
 def _check_settings():
-    if not SHADOW and EXPOSE and PROTOCOL != PROTOCOL_WRTC:
+    if not SHADOW and EXPOSE and TYPE_PROTOCOL != PROTOCOL_WRTC:
         raise Exception('Error: invalid settings')
+
+def _init():
+    _clean()
+    _check_settings()
+    resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999)) 
 
 def _mount(query, router):
     from fuse import FUSE
@@ -139,13 +146,11 @@ def mount():
     addr = ifaddr()
     baddr = ifaddr(ifname=IFBACK)
     
-    _clean()
-    _check_settings()
-    resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999)) 
+    _init()
     
     if MASTER:
-        from db.master import MasterServer
-        srv_start([MasterServer()])
+        from db.master import Master
+        srv.append(Master())
     
     if baddr in WORKER_SERVERS or (FS and not SHADOW):
         from db.query import Query
@@ -176,21 +181,19 @@ def mount():
         from event.collector import EventCollector
         srv.append(EventCollector(baddr))
     
-    if USR_FINDER:
-        from db.finder import UserFinder
-        srv.append(UserFinder())
+    if USR_FINDER or DEV_FINDER:
+        from db.finder import Finder
+        if USR_FINDER:
+            srv.append(Finder(domain=DOMAIN_USR))
+        if DEV_FINDER:
+            srv.append(Finder(domain=DOMAIN_DEV))
     
-    if DEV_FINDER:
-        from db.finder import DeviceFinder
-        srv.append(DeviceFinder())
-    
-    if USR_MAPPER:
-        from db.mapper import UserMapper
-        srv.append(UserMapper())
-    
-    if DEV_MAPPER:
-        from db.mapper import DeviceMapper
-        srv.append(DeviceMapper())
+    if USR_MAPPER or DEV_MAPPER:
+        from db.mapper import Mapper
+        if USR_MAPPER:
+            srv.append(Mapper(domain=DOMAIN_USR))
+        if DEV_MAPPER:
+            srv.append(Mapper(domain=DOMAIN_DEV))
     
     if baddr in WORKER_SERVERS:
         from srv.worker import Worker

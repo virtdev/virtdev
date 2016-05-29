@@ -17,15 +17,15 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from conf.virtdev import PROTOCOL
+from conf.types import TYPE_PROTOCOL
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
 
 resolv = None
 
-if PROTOCOL == PROTOCOL_N2N:
+if TYPE_PROTOCOL == PROTOCOL_N2N:
     from protocol.n2n.resolv import Resolv as N2NResolv
     resolv = N2NResolv()
-elif PROTOCOL == PROTOCOL_WRTC:
+elif TYPE_PROTOCOL == PROTOCOL_WRTC:
     from protocol.wrtc.resolv import Resolv as WRTCResolv
     resolv = WRTCResolv()
 

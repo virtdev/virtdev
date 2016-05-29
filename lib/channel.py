@@ -19,22 +19,26 @@
 
 import codec
 from pool import Pool
+from log import log_err
 from queue import Queue
 from hash_ring import HashRing
-from conf.virtdev import BRIDGE_SERVERS, PROTOCOL
+from conf.types import TYPE_PROTOCOL
+from multiprocessing import cpu_count
+from conf.virtdev import DEBUG, BRIDGE_SERVERS
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
 
+CACHE = False
 QUEUE_LEN = 2
-POOL_SIZE = 0
+POOL_SIZE = cpu_count() * 2
 
 pool = None
 channel = None
 
-if PROTOCOL == PROTOCOL_N2N:
+if TYPE_PROTOCOL == PROTOCOL_N2N:
     from protocol.n2n.channel import Channel as N2NChannel
     channel = N2NChannel()
-elif PROTOCOL == PROTOCOL_WRTC:
-    from protocol.wrtc.channel import Channel as WRTCChannel 
+elif TYPE_PROTOCOL == PROTOCOL_WRTC:
+    from protocol.wrtc.channel import Channel as WRTCChannel
     channel = WRTCChannel()
 
 def get_bridge(key):
@@ -42,23 +46,25 @@ def get_bridge(key):
     return ring.get_node(key)
 
 class ChannelQueue(Queue):
-    def __init__(self):
-        Queue.__init__(self, QUEUE_LEN)
+    def _proc(self, buf):
+        put(*buf)
+    
+    def _proc_safe(self, buf):
+        try:
+            self._proc(buf)
+        except:
+            log_err(self, 'failed to process')
     
     def proc(self, buf):
-        put(*buf)
+        if DEBUG:
+            self._proc(buf)
+        else:
+            self._proc_safe(buf)
 
-class ChannelPool(object):
-    def __init__(self):
-        self._pool = Pool()
-        for _ in range(POOL_SIZE):
-            self._pool.add(ChannelQueue())
-    
-    def push(self, buf):
-        self._pool.push(buf)
-
-if POOL_SIZE > 0:
-    pool = ChannelPool()
+if CACHE:
+    pool = Pool()
+    for _ in range(POOL_SIZE):
+        pool.add(ChannelQueue(QUEUE_LEN))
 
 def create(uid, addr, key):
     bridge = get_bridge(key)
@@ -80,7 +86,7 @@ def clean():
     channel.clean()
 
 def push(uid, addr, op, args, token):
-    if POOL_SIZE:
+    if CACHE:
         pool.push((uid, addr, op, args, token))
     else:
         put(uid, addr, op, args, token)

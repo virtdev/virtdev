@@ -67,5 +67,5 @@ class Guest(Service):
         if not device:
             log_err(self, 'failed to drop, cannot find target device %s' % str(dest))
             return False
-        self._query.guest.remove(device['uid'], src)
+        self._query.guest.delete(device['uid'], src)
         return True

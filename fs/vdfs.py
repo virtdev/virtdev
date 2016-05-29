@@ -30,17 +30,17 @@ from errno import EINVAL
 from conf.log import LOG_VDFS
 from lib.loader import Loader
 from lib.lock import NamedLock
-from dev.driver import FREQ_MAX
 from dev.manager import Manager
 from conf.virtdev import EXPOSE
 from lib.log import log_debug, log_err
 from fuse import FuseOSError, Operations
 from dev.interface.lo import device_name
-from lib.util import DIR_MODE, named_lock, load_driver
+from lib.util import DIR_MODE, named_lock
+from dev.driver import FREQ_MAX, load_driver
 from lib.fields import FIELD_VRTX, FIELD_EDGE, FIELD_ATTR
 from lib.modes import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK, MODE_CLONE
 from lib.attributes import ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PARENT, ATTR_TIMEOUT
-from lib.operations import OP_POLL, OP_MOUNT, OP_CLONE, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_DIFF, OP_ADD, OP_JOIN, OP_ACCEPT, OP_SCAN
+from lib.operations import OP_POLL, OP_MOUNT, OP_CLONE, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_GET, OP_ADD, OP_JOIN, OP_ACCEPT, OP_SCAN
 
 _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
@@ -185,7 +185,7 @@ class VDFS(Operations):
         elif obj.is_expired(uid, name):
             if OPEN_DELAY:
                 time.sleep(OPEN_DELAY)
-            buf = self._link.put(name=obj.parent(name), op=OP_DIFF, field=obj.field, item=obj.child(name), buf=obj.signature(uid, name))
+            buf = self._link.put(name=obj.parent(name), op=OP_GET, field=obj.field, item=obj.child(name), buf=obj.signature(uid, name))
             obj.patch(uid, name, buf)
     
     def _do_release(self, obj, uid, name):

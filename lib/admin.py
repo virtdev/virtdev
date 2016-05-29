@@ -18,7 +18,7 @@
 #      MA 02110-1301, USA.
 
 import uuid
-from db.userdb import UserDB
+from db.user import User
 from db.marker import Marker
 from db.router import Router
 from domains import DOMAIN_USR
@@ -27,7 +27,7 @@ from conf.virtdev import META_SERVERS, AREA_CODE
 class UserInfo(object):
     def __init__(self):
         router = Router(META_SERVERS, sync=False)
-        self._user = UserDB(router)
+        self._user = User(router)
         self._marker = Marker()
     
     def add(self, user, password, uid):

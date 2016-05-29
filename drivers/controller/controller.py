@@ -28,7 +28,7 @@ from lib.util import lock, device_info
 
 class Controller(Driver):
     def __init__(self, name=None):
-        Driver.__init__(self, name=name, mode=mode.MODE_TRIG | mode.MODE_POLL | mode.MODE_PASSIVE)
+        Driver.__init__(self, name=name, mode=mode.MODE_TRIG | mode.MODE_POLL | mode.MODE_CTRL)
         self._lock = Lock()
     
     def _parse(self, buf):
@@ -38,7 +38,7 @@ class Controller(Driver):
         for i in info:
             if not info[i].has_key('mode'):
                 return 
-            info[i]['mode'] |= mode.MODE_PASSIVE
+            info[i]['mode'] |= mode.MODE_CTRL
         return str(info)
     
     def setup(self):

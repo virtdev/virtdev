@@ -20,19 +20,22 @@
 import os
 import ast
 import json
-import librsync
 from service import Service
 from db.marker import Marker
 from StringIO import StringIO
+from conf.path import PATH_MNT
 from lib.modes import MODE_LINK
 from lib.domains import DOMAIN_DEV
 from base64 import b64encode, b64decode
 from lib.log import log_err, log_warnning
 from lib.util import mount_device, update_device
-from conf.virtdev import EXTEND, RSYNC, AREA_CODE, PATH_MNT
+from conf.virtdev import EXTEND, RSYNC, AREA_CODE
 
 MAX_LEN = 1 << 24
 RECORD_LEN = 1 << 24
+
+if RSYNC:
+    import librsync
 
 class Device(Service):
     def __init__(self, query):
@@ -44,7 +47,7 @@ class Device(Service):
         if EXTEND:
             self._marker.mark(name, DOMAIN_DEV, AREA_CODE)
     
-    def get(self, uid, name):
+    def find(self, uid, name):
         device = self._query.device.get(name)
         if device:
             if uid != device['uid']:
@@ -61,24 +64,24 @@ class Device(Service):
         self._query.event.put(uid, name)
         return True
     
-    def remove(self, uid, node, name):
-        self._query.device.remove(name)
-        self._query.member.remove(uid, (name, node))
+    def delete(self, uid, node, name):
+        self._query.device.delete(name)
+        self._query.member.delete(uid, (name, node))
         self._query.event.put(uid, name)
         return True
     
-    def update(self, uid, name, buf):
+    def put(self, uid, name, buf):
         try:
             fields = ast.literal_eval(buf)
             if type(fields) != dict:
-                log_err(self, 'failed to update, name=%s' % str(name))
+                log_err(self, 'failed to put, name=%s' % str(name))
                 return
         except:
-            log_err(self, 'failed to update, name=%s' % str(name))
+            log_err(self, 'failed to put, name=%s' % str(name))
             return
         record = json.dumps(fields)
         if len(record) > RECORD_LEN:
-            log_err(self, 'failed to update, name=%s' % str(name))
+            log_err(self, 'failed to put, name=%s' % str(name))
             return
         path = os.path.join(PATH_MNT, uid, name)
         with open(path, 'w') as f:
@@ -87,7 +90,7 @@ class Device(Service):
         self._query.event.put(uid, name)
         return True
     
-    def diff(self, uid, name, field, item, buf):
+    def get(self, uid, name, field, item, buf):
         if RSYNC:
             sig = StringIO(b64decode(buf))
         path = os.path.join(PATH_MNT, uid, field, name, item)
@@ -95,12 +98,12 @@ class Device(Service):
         try:
             res = os.read(fd, MAX_LEN)
         except:
-            log_err(self, 'failed to read, name=%s' % str(name))
+            log_err(self, 'failed to get, cannot read, name=%s' % str(name))
             return
         finally:
             os.close(fd)
         if not res:
-            log_warnning(self, 'no content, name=%s' % str(name))
+            log_warnning(self, 'failed to get, no content, name=%s' % str(name))
             return
         if RSYNC:
             tmp = StringIO(res)

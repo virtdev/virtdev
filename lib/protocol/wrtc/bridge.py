@@ -1,6 +1,6 @@
 #      bridge.py (wrtc)
 #      
-#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -21,7 +21,8 @@ import os
 from subprocess import call
 from lib.util import DEVNULL
 from threading import Thread
-from conf.virtdev import BRIDGE_PORT, PATH_MQTT
+from conf.path import PATH_MQTT
+from conf.virtdev import BRIDGE_PORT
 
 class Bridge(Thread):
     def run(self):

@@ -42,7 +42,7 @@ class Data(Entry):
     
     def truncate(self, uid, name, length):
         path = self.get_path(uid, name)
-        self._file.truncate(uid, path, length)
+        self._fs.truncate(uid, path, length)
         self._temp.truncate(uid, name, length)
     
     def getattr(self, uid, name):

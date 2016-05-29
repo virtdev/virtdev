@@ -19,80 +19,43 @@
 
 import zerorpc
 from lib.domains import *
+from router import Router
 from member import Member
-from master import get_finders
-from pymongo import MongoClient
-from threading import Thread, Lock
+from info import get_finders
+from threading import Thread
+from lib.util import zmqaddr, ifaddr
 from lib.log import log_get, log_err
-from pymongo.database import Database
-from pymongo.collection import Collection
-from marker import USER_MARK, DEVICE_MARK
-from lib.util import zmqaddr, ifaddr, lock
-from conf.virtdev import META_SERVER_PORT, USR_SERVERS, DEV_SERVERS, USR_FINDER_PORT, DEV_FINDER_PORT
+from marker import USR_MARK, DEV_MARK
+from interface.commondb import CommonDB
+from conf.virtdev import USR_SERVERS, DEV_SERVERS, USR_FINDER_PORT, DEV_FINDER_PORT
 
 CACHE_MAX = 100000
-DATABASE_NAME = 'test'
-COLLECTION_MAX = 1024
 
 class FinderCache(object):
     def __init__(self, domain):
         self._cache = {}
-        self._lock = Lock()
-        self._domain = domain
-        self._collections = {}
-        if self._domain == DOMAIN_USR:
-            self._servers = USR_SERVERS
-        else:
-            self._servers = DEV_SERVERS
-        if not self._servers:
-            log_err(self, 'failed to initialize')
-            raise Exception(log_get(self, 'failed to initialize'))
+        if domain == DOMAIN_USR:
+            self._db = CommonDB(name=USR_MARK, router=Router(servers=USR_SERVERS))
+        elif domain == DOMAIN_DEV:
+            self._db = CommonDB(name=DEV_MARK, router=Router(servers=DEV_SERVERS))
     
-    def _close(self, coll):
-        pass
-    
-    @lock
-    def _check_collection(self, addr):
-        coll = self._collections.get(addr)
-        if not coll:
-            if len(self._collections) >= COLLECTION_MAX:
-                _, coll = self._collections.popitem()
-                self._close(coll)
-            db = Database(MongoClient(addr, META_SERVER_PORT), DATABASE_NAME)
-            if self._domain == DOMAIN_USR:
-                coll = Collection(db, USER_MARK)
-            else:
-                coll = Collection(db, DEVICE_MARK)
-            self._collections.update({addr:coll})
-        return coll
-    
-    def _get_addr(self, key):
-        n = abs(hash(key)) % len(self._servers)
-        return self._servers[n]
-    
-    def _get_collection(self, key):
-        addr = self._get_addr(key)
-        return self._check_collection(addr)
-    
-    def _get_val(self, key):
-        coll = self._get_collection(key)
-        if coll:
-            res = coll.find_one({'k':key})
-            if res:
-                return res.get('v')
+    def _get(self, key):
+        coll = self._db.collection(key)
+        conn = self._db.connection(coll)
+        return self._db.get(conn, key)
     
     def get(self, key):
         ret = self._cache.get(key)
         if ret:
             return ret
-        val = self._get_val(key)
+        val = self._get(key)
         if val:
             if len(self._cache) >= CACHE_MAX:
                 self._cache.popitem()
             self._cache.update({key:val})
             return val
 
-class Finder(Member):
+class FinderServer(Member):
     def __init__(self, domain):
         Member.__init__(self)
         finders = get_finders(domain)
@@ -105,11 +68,14 @@ class Finder(Member):
     def get(self, key):
         return self._cache.get(key)
 
-class FinderServer(Thread):
+class Finder(Thread):
     def __init__(self, domain):
-        Thread.__init__(self)
+        if domain != DOMAIN_USR and domain != DOMAIN_DEV:
+            log_err(self, 'invalid domain')
+            raise Exception(log_get(self, 'invalid domain'))
+        self._finder = FinderServer(domain)
         self._domain = domain
-        self._finder = Finder(domain)
+        Thread.__init__(self)
     
     def run(self):
         srv = zerorpc.Server(self._finder)
@@ -117,15 +83,4 @@ class FinderServer(Thread):
             srv.bind(zmqaddr(ifaddr(), USR_FINDER_PORT))
         elif self._domain == DOMAIN_DEV:
             srv.bind(zmqaddr(ifaddr(), DEV_FINDER_PORT))
-        else:
-            log_err(self, 'invalid domain')
-            raise Exception(log_get(self, 'invalid domain'))
         srv.run()
-
-class UserFinder(FinderServer):
-    def __init__(self):
-        FinderServer.__init__(self, DOMAIN_USR)
-
-class DeviceFinder(FinderServer):
-    def __init__(self):
-        FinderServer.__init__(self, DOMAIN_DEV)

@@ -26,7 +26,7 @@ from threading import Thread
 from conf.log import LOG_MAPPER
 from lib.util import zmqaddr, ifaddr
 from lib.log import log_debug, log_err, log_get
-from master import get_servers, get_mappers, get_finders
+from info import get_servers, get_mappers, get_finders
 from conf.virtdev import USR_MAPPER_PORT, DEV_MAPPER_PORT, USR_FINDER_PORT, DEV_FINDER_PORT
 
 GROUP_MAX = 32
@@ -34,10 +34,10 @@ WAIT_TIME = 100 # seconds
 CACHE_MAX = 100000
 
 class MapperCache(object):
-    def __init__(self, domain, server):
+    def __init__(self, server, domain):
         self._cache = {}
-        self._domain = domain
         self._server = server
+        self._domain = domain
         self._finder = Member()
         finders = get_finders(domain)
         if not finders:
@@ -194,7 +194,7 @@ class MapperCache(object):
             self._log('get, key=%s, val=%s' % (str(key), str(res)))
             return res
 
-class Mapper(Member):
+class MapperServer(Member):
     def __init__(self, domain):
         Member.__init__(self)
         mappers = get_mappers(domain)
@@ -208,7 +208,7 @@ class Mapper(Member):
             log_err(self, 'failed to initialize')
             raise Exception(log_get(self, 'failed to initialize'))
         self._server.set_members(servers)
-        self._cache = MapperCache(domain, self._server)
+        self._cache = MapperCache(self._server, domain)
     
     def set_servers(self, servers):
         return self._server.set_members(servers, sort=True)
@@ -225,11 +225,14 @@ class Mapper(Member):
     def get(self, key):
         return self._cache.get(key)
 
-class MapperServer(Thread):
+class Mapper(Thread):
     def __init__(self, domain):
-        Thread.__init__(self)
+        if domain != DOMAIN_USR and domain != DOMAIN_DEV:
+            log_err(self, 'invalid domain')
+            raise Exception(log_get(self, 'invalid domain'))
+        self._mapper = MapperServer(domain)
         self._domain = domain
-        self._mapper = Mapper(domain)
+        Thread.__init__(self)
     
     def run(self):
         srv = zerorpc.Server(self._mapper)
@@ -237,15 +240,4 @@ class MapperServer(Thread):
             srv.bind(zmqaddr(ifaddr(), USR_MAPPER_PORT))
         elif self._domain == DOMAIN_DEV:
             srv.bind(zmqaddr(ifaddr(), DEV_MAPPER_PORT))
-        else:
-            log_err(self, 'invalid domain')
-            raise Exception(log_get(self, 'invalid domain'))
         srv.run()
-
-class UserMapper(MapperServer):
-    def __init__(self):
-        MapperServer.__init__(self, DOMAIN_USR)
-
-class DeviceMapper(MapperServer):
-    def __init__(self):
-        MapperServer.__init__(self, DOMAIN_DEV)

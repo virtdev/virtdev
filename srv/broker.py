@@ -22,13 +22,13 @@
 
 import time
 from lib.ppp import *
-from threading import Thread
 from lib.util import zmqaddr
+from threading import Thread
 from conf.log import LOG_BROKER
 from collections import OrderedDict
 from lib.log import log_debug, log_err
-from zmq import Poller, Context, ROUTER, POLLIN
 from conf.virtdev import ROOT_PORT, BROKER_PORT
+from zmq import Poller, Context, ROUTER, POLLIN
 
 class BrokerItem(object):
     def __init__(self, identity):

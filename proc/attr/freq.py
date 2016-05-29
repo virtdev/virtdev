@@ -26,7 +26,7 @@ class Freq(object):
     def __init__(self, uid):
         self._freq = {}
         self._loader = Loader(uid)
-        
+    
     def _log(self, text):
         if LOG_FREQ:
             log_debug(self, text)

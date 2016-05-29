@@ -20,10 +20,8 @@
 import os
 import json
 from subprocess import call
-from conf.virtdev import PATH_MNT
+from conf.path import PATH_MNT
 from lib.util import DEVNULL, invalidate, mount
-
-RETRY_MAX = 2
 
 class Operation(object):
     def __init__(self, manager):
@@ -47,9 +45,7 @@ class Operation(object):
         call(['touch', path], stderr=DEVNULL, stdout=DEVNULL)
     
     def put(self, dest, src, buf, flags):
-        for _ in range(RETRY_MAX):
-            if self._manager.core.put(dest, src, buf, flags):
-                return
+        self._manager.core.put(dest, src, buf, flags)
     
     def enable(self, path):
         self._manager.device.open(path)

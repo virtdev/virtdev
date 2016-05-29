@@ -27,8 +27,8 @@ from attr.filter import Filter
 from attr.parent import Parent
 from attr.handler import Handler
 from attr.timeout import Timeout
-from dispatcher import Dispatcher
 from threading import Event, Thread
+from attr.dispatcher import Dispatcher
 from lib.fields import FIELD_EDGE, FIELD_VRTX
 from lib.log import log_debug, log_err, log_get
 from lib.util import named_lock, member_list, device_sync
@@ -66,9 +66,9 @@ class Core(object):
             return not self._members[dest] or self._members[dest].has_key(src)
     
     def _check_paths(self, name):
-        if not self._dispatcher.has_path(name):
+        if not self._dispatcher.has_edge(name):
             edges = member_list(self._uid, name, FIELD_EDGE)
-            self._dispatcher.update_paths(name, edges)
+            self._dispatcher.update_edges(name, edges)
     
     def _check_members(self, name):
         if not self._members.has_key(name):
@@ -180,7 +180,7 @@ class Core(object):
     @named_lock
     def remove_filter(self, name):
         self._filter.remove(name)
-        
+    
     @named_lock
     def remove_dispatcher(self, name):
         self._dispatcher.remove(name)

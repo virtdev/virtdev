@@ -1,6 +1,6 @@
-#      notifier.py
+#      mongo.py
 #      
-#      Copyright (C) 2014 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -17,14 +17,29 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import zerorpc
-from lib.util import zmqaddr
-from conf.virtdev import NOTIFIER_ADDR, NOTIFIER_PORT
+import pymongo
+from pymongo import MongoClient
+from pymongo.collection import Collection
+from conf.virtdev import META_SERVER_PORT
 
-def notify(op, buf):
-    cli = zerorpc.Client()
-    cli.connect(zmqaddr(NOTIFIER_ADDR, NOTIFIER_PORT))
-    try:
-        cli.push(op, buf)
-    finally:
-        cli.close()
+DATABASE = 'test'
+
+class Mongo(object):
+    def __init__(self, name):
+        self._name = name
+    
+    def connect(self, addr):
+        db = pymongo.database.Database(MongoClient(addr, META_SERVER_PORT), DATABASE)
+        return Collection(db, self._name)
+    
+    def get(self, conn, key):
+        return conn.find_one(key)
+    
+    def put(self, conn, key, val, create=False):
+        conn.update(key, val, upsert=create)
+    
+    def delete(self, conn, key):
+        conn.remove(key)
+    
+    def connection(self, coll):
+        return coll

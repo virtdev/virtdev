@@ -29,12 +29,13 @@ from operation import Operation
 from conf.log import LOG_CONDUCTOR
 from threading import Thread, Event
 from multiprocessing import cpu_count
-from conf.virtdev import CONDUCTOR_PORT
 from lib.util import UID_SIZE, get_name
+from conf.virtdev import DEBUG, CONDUCTOR_PORT
 from lib.log import log_debug, log_err, log_get
 
-POOL_SIZE = cpu_count() * 2
-QUEUE_LEN = 2
+CACHE = True
+POOL_SIZE = cpu_count() * 4
+QUEUE_LEN = 4
 
 def chkstat(func):
     def _chkstat(*args, **kwargs):
@@ -51,7 +52,7 @@ class ConductorQueue(Queue):
     def proc(self, buf):
         self._srv.proc(buf)
 
-class ConductorHandler(object):
+class ConductorServer(object):
     def __init__(self):
         self._ready = False
     
@@ -99,7 +100,7 @@ class ConductorHandler(object):
     def get_device(self, name):
         res = self._devices.get(name)
         if not res:
-            res = self.request.device.get(name=name)
+            res = self.request.device.find(name=name)
             if res:
                 res = (res['uid'], res['node'], res['addr'])
                 self._devices.update({name:res})
@@ -132,65 +133,83 @@ class ConductorHandler(object):
         if self._keys.get(name):
             del self._keys[name]
     
-    @chkstat
-    def proc(self, buf):
-        op = None
+    def _proc(self, buf):
+        if len(buf) <= UID_SIZE:
+            return
+        uid = buf[0:UID_SIZE]
+        token = self._get_token(uid)
+        if not token:
+            log_err(self, 'failed to process, no token')
+            return
         try:
-            if len(buf) <= UID_SIZE:
-                log_err(self, 'failed to process, invalid request')
-                return
-            uid = buf[0:UID_SIZE]
-            token = self._get_token(uid)
+            req = codec.decode(uid, buf, token)
+        except:
+            token = self._get_token(uid, update=True)
             if not token:
                 log_err(self, 'failed to process, no token')
                 return
-            try:
-                req = codec.decode(uid, buf, token)
-            except:
-                token = self._get_token(uid, update=True)
-                if not token:
-                    log_err(self, 'failed to process, no token')
-                    return
-                req = codec.decode(uid, buf, token)
-            if req:
-                op = req.get('op')
-                args = req.get('args')
-                if not op or op[0] == '_' or type(args) != dict:
-                    log_err(self, 'failed to process, invalid request, op=%s' % str(op))
-                    return
-                func = getattr(self._op, op)
-                if func:
-                    if args:
-                        func(**args)
-                    else:
-                        func()
+            req = codec.decode(uid, buf, token)
+        if req:
+            op = req.get('op')
+            args = req.get('args')
+            if not op or op[0] == '_' or type(args) != dict:
+                log_err(self, 'failed to process, invalid request, op=%s' % str(op))
+                return
+            func = getattr(self._op, op)
+            if func:
+                if args:
+                    func(**args)
                 else:
-                    log_err(self, 'failed to process, invalid operation %s' % str(op))
+                    func()
+            else:
+                log_err(self, 'failed to process, invalid operation %s' % str(op))
+    
+    def _proc_safe(self, buf):
+        try:
+            self._proc(buf)
         except:
-            log_err(self, 'failed to process, op=%s' % str(op))
+            log_err(self, 'failed to process')
+    
+    def proc(self, buf):
+        if DEBUG:
+            self._proc(buf)
+        else:
+            self._proc_safe(buf)
     
     @chkstat
-    def push(self, buf):
-        self._pool.push(buf)
+    def put(self, buf):
+        if not CACHE:
+            self.proc(buf)
+        else:
+            self._pool.push(buf)
 
-class ConductorWSHandler(tornado.websocket.WebSocketHandler):
+conductor = ConductorServer()
+
+class ConductorHandler(tornado.websocket.WebSocketHandler):
     def on_message(self, buf):
-        conductor.push(buf)
-
-conductor = ConductorHandler()
-application = tornado.web.Application([(r'/', ConductorWSHandler)], debug=False)
+        conductor.put(buf)    
 
 class Conductor(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self._create = False
+    
     def _log(self, text):
         if LOG_CONDUCTOR:
             log_debug(self, text)
     
     def create(self, manager):
-        conductor.initialize(manager)
-        self.start()
+        if not self._create:
+            self._create = True
+            conductor.initialize(manager)
+            self.start()
     
     def run(self):
         self._log('start ...')
-        server = tornado.httpserver.HTTPServer(application)
+        if not self._create:
+            log_err(self, 'conductor is not initialized')
+            return
+        app = tornado.web.Application([(r'/', ConductorHandler)], debug=False)
+        server = tornado.httpserver.HTTPServer(app)
         server.listen(CONDUCTOR_PORT)
         tornado.ioloop.IOLoop.instance().start()

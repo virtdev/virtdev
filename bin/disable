@@ -10,7 +10,7 @@ _path = os.path.dirname(_name)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from conf.virtdev import PATH_MNT
+from conf.path import PATH_MNT
 from lib.operations import OP_DISABLE
 
 def usage():

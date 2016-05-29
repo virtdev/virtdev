@@ -25,9 +25,9 @@ from conf.virtdev import PROC_ADDR, FILTER_PORT
 
 class Filter(object):
     def __init__(self, uid, addr=PROC_ADDR):
+        self._addr = addr
         self._filters = {}
         self._loader = Loader(uid)
-        self._addr = (addr, FILTER_PORT)
     
     def _get_code(self, name):
         buf = self._filters.get(name)
@@ -56,6 +56,6 @@ class Filter(object):
                 code = self._get_code(name)
                 if not code:
                     return
-            return proc.put(self._addr, code=code, args=buf)
+            return proc.put(self._addr, FILTER_PORT, code=code, args=buf)
         except:
             log_err(self, 'failed to put')

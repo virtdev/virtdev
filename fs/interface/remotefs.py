@@ -1,4 +1,4 @@
-#      userdb.py
+#      remotefs.py
 #      
 #      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -15,29 +15,16 @@
 #      You should have received a copy of the GNU General Public License
 #      along with this program; if not, write to the Free Software
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-#      MA 02110-1301, USA
+#      MA 02110-1301, USA.
 
-from interface.mongodb import MongoDB
+from lib.log import log_debug
+from conf.log import LOG_REMOTEFS
+from conf.types import TYPE_REMOTEFS
 
-class UserDB(MongoDB):
-    def __init__(self, router):
-        MongoDB.__init__(self, router, key='user')
-    
-    def get(self, user, *fields):
-        coll = self.get_collection(user)
-        res = self.find(coll, user)
-        if not fields or not res:
-            return res
-        if 1 == len(fields):
-            return res.get(fields[0])
-        else:
-            ret = []
-            for i in fields:
-                if not res.has_key(i):
-                    return
-                ret.append(res.get(i))
-            return ret
-    
-    def put(self, user, **fields):
-        coll = self.get_collection(user)
-        self.update(coll, user, {'$set':fields}, upsert=True)
+if TYPE_REMOTEFS == 'hadoop':
+    from module.hadoop import Hadoop as FS
+
+class RemoteFS(FS):
+    def _log(self, text):
+        if LOG_REMOTEFS:
+            log_debug(self, text)

@@ -1,4 +1,4 @@
-#      mongodb.py
+#      localdb.py
 #      
 #      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,26 +17,16 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import pymongo
-from database import Database
-from pymongo import MongoClient
-from pymongo.collection import Collection
-from conf.virtdev import META_SERVER_PORT
+from lib.log import log_debug
+from conf.log import LOG_LOCALDB
+from conf.types import TYPE_LOCALDB
 
-KEY_NAME = 'k'
-DATABASE_NAME = 'test'
+if TYPE_LOCALDB == 'sophia':
+    from module.sophiadb import SophiaDB as DB
+elif TYPE_LOCALDB == 'leveldb':
+    from module.level import LevelDB as DB
 
-class MongoDB(Database):
-    def __init__(self, router, domain=None, key=KEY_NAME):
-        Database.__init__(self, router, domain)
-        self._key = key
-    
-    def connect(self, addr):
-        db = pymongo.database.Database(MongoClient(addr, META_SERVER_PORT), DATABASE_NAME)
-        return Collection(db, str(self))
-    
-    def find(self, coll, key):
-        return coll.find_one({self._key:key})
-    
-    def update(self, coll, key, val, upsert=False):
-        coll.update({self._key:key}, val, upsert=upsert)
+def LocalDB(DB):
+    def _log(self, text):
+        if LOG_LOCALDB:
+            log_debug(self, text)

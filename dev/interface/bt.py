@@ -21,8 +21,9 @@ import os
 import lo
 import bluetooth
 from dev.udi import UDI
+from conf.virtdev import LO
+from conf.path import PATH_LIB
 from lib.bt import BluetoothSocket
-from conf.virtdev import LO, PATH_LIB
 
 PIN = '1234'
 DEVICE_MAX = 32

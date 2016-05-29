@@ -19,10 +19,9 @@
 
 import os
 import json
-from log import log_warnning
 from util import unicode2str
 from fields import FIELD_ATTR
-from conf.virtdev import PATH_MNT
+from conf.path import PATH_MNT
 from attributes import ATTR_PROFILE
 
 BUF_LEN = 1024
@@ -43,7 +42,7 @@ class Loader(object):
             finally:
                 os.close(fd)
         except:
-            log_warnning(self, 'failed to read, name=%s' % str(name))
+            pass
     
     def get_attr(self, name, attr, typ):
         buf = self._read(name, attr)

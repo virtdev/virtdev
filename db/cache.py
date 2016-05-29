@@ -29,21 +29,13 @@ class Cache(object):
     def __init__(self, port):
         self._port = port
     
-    def _locate(self, key):
+    def _get_addr(self, key):
         servers = map(lambda addr: '%s:%d' % (addr, self._port), CACHE_SERVERS)
         return HashRing(servers).get_node(key)
     
-    def put(self, key, value):
-        addr = self._locate(key)
-        try:
-            cli = memcache.Client([addr], debug=0)
-            cli.set(key, value)
-        except:
-            log_err(self, 'failed to put, key=%s' % key)
-    
     def get(self, key):
         value = None
-        addr = self._locate(key)
+        addr = self._get_addr(key)
         try:
             cli = memcache.Client([addr], debug=0)
             value = cli.get(key)
@@ -52,13 +44,21 @@ class Cache(object):
         finally:
             return value
     
-    def remove(self, key):
-        addr = self._locate(key)
+    def put(self, key, value):
+        addr = self._get_addr(key)
         try:
             cli = memcache.Client([addr], debug=0)
-            cli.delete(key)        
+            cli.set(key, value)
         except:
-            log_err(self, 'failed to remove, key=%s' % key)
+            log_err(self, 'failed to put, key=%s' % key)
+    
+    def delete(self, key):
+        addr = self._get_addr(key)
+        try:
+            cli = memcache.Client([addr], debug=0)
+            cli.delete(key)
+        except:
+            log_err(self, 'failed to delete, key=%s' % key)
 
 class CacheServer(Thread):
     def _create(self, port):

@@ -18,9 +18,9 @@
 #      MA 02110-1301, USA.
 
 from lib import resolv
-from lib.domains import *
 from service import Service
 from db.marker import Marker
+from lib.domains import DOMAIN_DEV
 from lib.log import log_err, log_get
 from conf.virtdev import EXTEND, AREA_CODE
 from lib.util import get_name, update_device, gen_key, gen_token
@@ -34,7 +34,7 @@ class User(Service):
     def _check_node(self, uid, node, addr, mode, key):
         name = get_name(uid, node)
         if self._query.key.get(name):
-            self._query.node.remove(uid, (node,))
+            self._query.node.delete(uid, (node,))
         else:
             if EXTEND:
                 self._marker.mark(name, DOMAIN_DEV, AREA_CODE)
@@ -59,6 +59,6 @@ class User(Service):
         return {'uid':uid, 'addr':addr, 'token':token, 'key':key}
     
     def logout(self, uid, node, addr):
-        self._query.node.remove(uid, (node,))
-        self._query.member.remove(uid, ('', node))
+        self._query.node.delete(uid, (node,))
+        self._query.member.delete(uid, ('', node))
         return True

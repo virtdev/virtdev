@@ -17,11 +17,11 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import req
 import time
 import copy
+from lib import io
 from udo import UDO
-from lib import stream
+from lib.cmd import cmd_mount
 from threading import Lock, Thread
 from lib.log import log_get, log_err
 from lib.util import get_name, device_info
@@ -30,7 +30,7 @@ from multiprocessing.pool import ThreadPool
 
 PAIR_INTERVAL = 7 # seconds
 SCAN_INTERVAL = 7 # seconds
-MOUNT_TIMEOUT = 12 # seconds
+MOUNT_TIMEOUT = 30 # seconds
             
 class UDI(object):
     def __init__(self, uid, core):
@@ -67,6 +67,7 @@ class UDI(object):
         dev = UDO(local=local)
         if index != None:
             dev.set_index(int(index))
+        
         dev.set_type(str(info['type']))
         
         if info.get('freq'):
@@ -96,8 +97,8 @@ class UDI(object):
         return devices
     
     def _get_info(self, sock, local):
-        stream.put(sock, req.req_mount(), local=local)
-        buf = stream.get(sock, local=local)
+        io.put(sock, cmd_mount(), local=local)
+        buf = io.get(sock, local=local)
         if buf:
             return device_info(buf)
     

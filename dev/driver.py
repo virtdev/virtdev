@@ -17,13 +17,13 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+import os
 import ast
-from lib import stream
-from threading import Thread
-from lib.modes import MODE_IV, MODE_LO, MODE_POLL, MODE_TRIG, MODE_PASSIVE
-from dev.req import REQ_OPEN, REQ_CLOSE, REQ_GET, REQ_PUT, REQ_MOUNT, parse
+import imp
+from lib.util import get_dir
+from lib.modes import MODE_IV, MODE_LO, MODE_POLL, MODE_TRIG, MODE_CTRL
 
-FREQ_MIN = 1 # HZ
+FREQ_MIN = 0.1 # HZ
 FREQ_MAX = 100 # HZ
 
 def _get_arguments(buf):
@@ -36,7 +36,7 @@ def _get_arguments(buf):
         pass
 
 def has_freq(mode):
-    return mode & MODE_POLL or (mode & MODE_TRIG and mode & MODE_PASSIVE)
+    return mode & MODE_POLL or (mode & MODE_TRIG and mode & MODE_CTRL)
 
 def check_input(func):
     def _check_input(*args, **kwargs):
@@ -64,18 +64,25 @@ def check_output(func):
                 return ret
     return _check_output
 
+def load_driver(typ, name=None):
+    try:
+        driver_name = typ.lower()
+        dir_name = os.path.join(get_dir(), 'drivers')
+        module = imp.load_source(typ, os.path.join(dir_name, driver_name, '%s.py' % driver_name))
+        if module and hasattr(module, typ):
+            driver = getattr(module, typ)
+            if driver:
+                return driver(name=name)
+    except:
+        pass
+
 class Driver(object):
     def __init__(self, name=None, mode=MODE_IV, freq=None, spec=None):
         self.__name = name
         self.__mode = mode
         self.__spec = spec
-        self.__sock = None
-        self.__index = None
-        self.__thread = None
-        self._init_freq(freq)
-    
-    def _init_freq(self, freq):
         self.__freq = freq
+        self.__index = None
         if not freq:
             if has_freq(self.__mode):
                 self.__freq = FREQ_MIN
@@ -106,8 +113,14 @@ class Driver(object):
     def evaluate(self):
         pass
     
+    def set_index(self, index):
+        self.__index = index
+    
     def get_type(self):
         return str(self)
+    
+    def get_index(self):
+        return self.__index
     
     def get_profile(self):
         profile = {'type':self.get_type()}
@@ -125,9 +138,6 @@ class Driver(object):
     def get_mode(self):
         return self.__mode | MODE_LO
     
-    def get_index(self):
-        return self.__index
-    
     def get_name(self):
         return self.__name
     
@@ -140,56 +150,3 @@ class Driver(object):
         if spec:
             info.update({'spec':spec})
         return str({'None':info})
-    
-    def start(self, sock):
-        if sock:
-            self.__sock = sock
-            self.__thread = Thread(target=self.__proc)
-            self.__thread.start()
-    
-    def __send(self, buf, pack=True):
-        if pack:
-            stream.put(self.__sock, {self.__index:buf}, local=True)
-        else:
-            stream.put(self.__sock, buf, local=True)
-    
-    def __recv(self):
-        req = stream.get(self.__sock, local=True)
-        self.__index, cmd, buf = parse(req)
-        return (cmd, buf)
-    
-    def __release(self):
-        if self.__sock:
-            self.__sock.close()
-    
-    def __proc(self):
-        try:
-            while True:
-                ret = ''
-                cmd, buf = self.__recv()
-                if cmd & REQ_OPEN:
-                    ret = self.open()
-                    if ret:
-                        self.__send(ret)
-                elif cmd & REQ_CLOSE:
-                    ret = self.close()
-                    if ret:
-                        self.__send(ret)
-                elif cmd & REQ_GET:
-                    try:
-                        res = self.get()
-                        if res:
-                            ret = res
-                    finally:
-                        self.__send(ret)
-                elif cmd & REQ_PUT:
-                    try:
-                        res = self.put(buf)
-                        if res:
-                            ret = res
-                    finally:
-                        self.__send(ret)
-                elif cmd & REQ_MOUNT:
-                    self.__send(self.get_info(), pack=False)
-        finally:
-            self.__release()

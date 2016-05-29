@@ -27,7 +27,7 @@ class Handler(object):
     def __init__(self, uid, addr=PROC_ADDR):
         self._handlers = {}
         self._loader = Loader(uid)
-        self._addr = (addr, HANDLER_PORT)
+        self._addr = addr
     
     def _get_code(self, name):
         buf = self._handlers.get(name)
@@ -56,6 +56,6 @@ class Handler(object):
                 code = self._get_code(name)
                 if not code:
                     return
-            return proc.put(self._addr, code=code, args=buf)
+            return proc.put(self._addr, HANDLER_PORT, code=code, args=buf)
         except:
             log_err(self, 'failed to put')

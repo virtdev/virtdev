@@ -23,7 +23,7 @@ from lib.log import log_err
 from fuse import FuseOSError
 from lib.util import path2temp
 from errno import EINVAL, ENOENT
-from conf.virtdev import PATH_VAR, PATH_MNT
+from conf.path import PATH_VAR, PATH_MNT
 from lib.fields import FIELDS, FIELD_DATA, FIELD_ATTR
 
 class Entry(object):
@@ -37,11 +37,11 @@ class Entry(object):
             log_err(self, 'invalid entry')
             raise Exception('Error: invalid entry')
         if not router:
-            from local import LocalFile
-            self._file = LocalFile()
+            from interface.localfs import LocalFS
+            self._fs = LocalFS()
         else:
-            from remote import RemoteFile
-            self._file = RemoteFile(router)
+            from interface.remotefs import RemoteFS
+            self._fs = RemoteFS(router)
         self._core = core
     
     def _undefined_op(self):
@@ -95,13 +95,13 @@ class Entry(object):
         self._undefined_op()
     
     def get_mtime(self, uid, path):
-        return self._file.mtime(uid, path)
+        return self._fs.mtime(uid, path)
     
     def load_file(self, uid, src, dest):
-        return self._file.load(uid, src, dest)
+        return self._fs.load(uid, src, dest)
     
     def save_file(self, uid, src, dest):
-        return self._file.save(uid, src, dest)
+        return self._fs.save(uid, src, dest)
     
     def parent(self, name):
         tmp = name.split('/')
@@ -132,10 +132,10 @@ class Entry(object):
     def check_path(self, uid, name='', parent=''):
         path = self.get_path(uid, name, parent)
         parent = os.path.dirname(path)
-        if not self._file.exists(uid, parent):
-            self._file.mkdir(uid, parent)
-        if not self._file.exists(uid, path):
-            self._file.touch(uid, path)
+        if not self._fs.exists(uid, parent):
+            self._fs.mkdir(uid, parent)
+        if not self._fs.exists(uid, path):
+            self._fs.touch(uid, path)
     
     def symlink(self, uid, name):
         child = self.child(name)
@@ -144,19 +144,19 @@ class Entry(object):
             log_err(self, 'failed to create symlink')
             raise FuseOSError(EINVAL) 
         path = os.path.join(self.get_path(uid, parent), child)
-        self._file.touch(uid, path)   
+        self._fs.touch(uid, path)   
     
     def remove(self, uid, name):
         path = self.get_path(uid, name)
-        self._file.remove(uid, path)
+        self._fs.remove(uid, path)
     
     def invalidate(self, uid, name):
         path = self.get_path(uid, name)
-        self._file.remove(uid, path)
+        self._fs.remove(uid, path)
     
     def lsdir(self, uid, name):
         path = self.get_path(uid, name)
-        return self._file.lsdir(uid, path)
+        return self._fs.lsdir(uid, path)
     
     def lslink(self, uid, name):
         child = self.child(name)
@@ -166,12 +166,12 @@ class Entry(object):
         st = None
         path = self.get_path(uid, name)
         
-        if self._file.exists(uid, path):
-            st = self._file.stat(uid, path)
+        if self._fs.exists(uid, path):
+            st = self._fs.stat(uid, path)
         elif self.can_invalidate():
             path = path2temp(path)
             try:
-                st = self._file.stat(uid, path)
+                st = self._fs.stat(uid, path)
             except:
                 raise FuseOSError(ENOENT)
         

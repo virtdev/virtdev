@@ -1,4 +1,4 @@
-#      remote.py
+#      local.py
 #      
 #      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,57 +17,59 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from file import File
-from conf.virtdev import HADOOP
+import os
+import shutil
+from subprocess import call
+from lib.log import log_debug
+from conf.log import LOG_LOCALFS
+from lib.util import DEVNULL, DIR_MODE
 
-class RemoteFile(File):
-    def __init__(self, router):
-        if HADOOP:
-            from interface.hadoop import Hadoop
-            self._file = Hadoop(router)
-        else:
-            self._file = None
+class LocalFS(object):
+    def _log(self, text):
+        if LOG_LOCALFS:
+            log_debug(self, text)
     
     def load(self, uid, src, dest):
-        if self._file:
-            return self._file.load(uid, src, dest)
+        call(['rsync', '-a', src, dest], stderr=DEVNULL, stdout=DEVNULL)
+        return True
     
     def save(self, uid, src, dest):
-        if self._file:
-            return self._file.save(uid, src, dest)
+        call(['rsync', '-a', src, dest], stderr=DEVNULL, stdout=DEVNULL)
+        return True
     
     def remove(self, uid, path):
-        if self._file:
-            return self._file.remove(uid, path)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        elif os.path.exists(path):
+            os.remove(path)
+        return True
     
     def mkdir(self, uid, path):
-        if self._file:
-            return self._file.mkdir(uid, path)
+        os.makedirs(path, mode=DIR_MODE)
+        return True
     
     def lsdir(self, uid, path):
-        if self._file:
-            return self._file.lsdir(uid, path)
+        return os.listdir(path)
     
     def exists(self, uid, path):
-        if self._file:
-            return self._file.exists(uid, path)
+        return os.path.exists(path)
     
     def touch(self, uid, path):
-        if self._file:
-            return self._file.touch(uid, path)
+        open(path, 'a').close()
+        return True
     
     def rename(self, uid, src, dest):
-        if self._file:
-            return self._file.rename(uid, src, dest)
+        os.rename(src, dest)
+        return True
     
     def stat(self, uid, path):
-        if self._file:
-            return self._file.stat(uid, path)
+        st = os.lstat(path)
+        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime', 'st_mode', 'st_mtime', 'st_nlink', 'st_size'))
     
     def truncate(self, uid, path, length):
-        if self._file:
-            return self._file.truncate(uid, path, length)
+        with open(path, 'r+') as f:
+            f.truncate(length)
+        return True
     
     def mtime(self, uid, path):
-        if self._file:
-            return self._file.mtime(uid, path)
+        return 0

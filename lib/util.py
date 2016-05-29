@@ -20,7 +20,6 @@
 import os
 import ast
 import sys
-import imp
 import uuid
 import xattr
 import struct
@@ -29,6 +28,7 @@ import collections
 from log import log_err
 from socket import inet_aton
 from datetime import datetime
+from SocketServer import ThreadingTCPServer
 from operations import OP_MOUNT, OP_INVALIDATE
 from fields import FIELDS, FIELD_DATA, DATA, ATTR
 from netifaces import AF_INET, interfaces, ifaddresses
@@ -37,7 +37,8 @@ _path = commands.getoutput('readlink -f %s' % sys.argv[0])
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from conf.virtdev import IFNAME, PATH_MNT, PATH_VAR
+from conf.virtdev import IFNAME
+from conf.path import PATH_MNT, PATH_VAR
 
 UID_SIZE = 32
 TOKEN_SIZE = 32
@@ -49,7 +50,6 @@ FILE_MODE = 0o644
 
 DEVNULL = open(os.devnull, 'wb')
 INFO = ['mode', 'type', 'freq', 'spec']
-PATH_DRIVER = os.path.join(_dir, 'drivers')
 
 _node = None
 _ifaddr = None
@@ -105,29 +105,6 @@ def str2tuple(s):
 def tuple2str(v):
     return reduce(lambda x, y: x + '|' + y, v)
 
-def send_pkt(sock, buf):
-    head = struct.pack('I', len(buf))
-    sock.sendall(head)
-    if buf:
-        sock.sendall(buf)
-
-def recv_bytes(sock, length):
-    ret = []
-    while length > 0:
-        buf = sock.recv(min(length, 2048))
-        if not buf:
-            raise Exception('Error: failed to receive')
-        ret.append(buf)
-        length -= len(buf) 
-    return ''.join(ret)
-
-def recv_pkt(sock):
-    head = recv_bytes(sock, 4)
-    if not head:
-        return ''
-    length = struct.unpack('I', head)[0]
-    return recv_bytes(sock, length)
-
 def close_port(port):
     cmd = 'lsof -i:%d -Fp | cut -c2- | xargs --no-run-if-empty kill -9' % port
     os.system(cmd)
@@ -164,6 +141,17 @@ def named_lock(func):
             self._lock.release(name)
     return _named_lock
 
+def edge_lock(func):
+    def _edge_lock(*args, **kwargs):
+        self = args[0]
+        edge = args[1]
+        self._lock.acquire(edge[0])
+        try:
+            return func(*args, **kwargs)
+        finally:
+            self._lock.release(edge[0])
+    return _edge_lock
+
 def mount(uid, attr):
     path = os.path.join(PATH_MNT, uid)
     xattr.setxattr(path, OP_MOUNT, str(attr))
@@ -178,19 +166,8 @@ def mount_device(uid, name, mode, freq, prof):
 
 def update_device(query, uid, node, addr, name):
     query.device.put(name, {'uid':uid, 'addr':addr, 'node':node})
-    query.member.remove(uid, (name,))
+    query.member.delete(uid, (name,))
     query.member.put(uid, (name, node))
-
-def load_driver(typ, name=None):
-    try:
-        driver_name = typ.lower()
-        module = imp.load_source(typ, os.path.join(PATH_DRIVER, driver_name, '%s.py' % driver_name))
-        if module and hasattr(module, typ):
-            driver = getattr(module, typ)
-            if driver:
-                return driver(name=name)
-    except:
-        pass
 
 def device_info(buf):
     try:
@@ -288,7 +265,10 @@ def device_sync(manager, name, buf):
     path = os.path.join(PATH_VAR, manager.uid, DATA, name)
     with open(path, 'wb') as f:
         f.write(buf)
-    manager.device.update(name, buf)
+    manager.device.put(name, buf)
+
+def get_dir():
+    return _dir
 
 def gen_uid():
     return uuid.uuid4().hex
@@ -299,5 +279,9 @@ def gen_key():
 def gen_token():
     return uuid.uuid4().hex
 
-def get_dir():
-    return _dir
+def create_server(addr, port, handler):
+    server = ThreadingTCPServer((addr, port), handler, bind_and_activate=False)
+    server.allow_reuse_address = True
+    server.server_bind()
+    server.server_activate()
+    server.serve_forever()

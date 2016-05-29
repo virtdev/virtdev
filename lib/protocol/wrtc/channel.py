@@ -1,6 +1,6 @@
 #      channel.py (wrtc)
 #      
-#      Copyright (C) 2015 Yi-Wei Ci <ciyiwei@hotmail.com>
+#      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
 #      This program is free software; you can redistribute it and/or modify
 #      it under the terms of the GNU General Public License as published by
@@ -22,17 +22,18 @@ import json
 import time
 from subprocess import Popen
 from conf.log import LOG_WRTC
+from conf.path import PATH_RUN
 from lib.lock import NamedLock
 from threading import Thread, Lock
 from lib.util import DEVNULL, get_dir
 from websocket import create_connection
 from lib.log import log_debug, log_err, log_get
-from conf.virtdev import BRIDGE_PORT, CONDUCTOR_PORT, ADAPTER_ADDR, ADAPTER_PORT, PATH_RUN
+from conf.virtdev import BRIDGE_PORT, CONDUCTOR_PORT, ADAPTER_ADDR, ADAPTER_PORT
 
-CONNECT_MAX = 5
 CHANNEL_MAX = 4096
-CHECK_INTERVAL = 0.1 #seconds
-CONNECT_INTERVAL = 1 # seconds
+VERIFY_RETRY = 3
+WAIT_INTERVAL = 1 #seconds
+VERIFY_INTERVAL = 5 # seconds
 
 def chkadapter(func):
     def _chkadapter(*args, **kwargs):
@@ -100,38 +101,42 @@ class Channel(object):
         if total != None and total <= 0:
             self._do_release(addr)
     
-    def _recycle(self):
+    def _wait(self):
         while True:
             channels = self._channels.keys()
             for addr in channels:
                 self._release(addr)
                 if len(self._channels) < CHANNEL_MAX:
                     return
-            time.sleep(CHECK_INTERVAL)
+            time.sleep(WAIT_INTERVAL)
     
-    def _exist(self, addr):
+    def _verify(self, addr):
         req = json.dumps({'cmd':'exist', 'addr':addr})
-        for _ in range(CONNECT_MAX):
+        for _ in range(VERIFY_RETRY + 1):
             self._adapter.send(req)
             ret = self._adapter.recv()
             if ret == 'exist':
                 return True
-            time.sleep(CONNECT_INTERVAL)
+            time.sleep(VERIFY_INTERVAL)
+    
+    def _can_connect(self, addr):
+        if len(self._channels) >= CHANNEL_MAX and addr not in self._channels:
+            self._wait()
+        return True
     
     @chkadapter
     def connect(self, addr, key, static, verify, bridge):
-        if len(self._channels) >= CHANNEL_MAX and addr not in self._channels:
-            self._recycle()
-        if self._channels.has_key(addr):
-            self._channels[addr] += 1
-        else:
-            req = json.dumps({'cmd':'open', 'addr':addr, 'key':key, 'bridge':bridge})
-            self._adapter.send(req)
-            if verify:
-                if not self._exist(addr):
-                    log_err(self, 'failed to connect')
-                    raise Exception(log_get(self, 'failed to connect'))
-            self._channels[addr] = 1
+        if self._can_connect(addr):
+            if self._channels.has_key(addr):
+                self._channels[addr] += 1
+            else:
+                req = json.dumps({'cmd':'open', 'addr':addr, 'key':key, 'bridge':bridge})
+                self._adapter.send(req)
+                if verify:
+                    if not self._verify(addr):
+                        log_err(self, 'failed to connect')
+                        raise Exception(log_get(self, 'failed to connect'))
+                self._channels[addr] = 1
     
     def _disconnect(self, addr):
         req = json.dumps({'cmd':'close', 'addr':addr})
@@ -152,4 +157,4 @@ class Channel(object):
     
     @chkadapter
     def exist(self, addr):
-        return self._exist(addr)
+        return self._verify(addr)

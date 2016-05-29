@@ -22,8 +22,8 @@
 
 import time
 import uuid
-import socket
 import random
+from lib import io
 from lib import bson
 from lib.ppp import *
 from random import randint
@@ -33,8 +33,8 @@ from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
 from lib.log import log_debug, log_err, log_get
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
-from conf.virtdev import BROKER_SERVERS, BROKER_PORT, WORKER_SERVERS, REQUESTER_PORT
-from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, hash_name, send_pkt, recv_pkt, unicode2str
+from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, hash_name, unicode2str
+from conf.virtdev import BROKER_SERVERS, BROKER_PORT, WORKER_SERVERS, WORKER_PORT
 
 POOL_SIZE = cpu_count() * 4
 SLEEP_TIME = 10 # seconds
@@ -57,16 +57,16 @@ class Distributor(Thread):
         self._set_sock()
     
     def _set_sock(self):
-        self._sock = self._context.socket(DEALER)
-        self._sock.setsockopt(IDENTITY, self._identity)
-        self._poller.register(self._sock, POLLIN)
-        self._sock.connect(zmqaddr(self._get_broker(), BROKER_PORT))
-        self._sock.send(PPP_READY)
+        self._socket = self._context.socket(DEALER)
+        self._socket.setsockopt(IDENTITY, self._identity)
+        self._poller.register(self._socket, POLLIN)
+        self._socket.connect(zmqaddr(self._get_broker(), BROKER_PORT))
+        self._socket.send(PPP_READY)
     
     def _reset_sock(self):
-        self._poller.unregister(self._sock)
-        self._sock.setsockopt(LINGER, 0)
-        self._sock.close()
+        self._poller.unregister(self._socket)
+        self._socket.setsockopt(LINGER, 0)
+        self._socket.close()
         self._set_sock()
     
     def _get_broker(self):
@@ -107,24 +107,23 @@ class Distributor(Thread):
     
     def _reply(self, identity, seq, buf):
         msg = [identity, '', seq, buf]
-        self._sock.send_multipart(msg)
+        self._socket.send_multipart(msg)
     
     def _request(self, addr, **args):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((addr, REQUESTER_PORT))
+        sock = io.connect(addr, WORKER_PORT)
         try:
             buf = bson.dumps(args)
-            send_pkt(sock, buf)
-            res = recv_pkt(sock)
+            io.send_pkt(sock, buf)
+            res = io.recv_pkt(sock)
             return unicode2str(bson.loads(res)[''])
         finally:
-            sock.close()
+            io.close(sock)
     
     def _proc(self, identity, seq, buf):
         try:
             uid, token = self._get_token(buf)
             if not uid or not token:
-                log_err(self, 'failed to process, invalid token')
+                log_err(self, 'failed to process, cannot get token')
                 return
             addr = self._get_requester(uid)
             ret = self._request(addr, uid=uid, token=token, buf=buf)
@@ -137,9 +136,9 @@ class Distributor(Thread):
         liveness = PPP_HEARTBEAT_LIVENESS
         timeout = time.time() + PPP_HEARTBEAT_INTERVAL
         while True:
-            socks = dict(self._poller.poll(PPP_HEARTBEAT_INTERVAL * 1000))
-            if socks.get(self._sock) == POLLIN:
-                frames = self._sock.recv_multipart()
+            sockets = dict(self._poller.poll(PPP_HEARTBEAT_INTERVAL * 1000))
+            if sockets.get(self._socket) == POLLIN:
+                frames = self._socket.recv_multipart()
                 if not frames:
                     log_err(self, 'invalid request')
                     break
@@ -158,4 +157,4 @@ class Distributor(Thread):
             
             if time.time() > timeout:
                 timeout = time.time() + PPP_HEARTBEAT_INTERVAL
-                self._sock.send(PPP_HEARTBEAT)
+                self._socket.send(PPP_HEARTBEAT)

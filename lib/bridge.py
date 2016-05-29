@@ -17,15 +17,15 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from conf.virtdev import PROTOCOL
+from conf.types import TYPE_PROTOCOL
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
 
 bridge = None
 
-if PROTOCOL == PROTOCOL_N2N:
+if TYPE_PROTOCOL == PROTOCOL_N2N:
     from protocol.n2n.bridge import Bridge as N2NBridge
     bridge = N2NBridge()
-elif PROTOCOL == PROTOCOL_WRTC:
+elif TYPE_PROTOCOL == PROTOCOL_WRTC:
     from protocol.wrtc.bridge import Bridge as WRTCBridge
     bridge = WRTCBridge()
 

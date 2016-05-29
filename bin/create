@@ -12,7 +12,7 @@ _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
 from lib.util import cmd
-from conf.virtdev import PATH_MNT
+from conf.path import PATH_MNT
 from lib.operations import OP_CREATE
 
 if __name__ == '__main__':

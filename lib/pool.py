@@ -17,84 +17,87 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from lib.util import lock
 from random import randint
-from util import hash_name
-from log import log_err, log_get
 from threading import Event, Lock
 
-class Pool(object):
+TIMEOUT = 0.1 # seconds
+
+class PoolEvent(object):
     def __init__(self):
-        self._count = 0
-        self._queues = []
-        self._capacity = 0
         self._lock = Lock()
         self._event = Event()
     
-    def _find_queue(self):
-        if 0 == self._count:
-            return
-        n = 0
-        length = self._capacity
-        i = randint(0, self._count - 1)
-        for _ in range(self._count):
-            l = self._queues[i].length
-            if l == 0:
-                length = 0
-                n = i
-                break
-            elif l < length:
-                length = l
-                n = i
-            i += 1
-            if i == self._count:
-                i = 0
-        if length < self._capacity:
-            return self._queues[n]
-        
-    def _get(self):
-        self._lock.acquire()
+    @lock
+    def _clear(self):
+        if self._event.is_set():
+            self._event.clear()
+    
+    @lock
+    def set(self):
+        self._event.set()
+    
+    def wait(self, timeout):
+        self._event.wait(timeout)
+        self._clear()
+
+class Pool(object):
+    def __init__(self):
+        self.__count = 0
+        self.__queues = []
+        self.__lock = Lock()
+        self.__event = PoolEvent()
+    
+    def __find(self):
+        self.__lock.acquire()
         try:
-            queue = self._find_queue()
-            if not queue:
-                if self._event.is_set():
-                    self._event.clear()
-            return queue
+            if 0 == self.__count:
+                return
+            n = 0
+            length = None
+            i = randint(0, self.__count - 1)
+            for _ in range(self.__count):
+                l = self.__queues[i].length
+                if l >= self.__queues[i].capacity:
+                    continue
+                if l == 0:
+                    length = 0
+                    n = i
+                    break
+                elif length == None or l < length:
+                    length = l
+                    n = i
+                i += 1
+                if i == self.__count:
+                    i = 0
+            if length != None:
+                return self.__queues[n]
         finally:
-            self._lock.release()
+            self.__lock.release()
     
-    def _wait(self):
-        self._event.wait()
-    
-    def add(self, queue):
-        if 0 == self._capacity:
-            self._capacity = queue.capacity
-            if not self._capacity:
-                log_err(self, 'failed to initialize')
-                raise Exception(log_get(self, 'failed to initialize'))
-        else:
-            if self._capacity != queue.capacity:
-                log_err(self, 'invalid queue')
-                raise Exception(log_get(self, 'invalid queue'))
-        self._queues.append(queue)
-        self._count += 1
-        queue.set_parent(self)
-    
-    def select(self, name):
-        if 0 == self._count:
-            return
-        n = hash_name(name) % self._count
-        return self._queues[n]
+    def wait(self, timeout=TIMEOUT):
+        self.__event.wait(timeout)
     
     def wakeup(self):
-        self._lock.acquire()
-        self._event.set()
-        self._lock.release()
+        self.__event.set()
+    
+    def get(self, index):
+        if index >= self.__count:
+            return
+        else:
+            return self.__queues[index]
+    
+    def add(self, queue):
+        queue.set_parent(self)
+        queue.set_index(self.__count)
+        self.__queues.append(queue)
+        self.__count += 1
     
     def push(self, buf):
         while True:
-            queue = self._get()
-            if not queue:
-                self._wait()
+            que = self.__find()
+            if not que:
+                self.wait()
             else:
-                if queue.push(buf):
+                if que.push(buf):
                     return

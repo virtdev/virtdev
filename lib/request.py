@@ -36,20 +36,20 @@ class RequestSender(object):
         n = randint(0, length - 1)
         return zmqaddr(ROOT_SERVERS[n], ROOT_PORT)
     
-    def _set_sock(self):
-        self._sock = self._context.socket(REQ)
-        self._sock.setsockopt(IDENTITY, self._id)
-        self._sock.connect(self._get_addr())
-        self._poller.register(self._sock, POLLIN)
+    def _set(self):
+        self._socket = self._context.socket(REQ)
+        self._socket.setsockopt(IDENTITY, self._id)
+        self._socket.connect(self._get_addr())
+        self._poller.register(self._socket, POLLIN)
     
-    def _close_sock(self):
-        self._poller.unregister(self._sock)
-        self._sock.setsockopt(LINGER, 0)
-        self._sock.close()
+    def _close(self):
+        self._poller.unregister(self._socket)
+        self._socket.setsockopt(LINGER, 0)
+        self._socket.close()
     
-    def _reset_sock(self):
-        self._close_sock()
-        self._set_sock()
+    def _reset(self):
+        self._close()
+        self._set()
     
     def __init__(self):
         self._seq = 0
@@ -57,11 +57,11 @@ class RequestSender(object):
         self._context = zmq.Context(1)
         self._poller = zmq.Poller()
         self._lock = Lock()
-        self._set_sock()
+        self._set()
     
     def _send(self, buf):
-        self._sock.send(str(self._seq), SNDMORE)
-        self._sock.send(str(buf))
+        self._socket.send(str(self._seq), SNDMORE)
+        self._socket.send(str(buf))
     
     def send(self, buf):
         cnt = 0
@@ -73,9 +73,9 @@ class RequestSender(object):
                 cnt += 1
                 self._send(buf)
                 while True:
-                    socks = dict(self._poller.poll(TIMEOUT * 1000))
-                    if socks.get(self._sock):
-                        reply = self._sock.recv_multipart()
+                    sockets = dict(self._poller.poll(TIMEOUT * 1000))
+                    if sockets.get(self._socket):
+                        reply = self._socket.recv_multipart()
                         if len(reply) != 2:
                             break
                         if int(reply[0]) == self._seq:
@@ -84,14 +84,14 @@ class RequestSender(object):
                             break
                     else:
                         if cnt < RETRY_MAX:
-                            self._reset_sock()
+                            self._reset()
                         break
         finally:
             self._lock.release()
             return res
     
     def __del__(self):
-        self._close_sock()
+        self._close()
         self._context.term()
 
 class RequestHandler(object):

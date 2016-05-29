@@ -28,17 +28,17 @@ SLEEP_TIME = 0.1 # seconds
 
 class Pyboard(object):
     def __init__(self, sock):
-        self._sock = sock
+        self._socket = sock
     
     def _read(self, length, ending=None):
-        buf = self._sock.recv(length)
+        buf = self._socket.recv(length)
         if not ending:
             return buf
         count = 0
         while count < RETRY_MAX:
             if buf.endswith(ending):
                 break
-            val = self._sock.recv(1)
+            val = self._socket.recv(1)
             if not val:
                 time.sleep(SLEEP_TIME)
                 count += 1
@@ -48,7 +48,7 @@ class Pyboard(object):
         return buf
     
     def _write(self, buf):
-        self._sock.sendall(buf)
+        self._socket.sendall(buf)
     
     def _enter(self):
         self._write(b'\r\x03\x03') # ctrl-C twice: interrupt any running program

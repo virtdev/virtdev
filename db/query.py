@@ -17,11 +17,11 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from userdb import UserDB
+from user import User
+from history import History
 from event.event import Event
 from lib.util import tuple2str
-from historydb import HistoryDB
-from db import MemberDB, TokenDB, GuestDB, DeviceDB, NodeDB, KeyDB
+from database import Member, Token, Guest, Device, Node, Key
 
 def tuplevalue(func):
     def _tuplevalue(*args, **kwargs):
@@ -32,7 +32,7 @@ def tuplevalue(func):
 
 class MemberQuery(object):
     def __init__(self, router):
-        self._member = MemberDB(router)
+        self._member = Member(router)
     
     def get(self, key):
         return self._member.get(key)
@@ -42,12 +42,12 @@ class MemberQuery(object):
         self._member.put(key, value)
     
     @tuplevalue
-    def remove(self, key, value):
-        self._member.remove(key, value, regex=True)
+    def delete(self, key, value):
+        self._member.delete(key, value, regex=True)
 
 class NodeQuery(object):
     def __init__(self, router):
-        self._node = NodeDB(router)
+        self._node = Node(router)
     
     def get(self, key):
         return self._node.get(key)
@@ -57,19 +57,19 @@ class NodeQuery(object):
         self._node.put(key, value)
     
     @tuplevalue
-    def remove(self, key, value):
-        self._node.remove(key, value, regex=True)
+    def delete(self, key, value):
+        self._node.delete(key, value, regex=True)
 
 class UserQuery(object):
     def __init__(self, router):
-        self._user = UserDB(router)
+        self._user = User(router)
     
     def get(self, key, *fields):
         return self._user.get(key, *fields)
 
 class TokenQuery(object):
     def __init__(self, router):
-        self._token = TokenDB(router)
+        self._token = Token(router)
     
     def get(self, key):
         return self._token.get(key, first=True)
@@ -77,12 +77,12 @@ class TokenQuery(object):
     def put(self, key, value):
         return self._token.put(key, value)
     
-    def remove(self, key):
-        return self._token.remove(key)
+    def delete(self, key):
+        return self._token.delete(key)
 
 class DeviceQuery(object):
     def __init__(self, router):
-        self._device = DeviceDB(router)
+        self._device = Device(router)
     
     def get(self, key):
         return self._device.get(key)
@@ -90,12 +90,12 @@ class DeviceQuery(object):
     def put(self, key, value):
         self._device.put(key, value)
     
-    def remove(self, key):
-        self._device.remove(key)
+    def delete(self, key):
+        self._device.delete(key)
 
 class GuestQuery(object):
     def __init__(self, router):
-        self._guest = GuestDB(router)
+        self._guest = Guest(router)
     
     def get(self, key):
         return self._guest.get(key)
@@ -103,12 +103,12 @@ class GuestQuery(object):
     def put(self, key, value):
         self._guest.put(key, value)
     
-    def remove(self, key, value):
-        self._guest.remove(key, value)
+    def delete(self, key, value):
+        self._guest.delete(key, value)
 
 class HistoryQuery(object):
     def __init__(self, router):
-        self._history = HistoryDB(router)
+        self._history = History(router)
     
     def get(self, uid, key):
         return self._history.get(uid, key)
@@ -128,7 +128,7 @@ class EventQuery(object):
 
 class KeyQuery(object):
     def __init__(self, router):
-        self._key = KeyDB(router)
+        self._key = Key(router)
     
     def get(self, key):
         return self._key.get(key)
@@ -136,8 +136,8 @@ class KeyQuery(object):
     def put(self, key, value):
         self._key.put(key, value)
     
-    def remove(self, key):
-        self._key.remove(key)
+    def delete(self, key):
+        self._key.delete(key)
 
 class Query(object):
     def __init__(self, meta, data):

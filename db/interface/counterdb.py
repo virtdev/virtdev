@@ -1,4 +1,4 @@
-#      hbase.py
+#      counterdb.py
 #      
 #      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,24 +17,34 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from database import Database
-from happybase import ConnectionPool
-from multiprocessing import cpu_count
+from remotedb import RemoteDB
+from conf.types import TYPE_COUNTERDB
 
-POOL_SIZE = cpu_count() * 2
+if TYPE_COUNTERDB == 'hbase':
+    from module.hbase import HBase as DB
 
-class HBase(Database):
+class CounterDB(RemoteDB):
+    def __init__(self, name, router, domain):
+        RemoteDB.__init__(self, router=router, domain=domain)
+        self._db = DB(name)
+    
     def connect(self, addr):
-        return ConnectionPool(size=POOL_SIZE, host=addr)
+        return self._db.connect(addr)
     
-    def get_table(self, conn, table):
-        return conn.table(table)
+    def connection(self, coll):
+        return self._db.connection(coll)
     
-    def open(self, collection):
-        return collection.connection()
+    def get(self, conn, key):
+        return self._db.get(conn, key)
     
-    def find(self, table, key):
-        return table.row(key)
+    def put(self, conn, key, val, create=False):
+        self._db.put(conn, key, val)
     
-    def update(self, table, key, val):
-        table.put(key, val)
+    def get_counter(self, conn, key, name):
+        return self._db.get_counter(conn, key, name)
+    
+    def set_counter(self, conn, key, name, num):
+        self._db.set_counter(conn, key, name, num)
+    
+    def inc_counter(self, conn, key, name):
+        self._db.inc_counter(conn, key, name)

@@ -1,4 +1,4 @@
-#      hdfs.py
+#      hadoop.py
 #      
 #      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -19,23 +19,18 @@
 
 import os
 import stat
-from conf.log import LOG_HADOOP
 from lib.domains import DOMAIN_USR
+from lib.log import log_get, log_err
 from lib.util import DIR_MODE, FILE_MODE
 from hdfs.client import Client as HDFSClient
-from lib.log import log_debug, log_get, log_err
 from snakebite.client import Client as SnakebiteClient
 from conf.virtdev import FILE_SERVER_PORT, FILE_HTTP_PORT
 
 FILE_SIZE = 1 << 24
 
-class Hadoop():
+class Hadoop(object):
     def __init__(self, router):
         self._router = router
-    
-    def _log(self, text):
-        if LOG_HADOOP:
-            log_debug(self, text)
     
     def _get_client(self, uid):
         addr = self._router.get(uid, DOMAIN_USR)

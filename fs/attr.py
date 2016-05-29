@@ -45,12 +45,12 @@ class Attr(Entry):
     def truncate(self, uid, name, length):
         if not self._core:
             path = self.get_path(uid, name)
-            self._file.truncate(uid, path, length)
+            self._fs.truncate(uid, path, length)
             self._temp.truncate(uid, name, length)
     
     def is_expired(self, uid, name):
         temp = path2temp(self.get_path(uid, name))
-        return self._file.exists(uid, temp)
+        return self._fs.exists(uid, temp)
     
     def getattr(self, uid, name):
         return self.lsattr(uid, name)
@@ -94,11 +94,11 @@ class Attr(Entry):
         self._log('invalidate, name=%s' % str(name))
         path = self.get_path(uid, name)
         temp = path2temp(path)
-        if self._file.exists(uid, path):
-            self._file.rename(uid, path, temp)
+        if self._fs.exists(uid, path):
+            self._fs.rename(uid, path, temp)
             self._unlink(uid, name)
         else:
-            self._file.touch(uid, temp)
+            self._fs.touch(uid, temp)
     
     def signature(self, uid, name):
         temp = path2temp(self.get_path(uid, name))
@@ -122,13 +122,13 @@ class Attr(Entry):
                     except:
                         # FIXME:
                         log_warnning(self, 'failed to patch, name=%s' % str(name))
-                        self._file.rename(uid, src, dest)
+                        self._fs.rename(uid, src, dest)
                         return
-            self._file.remove(uid, src)
+            self._fs.remove(uid, src)
         else:
             with open(src, 'wb') as f:
                 f.write(tmp)
-            self._file.rename(uid, src, dest)
+            self._fs.rename(uid, src, dest)
     
     def readdir(self, uid, name):
         return self.lsdir(uid, name)

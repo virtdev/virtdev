@@ -17,30 +17,25 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import socket
+from lib import io
 from lib import bson
-from lib.pool import Pool
-from conf.virtdev import HA
-from lib.queue import Queue
-from lib.log import log, log_err
-from threading import Lock, Thread
-from multiprocessing import cpu_count
+from lib.log import log_err
+from threading import Thread
+from SocketServer import BaseRequestHandler
 from RestrictedPython import compile_restricted
-from lib.util import send_pkt, recv_pkt, unicode2str
+from lib.util import unicode2str, create_server
 
-QUEUE_LEN = 2
-POOL_SIZE = cpu_count() * 2
+_manager = None
 
-def put(addr, **args):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect(addr)
+def put(addr, port, **args):
+    sock = io.connect(addr, port)
     try:
         buf = bson.dumps(args)
-        send_pkt(sock, buf)
-        res = recv_pkt(sock)
+        io.send_pkt(sock, buf)
+        res = io.recv_pkt(sock)
         return unicode2str(bson.loads(res)[''])
     finally:
-        sock.close()
+        io.close(sock)
 
 def _getattr_(obj, attr):
     t = type(obj)
@@ -78,53 +73,32 @@ def _exec(device, code, args):
             if func:
                 return func(args)
     except:
-        log('failed to evaluate')
+        log_err(None, 'failed to execute')
 
-class ProcQueue(Queue):
-    def __init__(self, srv):
-        Queue.__init__(self, QUEUE_LEN)
-        self._srv = srv
-    
-    def proc(self, sock):
-        self._srv.proc(sock)
 
-class Proc(Thread):
-    def _init_sock(self, addr):
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind(addr)
-        self._sock.listen(5)
-    
-    def __init__(self, manager, addr):
-        self._lock = Lock()
-        Thread.__init__(self)
-        self._init_sock(addr)
-        self._manager = manager
-        self._pool = Pool()
-        for _ in range(POOL_SIZE):
-            self._pool.add(ProcQueue(self))
-    
-    def proc(self, sock):
+class ProcServer(BaseRequestHandler):
+    def handle(self):
         try:
             res = ''
-            buf = recv_pkt(sock)
+            buf = io.recv_pkt(self.request)
             if buf:
                 req = unicode2str(bson.loads(buf))
                 if type(req) == dict:
-                    device = None
-                    if HA:
-                        device = self._manager.get_passive_device()
+                    device = _manager.compute_unit
                     ret = _exec(device, req['code'], req['args'])
                     if ret:
                         res = ret
-            send_pkt(sock, bson.dumps({'':res}))
-        finally:
-            sock.close()
+            io.send_pkt(self.request, bson.dumps({'':res}))
+        except:
+            pass
+
+class Proc(object):
+    def __init__(self, manager, addr, port):
+        global _manager
+        if not _manager:
+            _manager = manager
+        self._addr = addr
+        self._port = port
     
-    def run(self):
-        while True:
-            try:
-                sock, _ = self._sock.accept()
-                self._pool.push(sock)
-            except:
-                log_err(self, 'failed to process')
+    def start(self):
+        Thread(target=create_server, args=(self._addr, self._port, ProcServer)).start()

@@ -21,17 +21,19 @@ import time
 import channel
 from pool import Pool
 from queue import Queue
+from conf.virtdev import DEBUG
 from log import log_err, log_get
+from multiprocessing import cpu_count
 from modes import MODE_LINK, MODE_CLONE
 from util import str2tuple, update_device, get_name
-from operations import OP_ADD, OP_DIFF, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
+from operations import OP_ADD, OP_GET, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
-RETRY = True
-RETRY_MAX = 2
-RETRY_INTERVAL = 15 # seconds
+LINK_RETRY = 2
+LINK_INTERVAL = 12 # seconds
 
+CACHE = False
 QUEUE_LEN = 2
-POOL_SIZE = 0
+POOL_SIZE = cpu_count() * 4
 
 def chkop(func):
     def _chkop(self, name, op, **args):
@@ -42,13 +44,13 @@ def chkop(func):
 
 class Uplink(object):
     def __init__(self, manager):
-        self.operations = [OP_ADD, OP_DIFF]
+        self.operations = [OP_ADD, OP_GET]
         self._manager = manager
     
     @chkop
     def put(self, name, op, **args):
-        if op == OP_DIFF:
-            return self._manager.device.diff(name, **args)
+        if op == OP_GET:
+            return self._manager.device.get(name, **args)
         elif op == OP_ADD:
             return self._manager.device.add(name, **args)
 
@@ -57,17 +59,29 @@ class DownlinkQueue(Queue):
         Queue.__init__(self, QUEUE_LEN)
         self._link = link
     
-    def _proc(self, name, op, **args):
+    def _do_proc(self, name, op, **args):
         self._link.request(name, op, **args)
     
+    def _proc(self, buf):
+        self._do_proc(**buf)
+    
+    def _proc_safe(self, buf):
+        try:
+            self._proc(buf)
+        except:
+            log_err(self, 'failed to process')
+    
     def proc(self, buf):
-        self._proc(**buf)
+        if DEBUG:
+            self._proc(buf)
+        else:
+            self._proc_safe(buf)
 
 class Downlink(object):
     def __init__(self, query):
         self.operations = [OP_MOUNT, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
         self._query = query
-        if POOL_SIZE:
+        if CACHE:
             self._pool = Pool()
             for _ in range(POOL_SIZE):
                 self._pool.add(DownlinkQueue(self))
@@ -97,22 +111,19 @@ class Downlink(object):
     
     def _disconnect(self, addr):
         try:
-            channel.disconnect(addr, release=True)
+            channel.disconnect(addr)
         except:
             pass
     
     def _retry(self, uid, addr, key, op, args, token):
-        if not RETRY:
-            return
-        for _ in range(RETRY_MAX):
+        for _ in range(LINK_RETRY):
             try:
-                channel.disconnect(addr, release=True)
-                time.sleep(RETRY_INTERVAL)
+                time.sleep(LINK_INTERVAL)
                 channel.connect(uid, addr, key, static=True, verify=True)
                 try:
                     channel.put(uid, addr, op, args, token)
                 finally:
-                    channel.disconnect(addr, release=True)
+                    channel.disconnect(addr)
                 return True
             except:
                 pass
@@ -145,7 +156,7 @@ class Downlink(object):
             for i in members:
                 p, node = str2tuple(i)
                 if p == parent:
-                    key = self._connect(uid, node, addr)
+                    key = self._connect(uid, node, addr, verify=True)
                     if not key:
                         log_err(self, 'failed to mount, no connection')
                         raise Exception(log_get(self, 'failed to mount'))
@@ -210,7 +221,7 @@ class Downlink(object):
     
     @chkop
     def put(self, name, op, **args):
-        if self._pool:
+        if CACHE:
             buf = {'name':name, 'op':op}
             if args:
                 buf.update(args)

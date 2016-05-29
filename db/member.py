@@ -54,7 +54,7 @@ class Member(object):
         if not members or type(members) != list:
             log_err(self, 'invalid members')
             return
-        self._log('check_members %s (pos=%d)' % (str(members), pos))
+        self._log('check members %s (pos=%d)' % (str(members), pos))
         self.__lock.acquire()
         try:
             if len(self.__members) != pos:
@@ -70,7 +70,7 @@ class Member(object):
         if not members or type(members) != list:
             log_err(self, 'invalid members')
             return
-        self._log('add_members %s (pos=%d)' % (str(members), pos))
+        self._log('add members %s (pos=%d)' % (str(members), pos))
         self.__lock.acquire()
         try:
             if len(self.__members) != pos:
@@ -86,7 +86,7 @@ class Member(object):
             self.__lock.release()
     
     def get_members(self, pos):
-        self._log('get_members (pos=%d)' % pos)
+        self._log('get members (pos=%d)' % pos)
         self.__lock.acquire()
         try:
             if pos < len(self.__members):

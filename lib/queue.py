@@ -17,11 +17,14 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from log import log_err
+from conf.log import LOG_QUEUE
+from conf.virtdev import DEBUG
+from log import log_debug, log_err
 from threading import Thread, Event, Lock
 from multiprocessing.pool import ThreadPool
 
-TIMEOUT = 600 # seconds
+TIMEOUT = 3600 # seconds
+WAIT_TIME = 0.1 # seconds
 
 class Queue(object):
     def __init__(self, capacity, timeout=TIMEOUT):
@@ -31,27 +34,32 @@ class Queue(object):
         self.__event = Event()
         self.__lock = Lock()
         self.__parent = None
+        self.__index = None
         self.__queue = []
         self.__thread.start()
+    
+    def __log(self, text):
+        if LOG_QUEUE:
+            log_debug(self, text)
+    
+    def set_index(self, index):
+        self.__index = index
     
     def set_parent(self, parent):
         self.__parent = parent
     
+    def get_parent(self):
+        return self.__parent
+    
     def proc(self, buf):
-        pass
-    
-    def prepush(self, buf):
-        pass
-    
-    def preinsert(self, buf):
         pass
     
     def insert(self, buf):
         self.__lock.acquire()
         try:
-            self.preinsert(buf)
             self.__queue.insert(0, buf)
             self.__event.set()
+            return True
         finally:
             self.__lock.release()
     
@@ -59,12 +67,15 @@ class Queue(object):
         self.__lock.acquire()
         try:
             if len(self.__queue) < self.__capacity:
-                self.prepush(buf)
                 self.__queue.append(buf)
                 self.__event.set()
                 return True
         finally:
             self.__lock.release()
+    
+    @property
+    def index(self):
+        return self.__index
     
     @property
     def length(self):
@@ -77,12 +88,15 @@ class Queue(object):
     def __pop(self):
         self.__lock.acquire()
         try:
-            buf = None
             if len(self.__queue) > 0:
                 buf = self.__queue.pop(0)
                 if len(self.__queue) == 0:
                     self.__event.clear()
-            return buf
+                if buf:
+                    if self.__parent:
+                        self.__parent.wakeup()
+                    self.__log('index=%d, length=%d' % (self.index, self.length))
+                    return buf
         finally:
             self.__lock.release()
     
@@ -95,14 +109,21 @@ class Queue(object):
         finally:
             pool.join()
     
+    def __proc_safe(self, buf):
+        try:
+            self.__proc(buf)
+        except:
+            log_err(self, 'failed to process')
+    
+    def __wait(self):
+        self.__event.wait(WAIT_TIME)
+    
     def __run(self):
         while True:
-            self.__event.wait()
+            self.__wait()
             buf = self.__pop()
-            if self.__parent:
-                self.__parent.wakeup()
             if buf:
-                try:
+                if DEBUG:
                     self.__proc(buf)
-                except:
-                    log_err(self, 'failed to process')
+                else:
+                    self.__proc_safe(buf)

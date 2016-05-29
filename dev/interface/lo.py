@@ -17,94 +17,86 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import socket
-from lib import stream
+from lib import io
 from dev.udi import UDI
+from dev.stub import Stub
 from random import randint
 from lib.log import log_err
 from threading import Thread
 from lib.loader import Loader
+from dev.driver import load_driver
 from conf.virtdev import LO_ADDR, LO_PORT
-from lib.util import load_driver, member_list
-from lib.modes import MODE_LO, MODE_PASSIVE, MODE_CLONE, MODE_VIRT
+from SocketServer import BaseRequestHandler
+from lib.util import member_list, create_server
+from lib.modes import MODE_LO, MODE_CTRL, MODE_CLONE, MODE_VIRT
+
+_devices = {}
 
 def device_name(typ, name, mode=0):
     return '%s_%s_%d' % (typ, name, mode)
 
 def connect(device):
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((LO_ADDR, LO_PORT))
-        stream.put(sock, device, local=True)
-        if device != stream.get(sock, local=True):
-            sock.close()
+        sock = io.connect(LO_ADDR, LO_PORT)
+        io.put(sock, device, local=True)
+        if device != io.get(sock, local=True):
+            io.close(sock)
         else:
             return sock
     except:
         pass
 
+def _get_type(device):
+    res = device.split('_')
+    if len(res) == 3:
+        return res[0]
+
+def _get_name(device):
+    res = device.split('_')
+    if len(res) == 3:
+        return res[1]
+
+def _get_mode(device):
+    res = device.split('_')
+    if len(res) == 3:
+        return int(res[2])
+
+class LoServer(BaseRequestHandler):
+    def handle(self):
+        device = None
+        try:
+            device = io.get(self.request, local=True)
+            if not device:
+                return
+            typ = _get_type(device)
+            name = _get_name(device)
+            mode = _get_mode(device)
+            if typ and name:
+                driver = load_driver(typ, name)
+                if not mode & MODE_CLONE:
+                    driver.setup()
+                if driver:
+                    stub = Stub(self.request, driver)
+                    _devices.update({device:stub})
+                    io.put(self.request, device, local=True)
+                    stub.start()
+                else:
+                    log_err(self, 'failed to handle, cannot load driver, type=%s, name=%s' % (typ, name))
+        except:
+            if _devices.has_key(device):
+                _devices.pop(device)
+
 class Lo(UDI):
-    def _get_type(self, device):
-        res = device.split('_')
-        if len(res) == 3:
-            return res[0]
-    
     def get_name(self, device, child=None):
-        res = device.split('_')
-        if len(res) == 3:
-            return res[1]
+        return _get_name(device)
     
     def get_mode(self, device):
-        res = device.split('_')
-        if len(res) == 3:
-            return int(res[2])
-    
-    def _listen(self):
-        while True:
-            sock = self._sock.accept()[0]
-            try:
-                device = stream.get(sock, local=True)
-                if not device:
-                    sock.close()
-                    continue
-                
-                typ = self._get_type(device)
-                name = self.get_name(device)
-                mode = self.get_mode(device)
-                
-                if mode & MODE_CLONE:
-                    setup = False
-                else:
-                    setup = True
-                
-                if typ and name:
-                    driver = load_driver(typ, name)
-                    if setup:
-                        driver.setup()
-                    self._lo.update({device:driver})
-                    if driver:
-                        stream.put(sock, device, local=True)
-                        driver.start(sock)
-                    else:
-                        log_err(self, 'failed to load %s' % typ)
-                        sock.close()
-            except:
-                log_err(self, 'failed to listen')
-                sock.close()
-    
-    def _init_srv(self):
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind((LO_ADDR, LO_PORT))
-        self._sock.listen(5)
-        self._listener = Thread(target=self._listen)
-        self._listener.start()
+        return _get_mode(device)
     
     def setup(self):
-        self._lo = {}
-        self._init_srv()
         self._active = False
         self._loader = Loader(self.get_uid())
+        Thread(target=create_server, args=(LO_ADDR, LO_PORT, LoServer)).start()
     
     def _get_device(self, name):
         mode = self._core.get_mode(name)
@@ -121,22 +113,23 @@ class Lo(UDI):
             if names:
                 for name in names:
                     device = self._get_device(name)
-                    if device and device not in self._lo:
+                    if device and device not in _devices:
                         device_list.append(device)
         return device_list
     
     def connect(self, device):
         return (connect(device), True)
     
-    def get_passive_device(self):
-        if not self._lo:
+    @property
+    def compute_unit(self):
+        if not _devices:
             return
-        keys = self._lo.keys()
+        keys = _devices.keys()
         length = len(keys)
         i = randint(0, length - 1)
         for _ in range(length):
-            device = self._lo[keys[i]]
-            if device.get_mode() & MODE_PASSIVE:
+            device = _devices[keys[i]]
+            if device.get_mode() & MODE_CTRL:
                 return device
             i += 1
             if i == length:

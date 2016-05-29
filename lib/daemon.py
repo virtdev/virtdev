@@ -42,7 +42,7 @@ class DaemonRequest(object):
     def drop(self, name):
         if name != self._name:
             if self._manager.guest.drop(name, self._name):
-                self._manager.member.remove(name)
+                self._manager.member.delete(name)
                 return True
     
     def find(self, user, node):
@@ -56,7 +56,7 @@ class DaemonRequest(object):
         return self._manager.chkaddr(name)
     
     def remove(self, name):
-        self._manager.member.remove(name)
+        self._manager.member.delete(name)
     
     def list(self):
         return self._manager.member.list()
