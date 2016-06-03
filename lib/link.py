@@ -22,9 +22,9 @@ import channel
 from pool import Pool
 from queue import Queue
 from conf.virtdev import DEBUG
-from log import log_err, log_get
 from multiprocessing import cpu_count
 from modes import MODE_LINK, MODE_CLONE
+from log import log_debug, log_err, log_get
 from util import str2tuple, update_device, get_name
 from operations import OP_ADD, OP_GET, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT
 
@@ -32,7 +32,7 @@ LINK_RETRY = 2
 LINK_INTERVAL = 12 # seconds
 
 CACHE = False
-QUEUE_LEN = 2
+QUEUE_LEN = 4
 POOL_SIZE = cpu_count() * 4
 
 def chkop(func):
@@ -100,7 +100,7 @@ class Downlink(object):
             channel.connect(uid, addr, key, static=True, verify=verify)
             return key
         except:
-            pass
+            log_debug(self, 'failed to connect, addr=%s' % str(addr))
     
     def _request(self, uid, addr, op, args, token):
         try:

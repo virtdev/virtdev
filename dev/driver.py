@@ -35,7 +35,7 @@ def _get_arguments(buf):
     except:
         pass
 
-def has_freq(mode):
+def need_freq(mode):
     return mode & MODE_POLL or (mode & MODE_TRIG and mode & MODE_CTRL)
 
 def check_input(func):
@@ -84,7 +84,7 @@ class Driver(object):
         self.__freq = freq
         self.__index = None
         if not freq:
-            if has_freq(self.__mode):
+            if need_freq(self.__mode):
                 self.__freq = FREQ_MIN
         else:
             if freq > FREQ_MAX:

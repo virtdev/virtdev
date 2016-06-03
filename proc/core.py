@@ -36,7 +36,7 @@ from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
 from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT, MODE_CLONE
 
 INSP_INTV = 5 # seconds
-QUEUE_LEN = 2
+LIST_SIZE = 2
 
 class Core(object):
     def __init__(self, manager):
@@ -320,8 +320,8 @@ class Core(object):
         except:
             log_err(self, 'failed to pop args, name=%s' % name)
     
-    def _check_queue(self, dest, src):
-        while len(self._members[dest][src]) >= QUEUE_LEN:
+    def _check_list(self, dest, src):
+        while len(self._members[dest][src]) >= LIST_SIZE:
             ev = self._get_event(dest, src)
             self._lock.release(dest)
             try:
@@ -334,7 +334,7 @@ class Core(object):
         try:
             args = None
             if not self._is_ready(dest, src, flags):
-                self._check_queue(dest, src)
+                self._check_list(dest, src)
                 self._members[dest][src].append((buf, datetime.utcnow()))
                 if self._check_timeout(dest):
                     args = self._pop_args(dest)

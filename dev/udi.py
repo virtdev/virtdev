@@ -64,31 +64,31 @@ class UDI(object):
             log_err(self, 'failed to create device')
             raise Exception(log_get(self, 'failed to create device'))
         
-        dev = UDO(local=local)
+        device = UDO(local=local)
         if index != None:
-            dev.set_index(int(index))
+            device.set_index(int(index))
         
-        dev.set_type(str(info['type']))
+        device.set_type(str(info['type']))
         
         if info.get('freq'):
-            dev.set_freq(float(info['freq']))
+            device.set_freq(float(info['freq']))
         
         if info.get('mode'):
             mode = int(info['mode'])
-            dev.set_mode(mode)
+            device.set_mode(mode)
         
         if info.get('spec'):
-            dev.set_spec(dict(info['spec']))
+            device.set_spec(dict(info['spec']))
         
-        return dev
+        return device
     
     def _get_children(self, parent, info, local):
         devices = {}
         try:
             for i in info:
-                dev = self._create_device(info[i], local, i)
+                device = self._create_device(info[i], local, i)
                 child = self.get_name(parent, i)
-                devices.update({child:dev})
+                devices.update({child:device})
         except:
             log_err(self, 'failed to get children')
             return
@@ -168,8 +168,8 @@ class UDI(object):
         while True:
             devices = self.scan()
             if devices:
-                for d in devices:
-                    self._create(d)
+                for device in devices:
+                    self._create(device)
             time.sleep(SCAN_INTERVAL)
     
     def start(self):

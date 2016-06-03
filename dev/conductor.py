@@ -34,8 +34,8 @@ from conf.virtdev import DEBUG, CONDUCTOR_PORT
 from lib.log import log_debug, log_err, log_get
 
 CACHE = True
-POOL_SIZE = cpu_count() * 4
-QUEUE_LEN = 4
+POOL_SIZE = cpu_count() * 2
+QUEUE_LEN = 2
 
 def chkstat(func):
     def _chkstat(*args, **kwargs):

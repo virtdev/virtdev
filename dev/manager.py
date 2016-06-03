@@ -50,37 +50,32 @@ class DeviceManager(object):
     
     @named_lock
     def open(self, name):
-        for device in conductor.devices:
-            dev = device.find(name)
-            if dev:
-                dev.proc(name, OP_OPEN)
+        for parent in conductor.devices:
+            device = parent.find(name)
+            if device:
+                device.proc(name, OP_OPEN)
                 return
     
     @named_lock
     def close(self, name):
-        for device in conductor.devices:
-            dev = device.find(name)
-            if dev:
-                dev.proc(name, OP_CLOSE)
+        for parent in conductor.devices:
+            device = parent.find(name)
+            if device:
+                device.proc(name, OP_CLOSE)
                 return
     
-    @named_lock
     def add(self, name, mode=None, freq=None, prof=None): 
         return conductor.request.device.add(node=get_node(), addr=conductor.addr, name=name, mode=mode, freq=freq, prof=prof)
     
-    @named_lock
     def put(self, name, buf):
         return conductor.request.device.put(name=name, buf=buf)
     
-    @named_lock
     def find(self, name):
         return conductor.request.device.find(name=name)
     
-    @named_lock
     def get(self, name, field, item, buf):
         return conductor.request.device.get(name=name, field=field, item=item, buf=buf)
     
-    @named_lock
     def delete(self, name):
         return conductor.request.device.delete(node=get_node(), name=name)
 

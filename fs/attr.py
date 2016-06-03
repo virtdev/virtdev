@@ -19,7 +19,6 @@
 
 import os
 import json
-import librsync
 from temp import Temp
 from entry import Entry
 from conf.log import LOG_ATTR
@@ -29,6 +28,9 @@ from conf.virtdev import RSYNC
 from base64 import b64encode, b64decode
 from lib.log import log_debug, log_err, log_get, log_warnning
 from lib.attributes import ATTRIBUTES, ATTR_MODE, ATTR_FREQ, ATTR_FILTER, ATTR_HANDLER, ATTR_PROFILE, ATTR_TIMEOUT, ATTR_DISPATCHER
+
+if RSYNC:
+    import librsync
 
 class Attr(Entry):
     def __init__(self, router=None, core=None, rdonly=True):
@@ -101,10 +103,13 @@ class Attr(Entry):
             self._fs.touch(uid, temp)
     
     def signature(self, uid, name):
-        temp = path2temp(self.get_path(uid, name))
-        with open(temp, 'rb') as f:
-            sig = librsync.signature(f)
-        return b64encode(sig.read())
+        res = ''
+        if RSYNC:
+            temp = path2temp(self.get_path(uid, name))
+            with open(temp, 'rb') as f:
+                sig = librsync.signature(f)
+            res = b64encode(sig.read())
+        return res
     
     def patch(self, uid, name, buf):
         if not buf:

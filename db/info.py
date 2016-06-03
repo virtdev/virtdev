@@ -20,11 +20,11 @@
 import zerorpc
 from lib.util import zmqaddr
 from lib.log import log_debug
-from conf.log import LOG_DBINFO
+from conf.log import LOG_INFO
 from conf.virtdev import MASTER_ADDR, MASTER_PORT
 
 def _log(text):
-    if LOG_DBINFO:
+    if LOG_INFO:
         log_debug('Info', text)
 
 def get_mappers(domain):

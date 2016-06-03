@@ -28,11 +28,11 @@ from conf.path import PATH_MNT
 from lib.log import log_debug, log_err
 from lib.util import lock, mount_device
 from threading import Thread, Event, Lock
-from driver import FREQ_MAX, FREQ_MIN, has_freq
 from lib.attributes import ATTR_MODE, ATTR_FREQ
+from driver import FREQ_MAX, FREQ_MIN, need_freq
 from lib.cmd import cmd_get, cmd_put, cmd_open, cmd_close
 from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
-from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_SYNC, MODE_TRIG, MODE_ACTIVE
+from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_SYNC, MODE_TRIG
 
 RETRY_MAX = 3
 WAIT_TIME = 10 #seconds
@@ -47,8 +47,8 @@ class UDO(object):
         self._lock = Lock()
         self._local = local
         self._freq = FREQ_MAX
+        self._write_lock = Lock()
         self._children = children
-        self._type = self._get_type()
         self._requester = None
         self._listener = None
         self._active = False
@@ -59,97 +59,14 @@ class UDO(object):
         self._index = None
         self._core = None
         self._name = None
+        self._type = None
         self._uid = None
         self._spec = {}
         self._mode = 0
     
-    def _get_type(self):
-        return self.__class__.__name__
-    
     def _log(self, text):
         if LOG_UDO:
             log_debug(self, text)
-    
-    def _read_device(self):
-        empty = (None, None)
-        try:
-            buf = io.get(self._socket, self._local)
-            if len(buf) > OUTPUT_MAX or not buf:
-                return empty
-            
-            output = ast.literal_eval(buf)
-            if type(output) != dict:
-                log_err(self, 'failed to read, cannot parse, name=%s' % self.d_name)
-                return empty
-            
-            if len(output) != 1:
-                log_err(self, 'failed to read, invalid length, name=%s' % self.d_name)
-                return empty
-            
-            device = None
-            index = output.keys()[0]
-            output = output[index]
-            if self._children:
-                for i in self._children:
-                    if self._children[i].d_index == int(index):
-                        device = self._children[i]
-                        break
-            elif 0 == index:
-                device = self
-            
-            if not device:
-                log_err(self, 'failed to read, cannot get device, name=%s' % self.d_name)
-                return empty
-            
-            device.set_idle()
-            buf = device.check_output(output)
-            return (device, buf)
-        except:
-            log_err(self, 'failed to read, type=%s, name=%s' % (self.d_type, self.d_name))
-            return empty
-    
-    def _request(self, buf):
-        if not buf:
-            log_err(self, 'failed to set, no data, name=%s' % self.d_name)
-            return
-        try:
-            io.put(self._socket, buf, self._local)
-            return True
-        except:
-            log_err(self, 'failed to set, type=%s, name=%s' % (self.d_type, self.d_name))
-    
-    def _initialize(self):
-        if self._children:
-            self._mode |= MODE_VIRT
-        
-        if self._mode & MODE_VIRT or self._index == None:
-            mode = None
-            freq = None
-            prof = None
-        else:
-            mode = self._mode
-            freq = self._freq
-            prof = self.d_profile
-            path = os.path.join(PATH_MNT, self._uid, self._name)
-            if os.path.exists(path):
-                loader = Loader(self._uid)
-                curr_prof = loader.get_profile(self._name)
-                if curr_prof['type'] == prof['type']:
-                    curr_mode = loader.get_attr(self._name, ATTR_MODE, int)
-                    if ((curr_mode | MODE_SYNC) == (mode | MODE_SYNC)) and curr_prof.get('spec') == prof.get('spec'):
-                        mode = None
-                        freq = None
-                        prof = None
-                    else:
-                        if not (curr_mode & MODE_SYNC):
-                            mode &= ~MODE_SYNC
-                        else:
-                            mode |= MODE_SYNC
-                        freq = loader.get_attr(self._name, ATTR_FREQ, float)
-        
-        if not self._children:
-            mount_device(self._uid, self.d_name, mode, freq, prof)
-            self._log('mount %s [%s*]' % (self.d_type, self.d_name[:8]))
     
     @property
     def d_name(self):
@@ -179,17 +96,13 @@ class UDO(object):
         if not self._core or self._children:
             return self._freq
         else:
-            cnt = RETRY_MAX
-            while True:
+            for i in range(RETRY_MAX + 1):
                 freq = self._core.get_freq(self.d_name)
                 if freq != None:
                     self._freq = freq
                     return freq
-                cnt -= 1
-                if cnt > 0:
+                elif i < RETRY_MAX:
                     time.sleep(SLEEP_TIME)
-                else:
-                    break
             log_err(self, 'failed to get freq, type=%s, name=%s' % (self.d_type, self.d_name))
             return self._freq
     
@@ -313,30 +226,75 @@ class UDO(object):
         del self._events[name]
         return buf
     
-    def check_index(self):
+    def get_index(self):
         index = self.d_index
         if index != None:
             return index
         else:
             return 0
     
-    @lock
-    def _check_device(self, device):
+    def _read_device(self):
+        empty = (None, None)
+        try:
+            buf = io.get(self._socket, self._local)
+            if len(buf) > OUTPUT_MAX or not buf:
+                return empty
+            
+            output = ast.literal_eval(buf)
+            if type(output) != dict:
+                log_err(self, 'failed to read device, cannot parse, type=%s, name=%s' % (self.d_type, self.d_name))
+                return empty
+            
+            if len(output) != 1:
+                log_err(self, 'failed to read device, invalid length, type=%s, name=%s' % (self.d_type, self.d_name))
+                return empty
+            
+            device = None
+            index = output.keys()[0]
+            output = output[index]
+            if self._children:
+                for i in self._children:
+                    if self._children[i].d_index == int(index):
+                        device = self._children[i]
+                        break
+            elif 0 == index:
+                device = self
+            
+            if not device:
+                log_err(self, 'failed to read device, cannot get device, type=%s, name=%s' % (self.d_type, self.d_name))
+                return empty
+            
+            buf = device.check_output(output)
+            return (device, buf)
+        except:
+            log_err(self, 'failed to read device, type=%s, name=%s' % (self.d_type, self.d_name))
+            return empty
+    
+    def _write_device(self, buf):
+        if not buf:
+            log_err(self, 'failed to write device, no data, type=%s, name=%s' % (self.d_type, self.d_name))
+            return
+        self._write_lock.acquire()
+        try:
+            io.put(self._socket, buf, self._local)
+            return True
+        except:
+            log_err(self, 'failed to write device, type=%s, name=%s' % (self.d_type, self.d_name))
+        finally:
+            self._write_lock.release()
+    
+    def _check_device(self, device=None):
+        if not device:
+            device = self
         device.wait()
-        index = device.check_index()
-        if device.can_get():
-            if device.check_atime():
-                device.set_busy()
-                if not self._request(cmd_get(index)):
-                    device.set_idle()
-        
-        if device.can_open():
-            if self._request(cmd_open(index)):
-                device.set_active()
-        
-        if device.can_close():
-            if self._request(cmd_close(index)):
-                device.set_inactive()
+        if device.check_atime():
+            device.set_busy()
+            index = device.get_index()
+            if not self._write_device(cmd_get(index)):
+                device.set_idle()
+    
+    def can_poll(self):
+        return need_freq(self.d_mode)
     
     def _poll(self):
         try:
@@ -348,53 +306,50 @@ class UDO(object):
                         if child.can_poll():
                             self._check_device(child)
                 elif self.can_poll():
-                    self._check_device(self)
+                    self._check_device()
         except:
-            log_err(self, 'failed to poll')
+            log_err(self, 'failed to poll, type=%s, name=%s' % (self.d_type, self.d_name))
+    
+    def _handle(self, device, buf):
+        if not self._put(device, buf) and buf:
+            mode = device.d_mode
+            if not (mode & MODE_TRIG) or device.check_atime():
+                res = None
+                name = device.d_name
+                if mode & MODE_SYNC:
+                    try:
+                        self._core.sync(name, buf)
+                    except:
+                        log_err(self, 'failed to sync, name=%s' % name)
+                        return
+                if self._core.has_handler(name):
+                    try:
+                        res = self._core.handle(name, {name:buf})
+                    except:
+                        log_err(self, 'failed to handle, name=%s' % name)
+                        return
+                else:
+                    res = buf
+                if res:
+                    try:
+                        self._core.dispatch(name, res)
+                    except:
+                        log_err(self, 'failed to dispatch, name=%s' % name)
     
     def _listen(self):
         try:
             while True:
                 device, buf = self._read_device()
-                if device and not self._put(device, buf) and buf:
-                    mode = device.d_mode
-                    if not (mode & MODE_TRIG) or device.check_atime():
-                        res = None
-                        name = device.d_name
-                        if mode & MODE_SYNC:
-                            try:
-                                self._core.sync(name, buf)
-                            except:
-                                log_err(self, 'failed to sync, name=%s' % name)
-                                continue
-                        if self._core.has_handler(name):
-                            try:
-                                res = self._core.handle(name, {name:buf})
-                            except:
-                                log_err(self, 'failed to handle, name=%s' % name)
-                                continue
-                        else:
-                            res = buf
-                        if res:
-                            try:
-                                self._core.dispatch(name, res)
-                            except:
-                                log_err(self, 'failed to dispatch, name=%s' % name)
+                if device:
+                    try:
+                        self._handle(device, buf)
+                    except:
+                        log_err(self, 'failed to listen, type=%s, name=%s' % (self.d_type, self.d_name))
+                    finally:
+                        device.set_idle()
         except:
-            log_err(self, 'failed to listen, type=%s, name=%s' % (self.d_type, self.d_name))
+            log_err(self, 'failed to listen, cannot read, type=%s, name=%s' % (self.d_type, self.d_name))
             io.close(self._socket)
-    
-    def can_get(self):
-        return has_freq(self.d_mode)
-    
-    def can_open(self):
-        return not self._active and self.d_mode & MODE_ACTIVE
-    
-    def can_close(self):
-        return self._active and not(self.d_mode & MODE_ACTIVE)
-    
-    def can_poll(self):
-        return self.can_get() or self.can_open() or self.can_close()
     
     def _start(self):
         if self._socket:
@@ -402,6 +357,39 @@ class UDO(object):
             self._poller.start()
             self._listener = Thread(target=self._listen)
             self._listener.start()
+    
+    def _initialize(self):
+        if self._children:
+            self._mode |= MODE_VIRT
+        
+        if self._mode & MODE_VIRT or self._index == None:
+            mode = None
+            freq = None
+            prof = None
+        else:
+            mode = self._mode
+            freq = self._freq
+            prof = self.d_profile
+            path = os.path.join(PATH_MNT, self._uid, self._name)
+            if os.path.exists(path):
+                loader = Loader(self._uid)
+                curr_prof = loader.get_profile(self._name)
+                if curr_prof['type'] == prof['type']:
+                    curr_mode = loader.get_attr(self._name, ATTR_MODE, int)
+                    if ((curr_mode | MODE_SYNC) == (mode | MODE_SYNC)) and curr_prof.get('spec') == prof.get('spec'):
+                        mode = None
+                        freq = None
+                        prof = None
+                    else:
+                        if not (curr_mode & MODE_SYNC):
+                            mode &= ~MODE_SYNC
+                        else:
+                            mode |= MODE_SYNC
+                        freq = loader.get_attr(self._name, ATTR_FREQ, float)
+        
+        if not self._children:
+            mount_device(self._uid, self.d_name, mode, freq, prof)
+            self._log('mount %s [%s*]' % (self.d_type, self.d_name[:8]))
     
     def mount(self, uid, name, core, sock=None, init=True):
         self._uid = uid
@@ -412,10 +400,6 @@ class UDO(object):
             self._initialize()
         self._start()
     
-    def _release(self):
-        io.close(self._socket)
-        self._socket = None
-    
     @lock
     def proc(self, name, op, buf=None):
         if not self._socket:
@@ -423,32 +407,37 @@ class UDO(object):
         
         device = self.find(name)
         if not device:
-            log_err(self, 'failed to process, cannot find device')
+            log_err(self, 'failed to process, cannot find device, name=%s' % str(name))
             return
         
         index = device.d_index
         try:
             if op == OP_OPEN:
                 if device.d_mode & MODE_SWITCH:
-                    self._request(cmd_open(index))
+                    if self._write_device(cmd_open(index)):
+                        self._log('open, type=%s, name=%s' % (device.d_type, device.d_name))
             elif op == OP_CLOSE:
                 if device.d_mode & MODE_SWITCH:
-                    self._request(cmd_close(index))
+                    if self._write_device(cmd_close(index)):
+                        self._log('close, type=%s, name=%s' % (device.d_type, device.d_name))
             elif op == OP_GET:
                 self._add_event(name)
-                if self._request(cmd_get(index)):
+                if self._write_device(cmd_get(index)):
+                    self._log('get, type=%s, name=%s' % (device.d_type, device.d_name))
                     return self._get(name)
                 else:
                     self._del_event(name)
             elif op == OP_PUT:
                 self._add_event(name)
                 val = str(buf[buf.keys()[0]])
-                if self._request(cmd_put(index, val)):
+                if self._write_device(cmd_put(index, val)):
+                    self._log('put, type=%s, name=%s' % (device.d_type, device.d_name))
                     return self._get(name)
                 else:
-                    self._del_event(name) 
+                    self._del_event(name)
             else:
-                log_err(self, 'failed to process, invalid operation')
+                log_err(self, 'failed to process, invalid operation, type=%s, name=%s' % (device.d_type, device.d_name))
         except:
-            log_err(self, 'failed to process, type=%s, name=%s' % (self.d_type, self.d_name))
-            self._release()
+            log_err(self, 'failed to process, type=%s, name=%s' % (device.d_type, device.d_name))
+            io.close(self._socket)
+            self._socket = None

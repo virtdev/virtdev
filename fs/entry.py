@@ -44,10 +44,6 @@ class Entry(object):
             self._fs = RemoteFS(router)
         self._core = core
     
-    def _undefined_op(self):
-        log_err(self, 'undefined operation')
-        raise FuseOSError(EINVAL)
-    
     @property
     def field(self):
         return self._field
@@ -88,11 +84,11 @@ class Entry(object):
     def update(self, uid, name):
         pass
     
-    def signature(self, uid, name):
-        self._undefined_op()
-    
     def patch(self, uid, name, buf):
-        self._undefined_op()
+        pass
+    
+    def signature(self, uid, name):
+        return ''
     
     def get_mtime(self, uid, path):
         return self._fs.mtime(uid, path)
