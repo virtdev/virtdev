@@ -28,8 +28,8 @@ from lib.modes import MODE_LINK
 from lib.domains import DOMAIN_DEV
 from base64 import b64encode, b64decode
 from lib.log import log_err, log_warnning
+from conf.virtdev import EXTEND, RSYNC, AREA
 from lib.util import mount_device, update_device
-from conf.virtdev import EXTEND, RSYNC, AREA_CODE
 
 MAX_LEN = 1 << 24
 RECORD_LEN = 1 << 24
@@ -45,7 +45,7 @@ class Device(Service):
     
     def _mark(self, name):
         if EXTEND:
-            self._marker.mark(name, DOMAIN_DEV, AREA_CODE)
+            self._marker.mark(name, DOMAIN_DEV, AREA)
     
     def find(self, uid, name):
         device = self._query.device.get(name)

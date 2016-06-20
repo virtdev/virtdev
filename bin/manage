@@ -14,7 +14,7 @@ sys.path.append(_dir)
 from lib.domains import *
 from lib.util import zmqaddr, server_list
 from lib.admin import create_user, get_password
-from conf.virtdev import MASTER_ADDR, MASTER_PORT, AREA_CODE
+from conf.virtdev import MASTER_ADDR, MASTER_PORT, AREA
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -56,7 +56,7 @@ if __name__ == '__main__':
                 for i in range(len(args.server)):
                     areacode[i] = int(areacode[i])
             else:
-                areacode = [AREA_CODE] * len(args.server)
+                areacode = [AREA] * len(args.server)
         
         c = zerorpc.Client()
         c.connect(zmqaddr(MASTER_ADDR, MASTER_PORT))

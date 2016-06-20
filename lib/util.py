@@ -24,6 +24,7 @@ import uuid
 import xattr
 import struct
 import commands
+import subprocess
 import collections
 from log import log_err
 from socket import inet_aton
@@ -37,6 +38,7 @@ _path = commands.getoutput('readlink -f %s' % sys.argv[0])
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
+from conf.log import LOG_UTIL
 from conf.virtdev import IFNAME
 from conf.path import PATH_MNT, PATH_VAR
 
@@ -48,7 +50,11 @@ USERNAME_SIZE = UID_SIZE
 DIR_MODE = 0o755
 FILE_MODE = 0o644
 
-DEVNULL = open(os.devnull, 'wb')
+if LOG_UTIL:
+    from subprocess import PIPE
+    OUTPUT = PIPE
+else:
+    OUTPUT = open(os.devnull, 'wb')
 INFO = ['mode', 'type', 'freq', 'spec']
 
 _node = None
@@ -67,15 +73,6 @@ def ifaddr(ifname=IFNAME):
         if ifname == IFNAME:
             _ifaddr = addr
         return addr
-
-def hash_name(name):
-    length = len(name)
-    if length > 1:
-        return (ord(name[-2]) << 8) + ord(name[-1])
-    elif length == 1:
-        return ord(name[-1])
-    else:
-        return 0
 
 def get_network(ifname):
     iface = ifaddresses(ifname)[AF_INET][0]
@@ -285,3 +282,9 @@ def create_server(addr, port, handler):
     server.server_bind()
     server.server_activate()
     server.serve_forever()
+
+def popen(*args):
+    return subprocess.Popen(args, stderr=OUTPUT, stdout=OUTPUT).pid
+
+def call(*args):
+    subprocess.call(args, stderr=OUTPUT, stdout=OUTPUT)

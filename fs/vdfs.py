@@ -224,7 +224,7 @@ class VDFS(Operations):
             raise FuseOSError(EINVAL)
         obj.invalidate(uid, name)
     
-    def _initialize(self, uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout):
+    def _init(self, uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout):
         lo = mode & MODE_LO
         if lo:
             if not typ or (self._shadow and not self._manager.has_lo()):
@@ -309,7 +309,7 @@ class VDFS(Operations):
                 raise FuseOSError(EINVAL)
         
         if mode != None:
-            self._initialize(uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout)
+            self._init(uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout)
         
         return name
     

@@ -28,12 +28,13 @@ from lib import bson
 from lib.ppp import *
 from random import randint
 from threading import Thread
+from hash_ring import HashRing
 from conf.log import LOG_DISTRIBUTOR
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool
 from lib.log import log_debug, log_err, log_get
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
-from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, hash_name, unicode2str
+from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, unicode2str
 from conf.virtdev import BROKER_SERVERS, BROKER_PORT, WORKER_SERVERS, WORKER_PORT
 
 POOL_SIZE = cpu_count() * 4
@@ -43,6 +44,7 @@ class Distributor(Thread):
     def __init__(self, query):
         Thread.__init__(self)
         self._pool = ThreadPool(processes=POOL_SIZE)
+        self._workers = HashRing(WORKER_SERVERS)
         self._identity = bytes(uuid.uuid4())
         self._query = query
         self._init_sock()
@@ -73,9 +75,8 @@ class Distributor(Thread):
         length = len(BROKER_SERVERS)
         return BROKER_SERVERS[randint(0, length - 1)]
     
-    def _get_requester(self, uid):
-        length = len(WORKER_SERVERS)
-        return WORKER_SERVERS[hash_name(uid) % length]
+    def _get_worker(self, uid):
+        return self._workers.get_node(uid)
     
     def _get_user(self, buf):
         if len(buf) < USERNAME_SIZE:
@@ -125,7 +126,7 @@ class Distributor(Thread):
             if not uid or not token:
                 log_err(self, 'failed to process, cannot get token')
                 return
-            addr = self._get_requester(uid)
+            addr = self._get_worker(uid)
             ret = self._request(addr, uid=uid, token=token, buf=buf)
             self._reply(identity, seq, ret)
         except:

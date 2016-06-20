@@ -26,20 +26,19 @@ import signal
 from threading import Thread
 from datetime import datetime
 from lib.lock import NamedLock
+from conf.path import PATH_DHCP
 from conf.log import LOG_CHANNEL
-from subprocess import Popen, call
 from websocket import create_connection
-from conf.path import PATH_RUN, PATH_DHCP
 from pynetlinux.ifconfig import Interface
 from lib.log import log_debug, log_err, log_get
-from lib.util import DEVNULL, ifaddr, named_lock
 from conf.virtdev import CONDUCTOR_PORT, BRIDGE_PORT
+from lib.util import call, popen, ifaddr, named_lock, get_networks
 
 NETSIZE = 30
 CHANNEL_MAX = 256
 CHECK_RETRY = 7
-CREATE_RETRY = 3
-CONNECT_RETRY = 3
+CREATE_RETRY = 2
+CONNECT_RETRY = 2
 
 IDLE_TIME = 600 # seconds
 WAIT_INTERVAL = 1 # seconds
@@ -56,6 +55,7 @@ NETMASK = '255.255.255.224'
 class Channel(object):
     def __init__(self):
         self._ts = {}
+        self._pid = {}
         self._conn = {}
         self._channels = {}
         self._lock = NamedLock()
@@ -65,9 +65,6 @@ class Channel(object):
     def _log(self, text):
         if LOG_CHANNEL:
             log_debug(self, text)
-    
-    def _get_path(self, addr):
-        return os.path.join(PATH_RUN, 'channel-%s.pid' % self._get_iface(addr))
     
     def _get_reserved_address(self, addr):
         fields = addr.split('.')
@@ -136,10 +133,10 @@ class Channel(object):
         bridge = '%s:%d' % (bridge, BRIDGE_PORT)
         iface = self._get_iface(addr)
         channel = self._get_channel(addr)
-        pid = Popen(['edge', '-r', '-d', iface, '-a', addr, '-s', NETMASK, '-c', channel, '-k', key, '-l', bridge], stdout=DEVNULL, stderr=DEVNULL).pid
-        if CLEAN_DHCP:
-            call(['killall', '-9', 'dhcpd'], stderr=DEVNULL, stdout=DEVNULL)
-        call(['dhcpd', '-q'], stderr=DEVNULL, stdout=DEVNULL)
+        pid = popen('edge', '-r', '-d', iface, '-a', addr, '-s', NETMASK, '-c', channel, '-k', key, '-l', bridge)
+        if CLEAN_DHCP: 
+            call('killall', '-9', 'dhcpd')
+        call('dhcpd', '-q')
         return pid
     
     def _try_create(self, addr, key, bridge):
@@ -147,8 +144,7 @@ class Channel(object):
             pid = self._create(addr, key, bridge)
             ret = self._chkiface(addr)
             if ret:
-                with open(self._get_path(addr), 'w') as f:
-                    f.write(str(pid))
+                self._pid[addr] = pid
                 return ret
             else:
                 os.kill(pid, signal.SIGKILL)
@@ -185,14 +181,13 @@ class Channel(object):
         bridge = '%s:%d' % (bridge, BRIDGE_PORT)
         iface = self._get_iface(addr)
         channel = self._get_channel(addr)
-        pid = Popen(['edge', '-r', '-d', iface, '-a', address, '-s', NETMASK, '-c', channel, '-k', key, '-l', bridge], stdout=DEVNULL, stderr=DEVNULL).pid
+        pid = popen('edge', '-r', '-d', iface, '-a', address, '-s', NETMASK, '-c', channel, '-k', key, '-l', bridge)
         if not self._check_pid(pid):
             log_err(self, 'failed to connect')
             raise Exception(log_get(self, 'failed to connect'))
-        with open(self._get_path(addr), 'w') as f:
-            f.write(str(pid))
+        self._pid[addr] = pid
         if not static:
-            call(['dhclient', '-q', iface], stderr=DEVNULL, stdout=DEVNULL)
+            call('dhclient', '-q', iface)
         self._chkiface(addr)
         if KEEP_CONNECTION:
             self._create_connection(addr)
@@ -229,16 +224,14 @@ class Channel(object):
     def _disconnect(self, addr):
         if self._is_gateway(addr):
             return
+        
         if KEEP_CONNECTION:
             self._release_connection(addr)
-        path = self._get_path(addr)
-        if not os.path.exists(path):
-            return
-        with open(path, 'r') as f:
-            pid = int(f.readlines()[0].strip())
-        Interface(self._get_iface(addr)).down()
-        os.kill(pid, signal.SIGKILL)
-        os.remove(path)
+        
+        if self._pid.has_key(addr):
+            Interface(self._get_iface(addr)).down()
+            os.kill(self._pid[addr], signal.SIGKILL)
+            del self._pid[addr]
     
     def _do_release(self, addr):
         self._disconnect(addr)
@@ -312,9 +305,19 @@ class Channel(object):
     
     @named_lock
     def exist(self, addr):
-        return os.path.exists(self._get_path(addr))
+        return self._pid.has_key(addr)
     
     def clean(self):
-        path = os.path.join(PATH_RUN, 'channel-*')
-        call(['killall', '-9', 'edge'], stderr=DEVNULL, stdout=DEVNULL)
-        call(['rm', '-f', path], stderr=DEVNULL, stdout=DEVNULL)
+        call('killall', '-9', 'edge')
+    
+    def has_network(self, addr):
+        networks = get_networks()
+        address = struct.unpack("I", socket.inet_aton(addr))[0]
+        for n in networks:
+            network, mask = n
+            if address & mask == network:
+                return True
+        return False
+    
+    def initialize(self):
+        pass

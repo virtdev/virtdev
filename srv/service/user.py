@@ -22,7 +22,7 @@ from service import Service
 from db.marker import Marker
 from lib.domains import DOMAIN_DEV
 from lib.log import log_err, log_get
-from conf.virtdev import EXTEND, AREA_CODE
+from conf.virtdev import EXTEND, AREA
 from lib.util import get_name, update_device, gen_key, gen_token
 
 class User(Service):
@@ -37,7 +37,7 @@ class User(Service):
             self._query.node.delete(uid, (node,))
         else:
             if EXTEND:
-                self._marker.mark(name, DOMAIN_DEV, AREA_CODE)
+                self._marker.mark(name, DOMAIN_DEV, AREA)
         self._query.key.put(name, key)
         self._query.node.put(uid, (node, addr, str(mode)))
         update_device(self._query, uid, node, addr, name)

@@ -1,23 +1,29 @@
 #!/bin/sh
+
 apt-get install -y build-essential
 apt-get install -y isc-dhcp-server
 apt-get install -y libkrb5-dev
 apt-get install -y librsync-dev
 apt-get install -y libsasl2-dev
+apt-get install -y libfuse-dev
 apt-get install -y libzmq-dev
+apt-get install -y lsof
 apt-get install -y memcached
 apt-get install -y mosquitto
 apt-get install -y mongodb
 apt-get install -y n2n
+apt-get install -y nodejs
+apt-get install -y npm
 apt-get install -y python-all-dev
 apt-get install -y python-cffi
 apt-get install -y python-dbus
 apt-get install -y python-gevent
 apt-get install -y python-gi-dev
-apt-get install -y python-imaging
 apt-get install -y python-memcache
 apt-get install -y python-numpy
 apt-get install -y python-pip
+apt-get install -y xvfb
+
 pip install fusepy
 pip install hdfs
 pip install happybase
@@ -41,3 +47,19 @@ pip install websocket-client
 pip install xattr
 pip install zerorpc
 pip install leveldb
+
+if [ ! -f /usr/bin/node ]; then
+  ln -s /usr/bin/nodejs /usr/bin/node
+fi
+
+CURRENT=`pwd`
+FILENAME=`readlink -f $0`
+DIRNAME=`/usr/bin/dirname $FILENAME`
+BIN=$DIRNAME'/bin'
+cd $BIN
+npm install ws
+npm install websocket
+npm install crypto
+npm install mqtt
+npm install electron-webrtc
+cd $CURRENT

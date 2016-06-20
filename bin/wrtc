@@ -1,0 +1,320 @@
+#!/usr/bin/nodejs
+
+var mqtt = require('mqtt');
+var crypto = require("crypto");
+var wrtc = require('electron-webrtc')()
+var WebSocketClient = require('websocket').client;
+
+var RTCIceCandidate = wrtc.RTCIceCandidate;
+var RTCPeerConnection = wrtc.RTCPeerConnection;
+var RTCSessionDescription = wrtc.RTCSessionDescription;
+var argv = require('minimist')(process.argv.slice(2));
+
+var sourceKey = argv.k;
+var sourceAddr = argv.a;
+var bridgeAddr = argv.b;
+var bridgePort = argv.p;
+var conductorPort = argv.c;
+var websocketPort = argv.l;
+
+var visible = true;
+var localhost = '127.0.0.1';
+var listeners = new Object();
+var connections = new Object();
+
+function log(str)
+{
+  if (visible)
+    console.log(str);
+}
+
+function encrypt(args, key)
+{
+  var k = key.substring(0, 16);
+  var iv = key.substring(16, 32);
+  var data = JSON.stringify(args);
+  var encipher = crypto.createCipheriv('aes-128-cbc', k, iv);
+  var res = encipher.update(data, 'utf8', 'binary');
+
+  return res + encipher.final('binary');
+}
+
+function decrypt(data, k, iv)
+{
+  var decipher = crypto.createDecipheriv('aes-128-cbc', k, iv);
+  var res = decipher.update(data, 'binary', 'utf8');
+
+  return res + decipher.final('utf8');
+}
+
+function openChannel(addr, key, bridge, source)
+{
+  if (addr in connections)
+    return;
+
+  var pc = new RTCPeerConnection(
+    {
+      iceServers: [{url:'stun:23.31.150.121'}]
+    },
+    {
+      'optional': []
+    }
+  );
+
+  var channel = pc.createDataChannel('reliable', {
+      ordered: false,
+      maxRetransmits: 10
+    }
+  );
+
+  connections[addr] = new Object();
+  connections[addr].ready = false;
+  connections[addr].pc = pc;
+  connections[addr].channel = channel;
+
+  channel.binaryType = 'arraybuffer';
+  channel.onopen = function() {
+    log("channel: open, addr=" + addr);
+    connections[addr].ready = true;
+	channel.onmessage = function(event) {
+      var client = new WebSocketClient();
+      
+	  client.on('connect', function(connection) {
+	    if (connection.connected)
+	      connection.sendUTF(event.data);
+	  });
+	  client.connect('ws://' + localhost + ':' + conductorPort);
+    };
+  };
+
+  pc.createOffer(function(offer) {
+    pc.setLocalDescription(offer, function() {
+      var client = mqtt.connect('mqtt://' + bridge + ':' + bridgePort);
+
+      client.on('connect', function () {
+        var args = new Object();
+
+        args.offer = offer;
+        args.cmd = 'prepare';
+        args.key = source.key;
+        args.addr = source.addr;
+        args.bridge = source.bridge;
+        client.publish(addr, encrypt(args, key));
+        client.end();
+      });
+    });
+  });
+
+  pc.onicecandidate = function(event) {
+    if (event.candidate) {
+      var client = mqtt.connect('mqtt://' + bridge + ':' + bridgePort);
+      
+      client.on('connect', function () {
+        var args = new Object();
+        
+        args.cmd = 'candidate';
+        args.addr = source.addr;
+        args.cand = event.candidate;
+        client.publish(addr, encrypt(args, key));
+        client.end();
+      });
+    }
+  };
+  
+  log("openChannel: addr=" + addr);
+}
+
+function prepareChannel(addr, key, offer, bridge, listener)
+{
+  if (addr in connections)
+    disconnect(addr);
+
+  var pc = new RTCPeerConnection({iceServers: [{url:'stun:23.31.150.121'}]}, {'optional': []});
+
+  connections[addr] = new Object();
+  connections[addr].ready = false;
+  connections[addr].pc = pc;
+
+  pc.setRemoteDescription(new RTCSessionDescription(offer), function() {
+    pc.createAnswer(function(answer) {
+      pc.setLocalDescription(new RTCSessionDescription(answer), function() {
+        var client = mqtt.connect('mqtt://' + bridge + ':' + bridgePort);
+
+        client.on('connect', function () {
+          var args = new Object();
+
+          args.cmd = 'create';
+          args.addr = listener;
+          args.answer = answer;
+          client.publish(addr, encrypt(args, key));
+          client.end();
+        });
+      });
+    });
+  });
+
+  pc.ondatachannel = function(event) {
+    var channel = event.channel;
+
+    channel.onopen = function() {
+      log('channel: open, addr=' + addr);
+      connections[addr] = channel;
+      connections[addr].ready = true;
+      channel.onmessage = function(event) {
+        var client = new WebSocketClient();
+
+        client.on('connect', function(connection) {
+          if (connection.connected)
+            connection.sendUTF(event.data);
+        });
+        client.connect('ws://' + localhost + ':' + conductorPort);
+      };
+    };
+  };
+
+  pc.onicecandidate = function(event) {
+    if (event.candidate) {
+      var client = mqtt.connect('mqtt://' + bridge + ':' + bridgePort);
+      
+      client.on('connect', function () {
+        var args = new Object();
+        
+        args.cmd = 'candidate';
+        args.addr = listener;
+        args.cand = event.candidate;
+        client.publish(addr, encrypt(args, key));
+        client.end();
+      });
+    }
+  };
+  
+  log('prepareChannel: addr=' + addr);
+}
+
+function addCandidate(addr, cand)
+{
+  if (addr in connections && cand) {
+    var candidate = new RTCIceCandidate(cand);
+
+    connections[addr].pc.addIceCandidate(candidate);
+    log('addCandidate: addr=' + addr);
+  }
+}
+
+function closeChannel(addr)
+{
+  if (addr in connections) {
+    if (connections[addr].ready)
+      connections[addr].pc.close();
+    if (connections[addr].channel)
+      delete connections[addr].channel;
+    delete connections[addr].pc;
+    delete connections[addr];
+    log("closeChannel: addr=" + addr);
+  }
+}
+
+function writeChannel(addr, buf)
+{
+  if (addr in connections && connections[addr].ready && buf) {
+    connections[addr].channel.send(buf);
+    log('writeChannel: addr=' + addr);
+  }
+}
+
+function createChannel(addr, answer)
+{
+  if (addr in connections) {
+    connections[addr].pc.setRemoteDescription(new RTCSessionDescription(answer));
+    log('createChannel: addr=' + addr);
+  }
+}
+
+function attachChannel(addr, key, bridge)
+{
+  var k = key.substring(0, 16);
+  var iv = key.substring(16, 32);
+  var client = mqtt.connect('mqtt://' + bridge + ':' + bridgePort);
+
+  client.on('connect', function() {
+    client.subscribe(addr);
+  });
+
+  client.on('message', function(topic, message) {
+    var data = decrypt(message.toString(), k, iv);
+    var args = JSON.parse(data);
+
+    if ('prepare' == args.cmd) {
+      prepareChannel(args.addr, args.key, args.offer, args.bridge, addr);
+    } else if ('create' == args.cmd) {
+      createChannel(args.addr, args.answer);
+    } else if ('candidate' == args.cmd) {
+      addCandidate(args.addr, args.cand);
+    } else
+      log('Error: failed to attach channel, invalid command');
+  });
+
+  listeners[addr] = client;
+  log("attachChannel: addr=" + addr);
+}
+
+function detachChannel(addr)
+{
+  var client = listeners[addr];
+
+  if (client) {
+    client.unsubscribe(addr);
+    client.end();
+    delete listeners[addr];
+    log("detachChannel: addr=" + addr);
+  }
+}
+
+function existChannel(addr, socket)
+{
+  if (addr in connections && connections[addr].ready) {
+    socket.send('exist');
+    log('existChannel: addr=' + addr);
+  } else
+    socket.send('');
+}
+
+if (sourceAddr) {
+  attachChannel(sourceAddr, sourceKey, bridgeAddr);
+}
+
+if (websocketPort) {
+  var source = new Object();
+  var websocket = require('ws');
+  var server = new websocket.Server({'port': websocketPort});
+
+  if (sourceAddr) {
+    source.key = sourceKey;
+    source.addr = sourceAddr;
+    source.bridge = bridgeAddr;
+  }
+
+  server.on('connection', function(socket) {
+    socket.on('message', function(data) {
+      var args = JSON.parse(data);
+
+      if ('open' == args.cmd) {
+        if (args.source)
+          openChannel(args.addr, args.key, args.bridge, args.source);
+        else
+          openChannel(args.addr, args.key, args.bridge, source);
+      } else if ('write' == args.cmd) {
+        writeChannel(args.addr, args.buf);
+      } else if ('close' == args.cmd) {
+        closeChannel(args.addr);
+      } else if ('attach' == args.cmd) {
+        attachChannel(args.addr, args.key, args.bridge);
+      } else if ('detach' == args.cmd) {
+        detachChannel(args.addr);
+      } else if ('exist' == args.cmd) {
+        existChannel(args.addr, socket);
+      } else
+        log("Error: invalid command");
+    });
+  });
+}

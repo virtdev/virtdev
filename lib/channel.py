@@ -21,10 +21,10 @@ import codec
 from pool import Pool
 from log import log_err
 from queue import Queue
-from hash_ring import HashRing
+from bridge import get_bridge
+from conf.virtdev import DEBUG
 from conf.types import TYPE_PROTOCOL
 from multiprocessing import cpu_count
-from conf.virtdev import DEBUG, BRIDGE_SERVERS
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
 
 CACHE = False
@@ -40,10 +40,6 @@ if TYPE_PROTOCOL == PROTOCOL_N2N:
 elif TYPE_PROTOCOL == PROTOCOL_WRTC:
     from protocol.wrtc.channel import Channel as WRTCChannel
     channel = WRTCChannel()
-
-def get_bridge(key):
-    ring = HashRing(BRIDGE_SERVERS)
-    return ring.get_node(key)
 
 class ChannelQueue(Queue):
     def _proc(self, buf):
@@ -93,3 +89,10 @@ def push(uid, addr, op, args, token):
 
 def exist(addr):
     return channel.exist(addr)
+
+def has_network(addr):
+    return channel.has_network(addr)
+
+def initialize():
+    channel.initialize()
+

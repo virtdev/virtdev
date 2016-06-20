@@ -18,8 +18,7 @@
 #      MA 02110-1301, USA.
 
 import os
-from subprocess import call
-from lib.util import DEVNULL
+from lib.util import call
 from threading import Thread
 from conf.path import PATH_MQTT
 from conf.virtdev import BRIDGE_PORT
@@ -29,9 +28,6 @@ class Bridge(Thread):
         if PATH_MQTT:
             if not os.path.exists(PATH_MQTT):
                 raise Exception('Error: failed to start bridge, cannot find %s' % PATH_MQTT)
-            call(['mosquitto', '-p', str(BRIDGE_PORT), '-c', PATH_MQTT], stderr=DEVNULL, stdout=DEVNULL)
+            call('mosquitto', '-p', str(BRIDGE_PORT), '-c', PATH_MQTT)
         else:
-            call(['mosquitto', '-p', str(BRIDGE_PORT)], stderr=DEVNULL, stdout=DEVNULL)
-    
-    def clean(self):
-        pass
+            call('mosquitto', '-p', str(BRIDGE_PORT))

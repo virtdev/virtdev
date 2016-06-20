@@ -19,9 +19,8 @@
 
 import os
 import json
-from subprocess import call
 from conf.path import PATH_MNT
-from lib.util import DEVNULL, invalidate, mount
+from lib.util import call, invalidate, mount
 
 class Operation(object):
     def __init__(self, manager):
@@ -42,7 +41,7 @@ class Operation(object):
     
     def touch(self, path):
         path = self._get_path(path)
-        call(['touch', path], stderr=DEVNULL, stdout=DEVNULL)
+        call('touch', path)
     
     def put(self, dest, src, buf, flags):
         self._manager.core.put(dest, src, buf, flags)

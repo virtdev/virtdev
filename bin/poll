@@ -13,7 +13,6 @@ sys.path.append(_dir)
 from conf.path import PATH_MNT
 from lib.operations import OP_POLL
 
-
 def usage():
     print('usage: poll [uid]')
 

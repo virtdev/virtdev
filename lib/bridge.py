@@ -17,10 +17,16 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
+from hash_ring import HashRing
 from conf.types import TYPE_PROTOCOL
+from conf.virtdev import BRIDGE_SERVERS
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
 
 bridge = None
+
+def get_bridge(key):
+    ring = HashRing(BRIDGE_SERVERS)
+    return ring.get_node(key)
 
 if TYPE_PROTOCOL == PROTOCOL_N2N:
     from protocol.n2n.bridge import Bridge as N2NBridge
@@ -28,6 +34,3 @@ if TYPE_PROTOCOL == PROTOCOL_N2N:
 elif TYPE_PROTOCOL == PROTOCOL_WRTC:
     from protocol.wrtc.bridge import Bridge as WRTCBridge
     bridge = WRTCBridge()
-
-def clean():
-    bridge.clean()

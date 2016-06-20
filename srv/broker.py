@@ -73,13 +73,13 @@ class Broker(Thread):
         Thread.__init__(self)
         self._faddr = faddr
         self._baddr = baddr
-        self._initialize()
+        self._init()
     
     def _log(self, text):
         if LOG_BROKER:
             log_debug(self, text)
     
-    def _initialize(self):
+    def _init(self):
         self._context = Context(1)
         self._queue = BrokerQueue()
         self._init_frontend()

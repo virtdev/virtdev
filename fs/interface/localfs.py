@@ -19,10 +19,9 @@
 
 import os
 import shutil
-from subprocess import call
 from lib.log import log_debug
 from conf.log import LOG_LOCALFS
-from lib.util import DEVNULL, DIR_MODE
+from lib.util import DIR_MODE, call
 
 class LocalFS(object):
     def _log(self, text):
@@ -30,11 +29,11 @@ class LocalFS(object):
             log_debug(self, text)
     
     def load(self, uid, src, dest):
-        call(['rsync', '-a', src, dest], stderr=DEVNULL, stdout=DEVNULL)
+        call('rsync', '-a', src, dest)
         return True
     
     def save(self, uid, src, dest):
-        call(['rsync', '-a', src, dest], stderr=DEVNULL, stdout=DEVNULL)
+        call('rsync', '-a', src, dest)
         return True
     
     def remove(self, uid, path):

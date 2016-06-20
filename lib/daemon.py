@@ -52,14 +52,17 @@ class DaemonRequest(object):
             name = get_name(uid, node)
             return {'name':name}
     
-    def chkaddr(self, name):
-        return self._manager.chkaddr(name)
-    
     def remove(self, name):
         self._manager.member.delete(name)
     
     def list(self):
         return self._manager.member.list()
+    
+    def chknode(self):
+        return self._manager.chknode()
+    
+    def chkaddr(self, name):
+        return self._manager.chkaddr(name)
 
 class Daemon(Thread):
     def __init__(self, manager):

@@ -20,77 +20,75 @@
 import os
 import json
 import time
-from subprocess import Popen
+from lib import resolv
+from threading import Lock
 from conf.log import LOG_WRTC
-from conf.path import PATH_RUN
 from lib.lock import NamedLock
-from threading import Thread, Lock
-from lib.util import DEVNULL, get_dir
+from lib.bridge import get_bridge
 from websocket import create_connection
 from lib.log import log_debug, log_err, log_get
+from lib.util import call, popen, get_dir, gen_key
 from conf.virtdev import BRIDGE_PORT, CONDUCTOR_PORT, ADAPTER_ADDR, ADAPTER_PORT
 
-CHANNEL_MAX = 4096
-VERIFY_RETRY = 3
-WAIT_INTERVAL = 1 #seconds
-VERIFY_INTERVAL = 5 # seconds
+CHANNEL_MAX = 256
+VERIFY_RETRY = 24
+WAIT_INTERVAL = 1 # seconds
+VERIFY_INTERVAL = 1 # seconds
+ADAPTER_NAME = 'wrtc'
 
-def chkadapter(func):
-    def _chkadapter(*args, **kwargs):
+def adapter(func):
+    def _adapter(*args, **kwargs):
         self = args[0]
         addr = args[1]
         if not self._check_adapter():
-            log_err(self, 'failed to check adapter')
+            log_err(self, 'no adapter')
             return
         self._lock.acquire(addr)
         try:
             return func(*args, **kwargs)
         finally:
             self._lock.release(addr)
-    return _chkadapter
+    return _adapter
 
 class Channel(object):
     def __init__(self):
         self._adapter = None
+        self._sources = {}
         self._channels = {}
         self._lock = NamedLock()
-        self._adapter_lock = Lock()
-        self._adapter_addr = "ws://%s:%d" % (ADAPTER_ADDR, ADAPTER_PORT)
+        self._init_lock = Lock()
+        self._path = os.path.join(get_dir(), 'bin', ADAPTER_NAME)
     
     def _log(self, text):
         if LOG_WRTC:
             log_debug(self, text)
     
-    def _create_adapter(self, addr, key, bridge):
-        path = os.path.join(get_dir(), 'lib', 'protocol', 'wrtc', 'adapter.js')
-        cmd = ['node', path, '-b', bridge, '-p', str(BRIDGE_PORT), '-a', addr, '-k', key, '-c', str(CONDUCTOR_PORT), '-l', str(ADAPTER_PORT)]
-        self._log('create adapter, cmd=%s' % ''.join([i + ' ' for i in cmd]))
-        pid = Popen(cmd, stdout=DEVNULL, stderr=DEVNULL).pid
-        path = os.path.join(PATH_RUN, 'adapter.pid')
-        with open(path, 'w') as f:
-            f.write(str(pid))
+    def _request(self, **args):
+        if args:
+            self._adapter.send(json.dumps(args))
     
-    def _connect_adapter(self):
-        self._adapter_lock.acquire()
+    def _create_adapter(self):
+        self._init_lock.acquire()
         try:
             if not self._adapter:
-                self._adapter = create_connection(self._adapter_addr)
+                addr = "ws://%s:%d" % (ADAPTER_ADDR, ADAPTER_PORT)
+                self._adapter = create_connection(addr)
         except:
-            log_err(self, 'failed to connect to adapter')
+            log_err(self, 'failed to create adapter')
         finally:
-            self._adapter_lock.release()
+            self._init_lock.release()
     
     def _check_adapter(self):
         if not self._adapter:
-            self._connect_adapter()
+            self._create_adapter()
         if self._adapter:
             return True
     
-    def create(self, addr, key, bridge):
-        Thread(target=self._create_adapter, args=(addr, key, bridge)).start()
-    
-    def clean(self):
-        pass
+    def _disconnect(self, addr):
+        self._request(cmd='close', addr=addr)
+        if self._sources.has_key(addr):
+            self._request(cmd='detach', addr=self._sources[addr])
+            del self._sources[addr]
     
     def _do_release(self, addr):
         self._disconnect(addr)
@@ -111,9 +109,8 @@ class Channel(object):
             time.sleep(WAIT_INTERVAL)
     
     def _verify(self, addr):
-        req = json.dumps({'cmd':'exist', 'addr':addr})
         for _ in range(VERIFY_RETRY + 1):
-            self._adapter.send(req)
+            self._request(cmd='exist', addr=addr)
             ret = self._adapter.recv()
             if ret == 'exist':
                 return True
@@ -124,25 +121,33 @@ class Channel(object):
             self._wait()
         return True
     
-    @chkadapter
+    def _check_source(self, name):
+        key = gen_key()
+        addr = resolv.get_addr()
+        bridge = get_bridge(addr)
+        self._request(cmd='attach', addr=addr, key=key, bridge=bridge)
+        self._sources[name] = addr
+        return {'addr':addr, 'key':key, 'bridge':bridge}
+    
+    @adapter
     def connect(self, addr, key, static, verify, bridge):
         if self._can_connect(addr):
             if self._channels.has_key(addr):
                 self._channels[addr] += 1
             else:
-                req = json.dumps({'cmd':'open', 'addr':addr, 'key':key, 'bridge':bridge})
-                self._adapter.send(req)
+                if static:
+                    source = self._check_source(addr)
+                    self._request(cmd='open', addr=addr, key=key, bridge=bridge, source=source)
+                    self._log('connect, addr=%s, source=%s' % (addr, source))
+                else:
+                    self._request(cmd='open', addr=addr, key=key, bridge=bridge)
                 if verify:
                     if not self._verify(addr):
                         log_err(self, 'failed to connect')
                         raise Exception(log_get(self, 'failed to connect'))
                 self._channels[addr] = 1
     
-    def _disconnect(self, addr):
-        req = json.dumps({'cmd':'close', 'addr':addr})
-        self._adapter.send(req)
-    
-    @chkadapter
+    @adapter
     def disconnect(self, addr, release):
         if self._channels.has_key(addr):
             if self._channels[addr] > 0:
@@ -150,11 +155,24 @@ class Channel(object):
                 if self._channels[addr] == 0:
                     self._do_release(addr)
     
-    @chkadapter
+    @adapter
     def put(self, addr, buf):
-        req = json.dumps({'cmd':'write', 'addr':addr, 'buf':buf})
-        self._adapter.send(req)
+        self._request(cmd='write', addr=addr, buf=buf)
     
-    @chkadapter
+    @adapter
     def exist(self, addr):
         return self._verify(addr)
+    
+    def has_network(self, addr):
+        return False
+    
+    def initialize(self):
+        self._log('initialize')
+        popen(self._path, '-p', str(BRIDGE_PORT), '-l', str(ADAPTER_PORT))
+    
+    def create(self, addr, key, bridge):
+        self._log('create, addr=%s, bridge=%s' % (addr, bridge))
+        popen(self._path, '-b', bridge, '-p', str(BRIDGE_PORT), '-a', addr, '-k', key, '-c', str(CONDUCTOR_PORT), '-l', str(ADAPTER_PORT))
+    
+    def clean(self):
+        call('killall', '-9', ADAPTER_NAME)

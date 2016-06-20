@@ -52,20 +52,20 @@ class WorkerServer(BaseRequestHandler):
                 buf = reqest['buf']
                 req = codec.decode(None, buf, token)
                 if not req:
-                    log_err(self, 'failed to process, invalid request')
+                    log_err(self, 'failed to handle, invalid request')
                     return
             else:
-                log_err(self, 'failed to process')
+                log_err(self, 'failed to handle')
                 return
             op = req.get('op')
             srv = req.get('srv')
             args = req.get('args')
             if not op or not srv:
-                log_err(self, 'failed to process, invalid arguments')
+                log_err(self, 'failed to handle, invalid arguments')
                 return
             args.update({'uid':uid})
             if not _services.has_key(srv):
-                log_err(self, 'invalid service %s' % str(srv))
+                log_err(self, 'failed to handle, invalid service %s' % str(srv))
                 return
             pool = ThreadPool(processes=1)
             result = pool.apply_async(_services[srv].proc, args=(op, args))
@@ -74,7 +74,7 @@ class WorkerServer(BaseRequestHandler):
             try:
                 res = result.get(timeout=TIMEOUT)
             except TimeoutError:
-                log_err(self, 'failed to process, timeout')
+                log_err(self, 'failed to handle, timeout')
             finally:
                 pool.join()
             res = codec.encode(buf[:UID_SIZE], res, token)

@@ -67,7 +67,7 @@ class Stub(object):
                 self._put(result, index=False)
                 self._active = True
         except:
-            log_err(self, 'failed to process, driver=%s, cmd=%s' % (str(self._driver), str(cmd)))
+            log_err(self, 'failed to create, driver=%s, cmd=%s' % (str(self._driver), str(cmd)))
     
     def _proc(self, cmd, buf):
         result = ''
@@ -87,7 +87,7 @@ class Stub(object):
             if ret:
                 result = ret
         else:
-            log_err(self, 'invalid command, driver=%s, cmd=%s' % (str(self._driver), str(cmd)))
+            log_err(self, 'failed to process, invalid command, driver=%s, cmd=%s' % (str(self._driver), str(cmd)))
         
         if result or force:
             if result:

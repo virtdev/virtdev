@@ -22,7 +22,7 @@ from db.user import User
 from db.marker import Marker
 from db.router import Router
 from domains import DOMAIN_USR
-from conf.virtdev import META_SERVERS, AREA_CODE
+from conf.virtdev import META_SERVERS, AREA
 
 class UserInfo(object):
     def __init__(self):
@@ -34,7 +34,7 @@ class UserInfo(object):
         ret = self._user.get(user, 'uid')
         if not ret:
             self._user.put(user, password=password, uid=uid)
-            self._marker.mark(uid, DOMAIN_USR, AREA_CODE)
+            self._marker.mark(uid, DOMAIN_USR, AREA)
             return True
     
     def get_password(self, user):

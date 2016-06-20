@@ -23,10 +23,10 @@ from lib.domains import DOMAIN_DEV, DOMAIN_USR
 from interface.commondb import CommonDB, VAL_NAME
 
 class Database(object):
-    def __init__(self, multi_value=False, cache_port=0, router=None, domain=None):
+    def __init__(self, multi_value=False, cache_port=None, router=None, domain=None):
         self._db = CommonDB(name=self.name, router=router, domain=domain)
         self._multi_value = multi_value
-        if cache_port:
+        if cache_port != None:
             self._cache = Cache(cache_port)
         else:
             self._cache = None

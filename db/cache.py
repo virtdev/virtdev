@@ -19,10 +19,9 @@
 
 import memcache
 from lib.log import log_err
-from subprocess import call
 from threading import Thread
 from hash_ring import HashRing
-from lib.util import srv_start, srv_join
+from lib.util import call, srv_start, srv_join
 from conf.virtdev import CACHE_SERVERS, CACHE_PORTS
 
 class Cache(object):
@@ -62,7 +61,7 @@ class Cache(object):
 
 class CacheServer(Thread):
     def _create(self, port):
-        call(['memcached', '-u', 'root', '-m', '10', '-p', str(port)])
+        call('memcached', '-u', 'root', '-m', '10', '-p', str(port))
     
     def run(self):
         srv = []

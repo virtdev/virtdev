@@ -22,7 +22,6 @@ import json
 from datetime import datetime
 from conf.log import LOG_HISTORY
 from lib.domains import DOMAIN_USR
-from conf.virtdev import RECORD_MAX
 from lib.log import log_debug, log_err
 from interface.counterdb import CounterDB
 
@@ -37,6 +36,8 @@ HEAD_DATE = CF_DATE + ':'
 HEAD_VALUE = CF_VALUE + ':'
 LEN_HEAD_DATE = len(HEAD_DATE)
 LEN_HEAD_VALUE = len(HEAD_VALUE)
+
+RECORD_MAX = 30
 
 class History(object):
     def __init__(self, router):

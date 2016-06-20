@@ -1,18 +1,22 @@
 #!/bin/sh
+
+apt-get install -y bluez
 apt-get install -y blueman
 apt-get install -y bluetooth
-apt-get install -y bluez
+apt-get install -y bluez-tools
 apt-get install -y bluez-compat
-apt-get install -y bluez-utils
 apt-get install -y build-essential
 apt-get install -y isc-dhcp-server
-apt-get install -y libsqlite3-dev
 apt-get install -y libbluetooth-dev
 apt-get install -y libopencv-dev
 apt-get install -y librsync-dev
+apt-get install -y libfuse-dev
 apt-get install -y libzbar-dev
 apt-get install -y libzmq-dev
+apt-get install -y lsof
 apt-get install -y n2n
+apt-get install -y nodejs
+apt-get install -y npm
 apt-get install -y python-all-dev
 apt-get install -y python-bluez
 apt-get install -y python-cffi
@@ -25,7 +29,10 @@ apt-get install -y python-opencv
 apt-get install -y python-pil
 apt-get install -y python-pip
 apt-get install -y python-pygame
+apt-get install -y python-scipy
 apt-get install -y python-zbar
+apt-get install -y xvfb
+
 pip install fusepy
 pip install gensim
 pip install hash_ring
@@ -40,7 +47,6 @@ pip install pynetlinux
 pip install pypng
 pip install pyqrcode
 pip install pyserial
-pip install pysqlite
 pip install python-librsync
 pip install python-rake
 pip install pytz
@@ -53,3 +59,19 @@ pip install websocket-client
 pip install wget
 pip install xattr
 pip install zerorpc
+
+if [ ! -f /usr/bin/node ]; then
+  ln -s /usr/bin/nodejs /usr/bin/node
+fi
+
+CURRENT=`pwd`
+FILENAME=`readlink -f $0`
+DIRNAME=`/usr/bin/dirname $FILENAME`
+BIN=$DIRNAME'/bin'
+cd $BIN
+npm install ws
+npm install websocket
+npm install crypto
+npm install mqtt
+npm install electron-webrtc
+cd $CURRENT

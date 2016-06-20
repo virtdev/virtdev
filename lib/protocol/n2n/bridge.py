@@ -17,14 +17,10 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-from subprocess import call
-from lib.util import DEVNULL
+from lib.util import call
 from threading import Thread
 from conf.virtdev import BRIDGE_PORT
 
 class Bridge(Thread):
     def run(self):
-        call(['supernode', '-l', str(BRIDGE_PORT)], stderr=DEVNULL, stdout=DEVNULL)
-    
-    def clean(self):
-        call(['killall', '-9', 'supernode'], stderr=DEVNULL, stdout=DEVNULL)
+        call('supernode', '-l', str(BRIDGE_PORT))

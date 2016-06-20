@@ -21,8 +21,6 @@ import os
 import re
 import time
 import shelve
-import struct
-import socket
 from json import dumps
 from lib import channel
 from lib import notifier
@@ -34,11 +32,11 @@ from lib.request import Request
 from lib.modes import MODE_VISI
 from threading import Lock, Thread
 from lib.log import log_err, log_get
+from conf.path import PATH_LIB, PATH_MNT
 from conductor import Conductor, conductor
 from lib.operations import OP_OPEN, OP_CLOSE
-from conf.path import PATH_LIB, PATH_RUN, PATH_MNT
-from lib.util import USERNAME_SIZE, PASSWORD_SIZE, get_networks, get_node, get_name, lock, named_lock
-from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, COMPUTE_UNIT, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
+from lib.util import USERNAME_SIZE, PASSWORD_SIZE, get_node, get_name, lock, named_lock
+from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, COMPUTE, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
 
 LOGIN_RETRY = 1
 CONNECT_RETRY = 1
@@ -193,7 +191,39 @@ class MemberManager(object):
         finally:
             d.close()
 
-class Manager(object):    
+class Manager(object):
+    def __init__(self):
+        self._lo = None
+        self._bt = None
+        self.uid = None
+        self.key = None
+        self._usb = None
+        self.addr = None
+        self.guest = None
+        self.token = None
+        self.devices = []
+        self.device = None
+        self.channel = None
+        self._daemon = None
+        self._filter = None
+        self._ready = False
+        self._handler = None
+        self._active = False
+        self._listener = None
+        self._dispatcher = None
+        self._init()
+    
+    def _init(self):
+        if not FS or not SHADOW:
+            return
+        self._init_user()
+        self._init_proc()
+        self._init_manager()
+        self._init_core()
+        self._init_devices()
+        if EXPOSE:
+            self._init_daemon()
+    
     def _init_proc(self):
         self._filter = Proc(self, PROC_ADDR, FILTER_PORT)
         self._handler = Proc(self, PROC_ADDR, HANDLER_PORT)
@@ -214,7 +244,7 @@ class Manager(object):
         self._daemon = Daemon(self)
         self._daemon.start()
     
-    def _init_dev(self):
+    def _init_devices(self):
         if BT:
             from interface.bt import Bluetooth
             self._bt = Bluetooth(self.uid, self.core)
@@ -233,6 +263,28 @@ class Manager(object):
     def _init_core(self):
         self.core = Core(self)
     
+    def _init_user(self):
+        user, password = self._get_password()
+        if not user or not password:
+            log_err(self, 'failed to initialize, no password')
+            raise Exception(log_get(self, 'failed to initialize'))
+        
+        try:
+            uid, addr, token, key = self._login(user, password)
+        except:
+            log_err(self, 'failed to initialize')
+            raise Exception(log_get(self, 'failed to initialize'))
+        
+        if not uid:
+            log_err(self, 'failed to initialize, no uid')
+            raise Exception(log_get(self, 'failed to initialize'))
+        
+        self.uid = uid
+        self.key = key
+        self.addr = addr
+        self.user = user
+        self.token = token
+    
     def _get_password(self):
         path = os.path.join(PATH_LIB, 'user')
         d = shelve.open(path)
@@ -242,15 +294,6 @@ class Manager(object):
         finally:
             d.close()
         return (user, password)
-    
-    def _check_addr(self, addr):
-        networks = get_networks()
-        address = struct.unpack("I", socket.inet_aton(addr))[0]
-        for n in networks:
-            network, mask = n
-            if address & mask == network:
-                return False
-        return True
     
     def _login(self, user, password):
         length = len(user)
@@ -272,74 +315,10 @@ class Manager(object):
         for _ in range(LOGIN_RETRY + 1):
             req = Request(name, password)
             res = req.user.login(node=get_node(), mode=mode)
-            if res and self._check_addr(res['addr']):
+            if res and not channel.has_network(res['addr']):
                 return (res['uid'], res['addr'], res['token'], res['key'])
             time.sleep(LOGIN_INTERVAL)
         log_err(self, 'failed to login')
-    
-    def _init_user(self):
-        user, password = self._get_password()
-        if not user or not password:
-            log_err(self, 'failed to get password')
-            raise Exception(log_get(self, 'failed to get password'))
-        
-        try:
-            uid, addr, token, key = self._login(user, password)
-        except:
-            log_err(self, 'failed to login')
-            raise Exception(log_get(self, 'failed to login'))
-        
-        if not uid:
-            log_err(self, 'invalid uid')
-            raise Exception(log_get(self, 'invalid uid'))
-        
-        self.uid = uid
-        self.key = key
-        self.addr = addr
-        self.user = user
-        self.token = token
-    
-    def _initialize(self):
-        if not FS or not SHADOW:
-            return
-        
-        self._init_user()
-        self._init_proc()
-        self._init_manager()
-        self._init_core()
-        self._init_dev()
-        
-        if EXPOSE:
-            self._init_daemon()
-    
-    def __init__(self):
-        self._lo = None
-        self._bt = None
-        self.uid = None
-        self.key = None
-        self._usb = None
-        self.addr = None
-        self.guest = None
-        self.token = None
-        self.devices = []
-        self.device = None
-        self.channel = None
-        self._daemon = None
-        self._filter = None
-        self._handler = None
-        self._active = False
-        self._listener = None
-        self._dispatcher = None
-        self._initialize()
-    
-    def _save_addr(self):
-        path = os.path.join(PATH_RUN, 'addr')
-        d = shelve.open(path)
-        try:
-            d['addr'] = self.addr
-            d['node'] = get_node()
-        finally:
-            d.close()
     
     def _start(self):
         while not self.uid:
@@ -349,7 +328,7 @@ class Manager(object):
             time.sleep(0.1)
         for device in self.devices:
             device.start()
-        self._save_addr()
+        self._ready = True
     
     def start(self):
         if not self._active:
@@ -363,6 +342,12 @@ class Manager(object):
             if key:
                 return (addr, key)
     
+    def chknode(self):
+        if self._ready:
+            return (get_node(), self.addr)
+        else:
+            return ('', '')
+    
     def notify(self, op, buf):
         notifier.notify(op, buf)
     
@@ -375,6 +360,6 @@ class Manager(object):
     
     @property
     def compute_unit(self):
-        if COMPUTE_UNIT:
+        if COMPUTE:
             if self._lo:
                 return self._lo.compute_unit

@@ -320,7 +320,7 @@ class UDO(object):
                     try:
                         self._core.sync(name, buf)
                     except:
-                        log_err(self, 'failed to sync, name=%s' % name)
+                        log_err(self, 'failed to handle, cannot synchronize, name=%s' % name)
                         return
                 if self._core.has_handler(name):
                     try:
@@ -334,7 +334,7 @@ class UDO(object):
                     try:
                         self._core.dispatch(name, res)
                     except:
-                        log_err(self, 'failed to dispatch, name=%s' % name)
+                        log_err(self, 'failed to handle, cannot dispatch, name=%s' % name)
     
     def _listen(self):
         try:
@@ -358,7 +358,7 @@ class UDO(object):
             self._listener = Thread(target=self._listen)
             self._listener.start()
     
-    def _initialize(self):
+    def _init(self):
         if self._children:
             self._mode |= MODE_VIRT
         
@@ -397,7 +397,7 @@ class UDO(object):
         self._core = core
         self._socket = sock
         if init:
-            self._initialize()
+            self._init()
         self._start()
     
     @lock

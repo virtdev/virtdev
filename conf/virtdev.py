@@ -2,7 +2,7 @@ FS = True
 LO = True
 BT = False
 USB = False
-COMPUTE_UNIT = False
+COMPUTE = False
 
 DEBUG = True
 RSYNC = False
@@ -61,8 +61,6 @@ BROKER_SERVERS = ['0.0.0.0']
 BRIDGE_SERVERS = ['0.0.0.0']
 WORKER_SERVERS = ['0.0.0.0']
 
+AREA = 0
 IFNAME = 'eth0'
 IFBACK = 'eth0'
-
-AREA_CODE = 0
-RECORD_MAX = 30

@@ -22,14 +22,13 @@ import time
 import channel
 import resource
 from lib.log import log
-from subprocess import call
 from db.router import Router
 from conf.log import LOG_MOUNT
 from conf.types import TYPE_PROTOCOL
 from lib.protocols import PROTOCOL_WRTC
+from conf.path import PATH_MNT, PATH_LIB
 from lib.domains import DOMAIN_DEV, DOMAIN_USR
-from conf.path import PATH_MNT, PATH_RUN, PATH_LIB
-from lib.util import DEVNULL, srv_start, srv_join, close_port, ifaddr
+from lib.util import call, srv_start, srv_join, close_port, ifaddr
 from conf.virtdev import LO, FS, SHADOW, EXTEND, IFBACK, ADAPTER_PORT, EXPOSE
 from conf.virtdev import MASTER, DISTRIBUTOR, DATA_SERVER, USR_FINDER, USR_MAPPER, DEV_FINDER, DEV_MAPPER
 from conf.virtdev import META_SERVERS, DATA_SERVERS, CACHE_SERVERS, ROOT_SERVERS, BRIDGE_SERVERS, BROKER_SERVERS, WORKER_SERVERS
@@ -39,10 +38,6 @@ def _clean():
     channel.clean()
     addr = ifaddr()
     baddr = ifaddr(ifname=IFBACK)
-    
-    if not SHADOW and addr in BRIDGE_SERVERS:
-        import bridge
-        bridge.clean()
     
     ports.append(ADAPTER_PORT)
     if not SHADOW and addr in CACHE_SERVERS:
@@ -116,20 +111,19 @@ def _check_settings():
 def _init():
     _clean()
     _check_settings()
-    resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999)) 
+    resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999))
+    if not SHADOW:
+        channel.initialize()
 
 def _mount(query, router):
     from fuse import FUSE
     from fs.vdfs import VDFS
     
-    call(['umount', '-lf', PATH_MNT], stderr=DEVNULL, stdout=DEVNULL)
+    call('umount', '-lf', PATH_MNT)
     time.sleep(1)
     
     if not os.path.exists(PATH_MNT):
         os.makedirs(PATH_MNT, 0o755)
-    
-    if not os.path.exists(PATH_RUN):
-        os.makedirs(PATH_RUN, 0o755)
     
     if not os.path.exists(PATH_LIB):
         os.makedirs(PATH_LIB, 0o755)
