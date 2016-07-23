@@ -6,13 +6,13 @@ import xattr
 import argparse
 import commands
 
-_name = commands.getoutput('readlink -f %s' % sys.argv[0])
-_path = os.path.dirname(_name)
+_bin = commands.getoutput('readlink -f %s' % sys.argv[0])
+_path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from lib.util import cmd
-from conf.path import PATH_MNT
+from lib.util import get_cmd
+from conf.env import PATH_MNT
 from lib.operations import OP_COMBINE
 
 if __name__ == '__main__':
@@ -32,5 +32,5 @@ if __name__ == '__main__':
         attr['timeout'] = timeout
     attr['vertex'] = device
     path = os.path.join(PATH_MNT, uid)
-    name = xattr.getxattr(path, cmd(OP_COMBINE, attr))
+    name = xattr.getxattr(path, get_cmd(OP_COMBINE, attr))
     print(str(name))

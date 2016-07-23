@@ -21,9 +21,9 @@ import os
 import stat
 from lib.log import log_err
 from fuse import FuseOSError
-from lib.util import path2temp
+from lib.util import get_temp
 from errno import EINVAL, ENOENT
-from conf.path import PATH_VAR, PATH_MNT
+from conf.env import PATH_VAR, PATH_MNT
 from lib.fields import FIELDS, FIELD_DATA, FIELD_ATTR
 
 class Entry(object):
@@ -165,7 +165,7 @@ class Entry(object):
         if self._fs.exists(uid, path):
             st = self._fs.stat(uid, path)
         elif self.can_invalidate():
-            path = path2temp(path)
+            path = get_temp(path)
             try:
                 st = self._fs.stat(uid, path)
             except:

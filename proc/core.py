@@ -31,7 +31,7 @@ from threading import Event, Thread
 from attr.dispatcher import Dispatcher
 from lib.fields import FIELD_EDGE, FIELD_VRTX
 from lib.log import log_debug, log_err, log_get
-from lib.util import named_lock, member_list, device_sync
+from lib.util import named_lock, get_devices, device_sync
 from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
 from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT, MODE_CLONE
 
@@ -67,13 +67,13 @@ class Core(object):
     
     def _check_paths(self, name):
         if not self._dispatcher.has_edge(name):
-            edges = member_list(self._uid, name, FIELD_EDGE)
+            edges = get_devices(self._uid, name, FIELD_EDGE)
             self._dispatcher.update_edges(name, edges)
     
     def _check_members(self, name):
         if not self._members.has_key(name):
             self._members[name] = {}
-            members = member_list(self._uid, name, FIELD_VRTX)
+            members = get_devices(self._uid, name, FIELD_VRTX)
             for i in members:
                 self._members[name][i] = []
     

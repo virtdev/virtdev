@@ -25,8 +25,8 @@ from threading import Thread, Lock
 from interface.localdb import LocalDB
 from lib.log import log_debug, log_err, log_get
 from lib.util import zmqaddr, lock, server_list
-from conf.virtdev import MASTER_ADDR, FINDER_SERVERS, MAPPER_SERVERS, DATA_SERVERS
-from conf.virtdev import MASTER_PORT, USR_FINDER_PORT, DEV_FINDER_PORT, USR_MAPPER_PORT, DEV_MAPPER_PORT
+from conf.route import MASTER_ADDR, FINDER_SERVERS, MAPPER_SERVERS, DATA_SERVERS
+from conf.route import MASTER_PORT, USR_FINDER_PORT, DEV_FINDER_PORT, USR_MAPPER_PORT, DEV_MAPPER_PORT
 
 class MasterCoordinator(object):
     def __init__(self, port):

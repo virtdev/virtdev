@@ -21,7 +21,7 @@ import zerorpc
 from threading import Thread
 from lib.lock import NamedLock
 from lib.util import zmqaddr, named_lock
-from conf.virtdev import EVENT_COLLECTOR_PORT, EVENT_MONITOR_PORT
+from conf.meta import EVENT_COLLECTOR_PORT, EVENT_MONITOR_PORT
 
 class Collector(object):
     def __init__(self):

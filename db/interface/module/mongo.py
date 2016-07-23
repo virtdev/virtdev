@@ -19,8 +19,8 @@
 
 import pymongo
 from pymongo import MongoClient
+from conf.meta import META_SERVER_PORT
 from pymongo.collection import Collection
-from conf.virtdev import META_SERVER_PORT
 
 DATABASE = 'test'
 

@@ -19,9 +19,9 @@
 
 from lib.log import log_debug
 from conf.log import LOG_REMOTEFS
-from conf.types import TYPE_REMOTEFS
+from conf.prot import PROT_REMOTEFS
 
-if TYPE_REMOTEFS == 'hadoop':
+if PROT_REMOTEFS == 'hadoop':
     from module.hadoop import Hadoop as FS
 
 class RemoteFS(FS):

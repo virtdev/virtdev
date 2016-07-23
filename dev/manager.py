@@ -32,11 +32,11 @@ from lib.request import Request
 from lib.modes import MODE_VISI
 from threading import Lock, Thread
 from lib.log import log_err, log_get
-from conf.path import PATH_LIB, PATH_MNT
+from conf.env import PATH_LIB, PATH_MNT
 from conductor import Conductor, conductor
 from lib.operations import OP_OPEN, OP_CLOSE
 from lib.util import USERNAME_SIZE, PASSWORD_SIZE, get_node, get_name, lock, named_lock
-from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, COMPUTE, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
+from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, COMP, PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
 
 LOGIN_RETRY = 1
 CONNECT_RETRY = 1
@@ -360,6 +360,6 @@ class Manager(object):
     
     @property
     def compute_unit(self):
-        if COMPUTE:
+        if COMP:
             if self._lo:
                 return self._lo.compute_unit

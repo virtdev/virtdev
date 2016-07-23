@@ -6,15 +6,15 @@ import zerorpc
 import argparse
 import commands
 
-_name = commands.getoutput('readlink -f %s' % sys.argv[0])
-_path = os.path.dirname(_name)
+_bin = commands.getoutput('readlink -f %s' % sys.argv[0])
+_path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
 from lib.domains import *
 from lib.util import zmqaddr, server_list
 from lib.admin import create_user, get_password
-from conf.virtdev import MASTER_ADDR, MASTER_PORT, AREA
+from conf.route import AREA, MASTER_ADDR, MASTER_PORT
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

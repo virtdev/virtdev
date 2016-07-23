@@ -20,6 +20,7 @@
 import os
 import shutil
 from lib.log import log_debug
+from conf.virtdev import RSYNC
 from conf.log import LOG_LOCALFS
 from lib.util import DIR_MODE, call
 
@@ -29,11 +30,17 @@ class LocalFS(object):
             log_debug(self, text)
     
     def load(self, uid, src, dest):
-        call('rsync', '-a', src, dest)
+        if RSYNC:
+            call('rsync', '-a', src, dest)
+        else:
+            shutil.copyfile(src, dest)
         return True
     
     def save(self, uid, src, dest):
-        call('rsync', '-a', src, dest)
+        if RSYNC:
+            call('rsync', '-a', src, dest)
+        else:
+            shutil.copyfile(src, dest)
         return True
     
     def remove(self, uid, path):

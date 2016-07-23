@@ -18,17 +18,17 @@
 #      MA 02110-1301, USA.
 
 import ast
-from lib import mode
 from threading import Lock
 from lib.usb import USBSocket
 from dev.driver import Driver
 from lib.pyboard import Pyboard
 from lib.bt import BluetoothSocket
 from lib.util import lock, device_info
+from lib.modes import MODE_TRIG, MODE_POLL, MODE_CTRL
 
 class Controller(Driver):
     def __init__(self, name=None):
-        Driver.__init__(self, name=name, mode=mode.MODE_TRIG | mode.MODE_POLL | mode.MODE_CTRL)
+        Driver.__init__(self, name=name, mode=MODE_TRIG | MODE_POLL | MODE_CTRL)
         self._lock = Lock()
     
     def _parse(self, buf):
@@ -38,7 +38,7 @@ class Controller(Driver):
         for i in info:
             if not info[i].has_key('mode'):
                 return 
-            info[i]['mode'] |= mode.MODE_CTRL
+            info[i]['mode'] |= MODE_CTRL
         return str(info)
     
     def setup(self):

@@ -23,7 +23,7 @@ from temp import Temp
 from entry import Entry
 from conf.log import LOG_ATTR
 from StringIO import StringIO
-from lib.util import path2temp
+from lib.util import get_temp
 from conf.virtdev import RSYNC
 from base64 import b64encode, b64decode
 from lib.log import log_debug, log_err, log_get, log_warnning
@@ -51,7 +51,7 @@ class Attr(Entry):
             self._temp.truncate(uid, name, length)
     
     def is_expired(self, uid, name):
-        temp = path2temp(self.get_path(uid, name))
+        temp = get_temp(self.get_path(uid, name))
         return self._fs.exists(uid, temp)
     
     def getattr(self, uid, name):
@@ -95,7 +95,7 @@ class Attr(Entry):
     def invalidate(self, uid, name):
         self._log('invalidate, name=%s' % str(name))
         path = self.get_path(uid, name)
-        temp = path2temp(path)
+        temp = get_temp(path)
         if self._fs.exists(uid, path):
             self._fs.rename(uid, path, temp)
             self._unlink(uid, name)
@@ -105,7 +105,7 @@ class Attr(Entry):
     def signature(self, uid, name):
         res = ''
         if RSYNC:
-            temp = path2temp(self.get_path(uid, name))
+            temp = get_temp(self.get_path(uid, name))
             with open(temp, 'rb') as f:
                 sig = librsync.signature(f)
             res = b64encode(sig.read())
@@ -113,10 +113,10 @@ class Attr(Entry):
     
     def patch(self, uid, name, buf):
         if not buf:
-            log_warnning(self, 'no content, name=%s' % str(name))
+            log_warnning(self, 'cannot patch, no content, name=%s' % str(name))
             return
         dest = self.get_path(uid, name)
-        src = path2temp(dest)
+        src = get_temp(dest)
         tmp = b64decode(buf)
         if RSYNC:
             delta = StringIO(tmp)
@@ -125,7 +125,6 @@ class Attr(Entry):
                     try:
                         librsync.patch(f_src, delta, f_dest)
                     except:
-                        # FIXME:
                         log_warnning(self, 'failed to patch, name=%s' % str(name))
                         self._fs.rename(uid, src, dest)
                         return

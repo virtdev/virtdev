@@ -18,9 +18,9 @@
 #      MA 02110-1301, USA.
 
 from remotedb import RemoteDB
-from conf.types import TYPE_COUNTERDB
+from conf.prot import PROT_COUNTERDB
 
-if TYPE_COUNTERDB == 'hbase':
+if PROT_COUNTERDB == 'hbase':
     from module.hbase import HBase as DB
 
 class CounterDB(RemoteDB):

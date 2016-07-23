@@ -1,4 +1,4 @@
-#      bridge.py (wrtc)
+#      imgrec.py
 #      
 #      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -17,17 +17,16 @@
 #      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #      MA 02110-1301, USA.
 
-import os
-from lib.util import call
-from threading import Thread
-from conf.conf import CONF_MQTT
-from conf.virtdev import BRIDGE_PORT
+from dev.driver import Driver, check_output
+from classiify_image import maybe_download_and_extract, recognize
 
-class Bridge(Thread):
-    def run(self):
-        if CONF_MQTT:
-            if not os.path.exists(CONF_MQTT):
-                raise Exception('Error: failed to start bridge, cannot find configuration %s' % CONF_MQTT)
-            call('mosquitto', '-p', str(BRIDGE_PORT), '-c', CONF_MQTT)
-        else:
-            call('mosquitto', '-p', str(BRIDGE_PORT))
+class ImgRec(Driver):
+    def setup(self):
+        maybe_download_and_extract()
+    
+    @check_output
+    def put(self, args):
+        image = args.get('content')
+        res = recognize(image)
+        if res:
+            return {'objects':res}

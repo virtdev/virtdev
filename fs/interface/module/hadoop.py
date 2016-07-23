@@ -24,7 +24,7 @@ from lib.log import log_get, log_err
 from lib.util import DIR_MODE, FILE_MODE
 from hdfs.client import Client as HDFSClient
 from snakebite.client import Client as SnakebiteClient
-from conf.virtdev import FILE_SERVER_PORT, FILE_HTTP_PORT
+from conf.meta import FILE_SERVER_PORT, FILE_HTTP_PORT
 
 FILE_SIZE = 1 << 24
 

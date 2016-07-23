@@ -27,7 +27,7 @@ from conf.log import LOG_MAPPER
 from lib.util import zmqaddr, ifaddr
 from lib.log import log_debug, log_err, log_get
 from info import get_servers, get_mappers, get_finders
-from conf.virtdev import USR_MAPPER_PORT, DEV_MAPPER_PORT, USR_FINDER_PORT, DEV_FINDER_PORT
+from conf.route import USR_MAPPER_PORT, DEV_MAPPER_PORT, USR_FINDER_PORT, DEV_FINDER_PORT
 
 GROUP_MAX = 32
 WAIT_TIME = 100 # seconds

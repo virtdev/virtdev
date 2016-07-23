@@ -18,7 +18,7 @@
 #      MA 02110-1301, USA.
 
 from hash_ring import HashRing
-from conf.types import TYPE_PROTOCOL
+from conf.prot import PROT_NETWORK
 from conf.virtdev import BRIDGE_SERVERS
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
 
@@ -28,9 +28,9 @@ def get_bridge(key):
     ring = HashRing(BRIDGE_SERVERS)
     return ring.get_node(key)
 
-if TYPE_PROTOCOL == PROTOCOL_N2N:
+if PROT_NETWORK == PROTOCOL_N2N:
     from protocol.n2n.bridge import Bridge as N2NBridge
     bridge = N2NBridge()
-elif TYPE_PROTOCOL == PROTOCOL_WRTC:
+elif PROT_NETWORK == PROTOCOL_WRTC:
     from protocol.wrtc.bridge import Bridge as WRTCBridge
     bridge = WRTCBridge()

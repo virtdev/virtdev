@@ -26,11 +26,11 @@ from dev.driver import Driver, check_output
 
 PRINT = False
 RESIZE = False
-PATH_CASCADE = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml'
+CASCADE = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml'
 
 class FaceRec(Driver):
     def setup(self):
-        self._cascade = cv2.CascadeClassifier(PATH_CASCADE)
+        self._cascade = cv2.CascadeClassifier(CASCADE)
     
     def _recognize(self, image):
         try:

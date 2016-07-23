@@ -24,17 +24,17 @@ from log import log_err
 from util import zmqaddr
 from random import randint
 from threading import Lock
-from conf.virtdev import ROOT_SERVERS, ROOT_PORT
 from zmq import REQ, IDENTITY, POLLIN, SNDMORE, LINGER
+from conf.virtdev import GATEWAY_SERVERS, GATEWAY_PORT
 
 TIMEOUT = 120 # seconds
 RETRY_MAX = 1
 
 class RequestSender(object):
     def _get_addr(self):
-        length = len(ROOT_SERVERS)
+        length = len(GATEWAY_SERVERS)
         n = randint(0, length - 1)
-        return zmqaddr(ROOT_SERVERS[n], ROOT_PORT)
+        return zmqaddr(GATEWAY_SERVERS[n], GATEWAY_PORT)
     
     def _set(self):
         self._socket = self._context.socket(REQ)

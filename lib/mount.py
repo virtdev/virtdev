@@ -24,24 +24,30 @@ import resource
 from lib.log import log
 from db.router import Router
 from conf.log import LOG_MOUNT
-from conf.types import TYPE_PROTOCOL
+from conf.prot import PROT_NETWORK
+from conf.env import PATH_MNT, PATH_LIB
 from lib.protocols import PROTOCOL_WRTC
-from conf.path import PATH_MNT, PATH_LIB
 from lib.domains import DOMAIN_DEV, DOMAIN_USR
-from lib.util import call, srv_start, srv_join, close_port, ifaddr
-from conf.virtdev import LO, FS, SHADOW, EXTEND, IFBACK, ADAPTER_PORT, EXPOSE
-from conf.virtdev import MASTER, DISTRIBUTOR, DATA_SERVER, USR_FINDER, USR_MAPPER, DEV_FINDER, DEV_MAPPER
-from conf.virtdev import META_SERVERS, DATA_SERVERS, CACHE_SERVERS, ROOT_SERVERS, BRIDGE_SERVERS, BROKER_SERVERS, WORKER_SERVERS
+from lib.util import start_servers, wait_servers, stop_servers, ifaddr
+from conf.virtdev import LO, FS, SHADOW, IFBACK, EXPOSE, GATEWAY_SERVERS, BRIDGE_SERVERS
+from conf.meta import DISTRIBUTOR, META_SERVERS, CACHE_SERVERS, BROKER_SERVERS, WORKER_SERVERS
+from conf.route import ROUTE, MASTER_ADDR, DATA_SERVER, USR_FINDER, USR_MAPPER, DEV_FINDER, DEV_MAPPER, DATA_SERVERS
 
 def _clean():
     ports = []
     channel.clean()
-    addr = ifaddr()
-    baddr = ifaddr(ifname=IFBACK)
+    addr = ifaddr(ifname=IFBACK)
     
-    ports.append(ADAPTER_PORT)
+    if ifaddr() in GATEWAY_SERVERS:
+        from conf.virtdev import GATEWAY_PORT
+        ports.append(GATEWAY_PORT)
+    
+    if not SHADOW and ifaddr() in BRIDGE_SERVERS:
+        from conf.virtdev import BRIDGE_PORT
+        ports.append(BRIDGE_PORT)
+    
     if not SHADOW and addr in CACHE_SERVERS:
-        from conf.virtdev import CACHE_PORTS
+        from conf.meta import CACHE_PORTS
         for i in CACHE_PORTS:
             ports.append(CACHE_PORTS[i])
     
@@ -49,48 +55,40 @@ def _clean():
         from conf.virtdev import LO_PORT
         ports.append(LO_PORT)
     
-    if not SHADOW and addr in BRIDGE_SERVERS:
-        from conf.virtdev import BRIDGE_PORT
-        ports.append(BRIDGE_PORT)
-    
-    if baddr in BROKER_SERVERS:
-        from conf.virtdev import BROKER_PORT
+    if addr in BROKER_SERVERS:
+        from conf.meta import BROKER_PORT
         ports.append(BROKER_PORT)
     
-    if addr in ROOT_SERVERS:
-        from conf.virtdev import ROOT_PORT
-        ports.append(ROOT_PORT)
-    
-    if MASTER:
-        from conf.virtdev import MASTER_PORT
+    if addr == MASTER_ADDR:
+        from conf.route import MASTER_PORT
         ports.append(MASTER_PORT)
-        
+    
     if USR_FINDER:
-        from conf.virtdev import USR_FINDER_PORT
+        from conf.route import USR_FINDER_PORT
         ports.append(USR_FINDER_PORT)
     
     if DEV_FINDER:
-        from conf.virtdev import DEV_FINDER_PORT
+        from conf.route import DEV_FINDER_PORT
         ports.append(DEV_FINDER_PORT)
     
     if USR_MAPPER:
-        from conf.virtdev import USR_MAPPER_PORT
+        from conf.route import USR_MAPPER_PORT
         ports.append(USR_MAPPER_PORT)
     
     if DEV_MAPPER:
-        from conf.virtdev import DEV_MAPPER_PORT
+        from conf.route import DEV_MAPPER_PORT
         ports.append(DEV_MAPPER_PORT)
     
-    if DATA_SERVER or addr in DATA_SERVERS:
-        from conf.virtdev import EVENT_COLLECTOR_PORT    
+    if DATA_SERVER or addr in DATA_SERVERS or (not ROUTE and addr in META_SERVERS):
+        from conf.meta import EVENT_COLLECTOR_PORT    
         ports.append(EVENT_COLLECTOR_PORT)
     
-    if baddr in WORKER_SERVERS:
-        from conf.virtdev import WORKER_PORT
+    if addr in WORKER_SERVERS:
+        from conf.meta import WORKER_PORT
         ports.append(WORKER_PORT)
     
-    if baddr in WORKER_SERVERS or (FS and not SHADOW):
-        from conf.virtdev import EVENT_MONITOR_PORT
+    if addr in WORKER_SERVERS or (FS and not SHADOW):
+        from conf.meta import EVENT_MONITOR_PORT
         ports.append(EVENT_MONITOR_PORT)
     
     if FS:
@@ -101,11 +99,10 @@ def _clean():
         ports.append(CONDUCTOR_PORT)
         ports.append(DISPATCHER_PORT)
     
-    for i in ports:
-        close_port(i)
+    stop_servers(ports)
 
 def _check_settings():
-    if not SHADOW and EXPOSE and TYPE_PROTOCOL != PROTOCOL_WRTC:
+    if not SHADOW and EXPOSE and PROT_NETWORK != PROTOCOL_WRTC:
         raise Exception('Error: invalid settings')
 
 def _init():
@@ -115,13 +112,15 @@ def _init():
     if not SHADOW:
         channel.initialize()
 
+def _unmount(path):
+    os.system('umount -lf %s 2>/dev/null' % path)
+    time.sleep(1)
+
 def _mount(query, router):
     from fuse import FUSE
     from fs.vdfs import VDFS
     
-    call('umount', '-lf', PATH_MNT)
-    time.sleep(1)
-    
+    _unmount(PATH_MNT)
     if not os.path.exists(PATH_MNT):
         os.makedirs(PATH_MNT, 0o755)
     
@@ -134,22 +133,28 @@ def _mount(query, router):
     FUSE(VDFS(query, router), PATH_MNT, foreground=True)
 
 def mount():
-    srv = []
     data = None
     query = None
-    addr = ifaddr()
-    baddr = ifaddr(ifname=IFBACK)
+    servers = []
+    addr = ifaddr(ifname=IFBACK)
     
     _init()
+    if not SHADOW and addr in BROKER_SERVERS:
+        from srv.broker import Broker
+        servers.append(Broker(ifaddr(), addr))
     
-    if MASTER:
+    if not SHADOW and ifaddr() in BRIDGE_SERVERS:
+        import bridge
+        servers.append(bridge.bridge)
+    
+    if addr == MASTER_ADDR:
         from db.master import Master
-        srv.append(Master())
+        servers.append(Master())
     
-    if baddr in WORKER_SERVERS or (FS and not SHADOW):
+    if addr in WORKER_SERVERS or (FS and not SHADOW):
         from db.query import Query
         meta = Router(META_SERVERS)
-        if not EXTEND:
+        if ROUTE:
             data = Router(DATA_SERVERS)
         else:
             data = meta
@@ -157,46 +162,38 @@ def mount():
     
     if DISTRIBUTOR:
         from srv.distributor import Distributor
-        srv.append(Distributor(query))
-    
-    if baddr in BROKER_SERVERS:
-        from srv.broker import Broker
-        srv.append(Broker(addr, baddr))
+        servers.append(Distributor(query))
     
     if not SHADOW and addr in CACHE_SERVERS:
         from db.cache import CacheServer
-        srv.append(CacheServer())
+        servers.append(CacheServer())
     
-    if not SHADOW and addr in BRIDGE_SERVERS:
-        import bridge
-        srv.append(bridge.bridge)
-    
-    if DATA_SERVER or addr in DATA_SERVERS:
+    if DATA_SERVER or addr in DATA_SERVERS or (not ROUTE and addr in META_SERVERS):
         from event.collector import EventCollector
-        srv.append(EventCollector(baddr))
+        servers.append(EventCollector(addr))
     
     if USR_FINDER or DEV_FINDER:
         from db.finder import Finder
         if USR_FINDER:
-            srv.append(Finder(domain=DOMAIN_USR))
+            servers.append(Finder(domain=DOMAIN_USR))
         if DEV_FINDER:
-            srv.append(Finder(domain=DOMAIN_DEV))
+            servers.append(Finder(domain=DOMAIN_DEV))
     
     if USR_MAPPER or DEV_MAPPER:
         from db.mapper import Mapper
         if USR_MAPPER:
-            srv.append(Mapper(domain=DOMAIN_USR))
+            servers.append(Mapper(domain=DOMAIN_USR))
         if DEV_MAPPER:
-            srv.append(Mapper(domain=DOMAIN_DEV))
+            servers.append(Mapper(domain=DOMAIN_DEV))
     
-    if baddr in WORKER_SERVERS:
+    if addr in WORKER_SERVERS:
         from srv.worker import Worker
-        srv.append(Worker(baddr, query))
+        servers.append(Worker(addr, query))
     
-    if srv:
-        srv_start(srv)
+    if servers:
+        start_servers(servers)
     
     if FS:
         _mount(query, data)
-    elif srv:
-        srv_join(srv)
+    elif servers:
+        wait_servers(servers)

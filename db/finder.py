@@ -27,7 +27,7 @@ from lib.util import zmqaddr, ifaddr
 from lib.log import log_get, log_err
 from marker import USR_MARK, DEV_MARK
 from interface.commondb import CommonDB
-from conf.virtdev import USR_SERVERS, DEV_SERVERS, USR_FINDER_PORT, DEV_FINDER_PORT
+from conf.route import USR_SERVERS, DEV_SERVERS, USR_FINDER_PORT, DEV_FINDER_PORT
 
 CACHE_MAX = 100000
 

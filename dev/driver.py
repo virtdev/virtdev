@@ -21,7 +21,7 @@ import os
 import ast
 import imp
 from lib.util import get_dir
-from lib.modes import MODE_IV, MODE_LO, MODE_POLL, MODE_TRIG, MODE_CTRL
+from lib.modes import MODE_IV, MODE_POLL, MODE_TRIG, MODE_CTRL
 
 FREQ_MIN = 0.1 # HZ
 FREQ_MAX = 100 # HZ
@@ -68,7 +68,8 @@ def load_driver(typ, name=None):
     try:
         driver_name = typ.lower()
         dir_name = os.path.join(get_dir(), 'drivers')
-        module = imp.load_source(typ, os.path.join(dir_name, driver_name, '%s.py' % driver_name))
+        path = os.path.join(dir_name, driver_name, '%s.py' % driver_name)
+        module = imp.load_source(typ, path)
         if module and hasattr(module, typ):
             driver = getattr(module, typ)
             if driver:
@@ -136,7 +137,7 @@ class Driver(object):
         return self.__spec
     
     def get_mode(self):
-        return self.__mode | MODE_LO
+        return self.__mode
     
     def get_name(self):
         return self.__name

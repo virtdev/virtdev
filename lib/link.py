@@ -91,13 +91,13 @@ class Downlink(object):
     def _get_device(self, name):
         return self._query.device.get(name)
     
-    def _connect(self, uid, node, addr, verify=False):
+    def _connect(self, uid, node, addr):
         key = self._query.key.get(get_name(uid, node))
         if not key:
             log_err(self, 'failed to connect, no key')
             return    
         try:
-            channel.connect(uid, addr, key, static=True, verify=verify)
+            channel.connect(uid, addr, key, gateway=True)
             return key
         except:
             log_debug(self, 'failed to connect, addr=%s' % str(addr))
@@ -119,7 +119,7 @@ class Downlink(object):
         for _ in range(LINK_RETRY):
             try:
                 time.sleep(LINK_INTERVAL)
-                channel.connect(uid, addr, key, static=True, verify=True)
+                channel.connect(uid, addr, key, gateway=True)
                 try:
                     channel.put(uid, addr, op, args, token)
                 finally:
@@ -156,7 +156,7 @@ class Downlink(object):
             for i in members:
                 p, node = str2tuple(i)
                 if p == parent:
-                    key = self._connect(uid, node, addr, verify=True)
+                    key = self._connect(uid, node, addr)
                     if not key:
                         log_err(self, 'failed to mount, no connection')
                         raise Exception(log_get(self, 'failed to mount'))
@@ -169,7 +169,7 @@ class Downlink(object):
             
             for i in nodes:
                 node, addr, _ = str2tuple(i)
-                key = self._connect(uid, node, addr, verify=True)
+                key = self._connect(uid, node, addr)
                 if key:
                     break
         

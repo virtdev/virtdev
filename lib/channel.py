@@ -23,7 +23,7 @@ from log import log_err
 from queue import Queue
 from bridge import get_bridge
 from conf.virtdev import DEBUG
-from conf.types import TYPE_PROTOCOL
+from conf.prot import PROT_NETWORK
 from multiprocessing import cpu_count
 from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
 
@@ -34,10 +34,10 @@ POOL_SIZE = cpu_count() * 2
 pool = None
 channel = None
 
-if TYPE_PROTOCOL == PROTOCOL_N2N:
+if PROT_NETWORK == PROTOCOL_N2N:
     from protocol.n2n.channel import Channel as N2NChannel
     channel = N2NChannel()
-elif TYPE_PROTOCOL == PROTOCOL_WRTC:
+elif PROT_NETWORK == PROTOCOL_WRTC:
     from protocol.wrtc.channel import Channel as WRTCChannel
     channel = WRTCChannel()
 
@@ -66,9 +66,9 @@ def create(uid, addr, key):
     bridge = get_bridge(key)
     return channel.create(addr, key, bridge)
 
-def connect(uid, addr, key, static=False, verify=False):
+def connect(uid, addr, key, gateway=False):
     bridge = get_bridge(key)
-    channel.connect(addr, key, static, verify, bridge)
+    channel.connect(addr, key, bridge, gateway)
 
 def disconnect(addr, release=False):
     channel.disconnect(addr, release)
@@ -95,4 +95,3 @@ def has_network(addr):
 
 def initialize():
     channel.initialize()
-

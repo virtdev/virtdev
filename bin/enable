@@ -5,12 +5,12 @@ import sys
 import xattr
 import commands
 
-_name = commands.getoutput('readlink -f %s' % sys.argv[0])
-_path = os.path.dirname(_name)
+_bin = commands.getoutput('readlink -f %s' % sys.argv[0])
+_path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from conf.path import PATH_MNT
+from conf.env import PATH_MNT
 from lib.operations import OP_ENABLE
 
 def usage():

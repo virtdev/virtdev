@@ -23,16 +23,16 @@ from threading import Thread
 from dev.driver import Driver, check_output
 
 PRINT = False
-PATH_DOWNLOADER = "/opt/downloads"
+HOME = "/opt/downloads"
 
 class Downloader(Driver):
     def setup(self):
-        if not os.path.exists(PATH_DOWNLOADER):
-            os.makedirs(PATH_DOWNLOADER, 0o755)
+        if not os.path.exists(HOME):
+            os.makedirs(HOME, 0o755)
     
     def _do_download(self, url):
         try:
-            filename = wget.download(url, out=PATH_DOWNLOADER, bar=None)
+            filename = wget.download(url, out=HOME, bar=None)
             if PRINT:
                 print('Downloader: filename=%s' % str(filename))
         except:

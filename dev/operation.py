@@ -19,7 +19,7 @@
 
 import os
 import json
-from conf.path import PATH_MNT
+from conf.env import PATH_MNT
 from lib.util import call, invalidate, mount
 
 class Operation(object):

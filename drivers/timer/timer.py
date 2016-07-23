@@ -23,11 +23,11 @@ from datetime import datetime
 from dev.driver import Driver, check_input
 
 PRINT = False
-PATH = '/opt/timer'
+HOME = '/opt/timer'
 
 class Timer(Driver):
     def _get_dir(self):
-        return os.path.join(PATH, self.get_name())
+        return os.path.join(HOME, self.get_name())
     
     def _get_path(self, name):
         return os.path.join(self._get_dir(), name)

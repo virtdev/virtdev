@@ -25,9 +25,10 @@ from lib.ppp import *
 from lib.util import zmqaddr
 from threading import Thread
 from conf.log import LOG_BROKER
+from conf.meta import BROKER_PORT
 from collections import OrderedDict
+from conf.virtdev import GATEWAY_PORT
 from lib.log import log_debug, log_err
-from conf.virtdev import ROOT_PORT, BROKER_PORT
 from zmq import Poller, Context, ROUTER, POLLIN
 
 class BrokerItem(object):
@@ -89,7 +90,7 @@ class Broker(Thread):
     
     def _init_frontend(self):
         self._frontend = self._context.socket(ROUTER)
-        self._frontend.bind(zmqaddr(self._faddr, ROOT_PORT))
+        self._frontend.bind(zmqaddr(self._faddr, GATEWAY_PORT))
     
     def _init_backend(self):
         self._backend = self._context.socket(ROUTER)

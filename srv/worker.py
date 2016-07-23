@@ -31,7 +31,7 @@ from conf.log import LOG_WORKER
 from service.token import Token
 from service.guest import Guest
 from service.device import Device
-from conf.virtdev import WORKER_PORT
+from conf.meta import WORKER_PORT
 from lib.log import log_debug, log_err
 from multiprocessing import TimeoutError
 from multiprocessing.pool import ThreadPool

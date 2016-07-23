@@ -18,7 +18,7 @@
 #      MA 02110-1301, USA.
 
 import os
-from conf.path import PATH_VAR
+from conf.env import PATH_VAR
 from lib.fields import TEMP, FIELDS
 from lib.util import DIR_MODE, FILE_MODE
 

@@ -19,10 +19,11 @@
 
 import uuid
 from db.user import User
+from conf.route import AREA
 from db.marker import Marker
 from db.router import Router
 from domains import DOMAIN_USR
-from conf.virtdev import META_SERVERS, AREA
+from conf.meta import META_SERVERS
 
 class UserInfo(object):
     def __init__(self):

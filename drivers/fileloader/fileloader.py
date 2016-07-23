@@ -22,7 +22,7 @@ from base64 import b64encode
 from dev.driver import Driver
 from lib.modes import MODE_OVP, MODE_SWITCH
 
-PATH_FILELOADER = '/opt/fileloader'
+HOME = '/opt/fileloader'
 
 class FileLoader(Driver):
     def __init__(self, name=None):
@@ -37,7 +37,7 @@ class FileLoader(Driver):
         self._active = False
     
     def _get_path(self):
-        return os.path.join(PATH_FILELOADER, self.get_name())
+        return os.path.join(HOME, self.get_name())
     
     def _load(self):
         path = self._get_path()

@@ -18,9 +18,9 @@
 #      MA 02110-1301, USA.
 
 from remotedb import RemoteDB
-from conf.types import TYPE_COMMONDB
+from conf.prot import PROT_COMMONDB
 
-if TYPE_COMMONDB == 'mongo':
+if PROT_COMMONDB == 'mongo':
     from module.mongo import Mongo as DB
 
 KEY_NAME = 'k'

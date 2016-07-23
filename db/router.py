@@ -24,8 +24,9 @@ from member import Member
 from random import randint
 from lib.util import zmqaddr
 from threading import Thread
+from conf.route import ROUTE
 from lib.log import log_get, log_err
-from conf.virtdev import EXTEND, MASTER_ADDR, MASTER_PORT, USR_MAPPER_PORT, DEV_MAPPER_PORT
+from conf.route import MASTER_ADDR, MASTER_PORT, USR_MAPPER_PORT, DEV_MAPPER_PORT
 
 ID_SIZE = 32
 GROUP_MAX = 32
@@ -38,7 +39,7 @@ class Router(object):
         self._servers = servers
         self._user_mapper = Member()
         self._device_mapper = Member()
-        if EXTEND and sync:
+        if ROUTE and sync:
             mappers = self._load_mappers(DOMAIN_USR)
             if not mappers:
                 log_err('failed to initialize')
@@ -85,7 +86,7 @@ class Router(object):
             c.close()
     
     def get(self, key, domain=None):
-        if not EXTEND or not domain:
+        if not ROUTE or not domain:
             if not self._servers:
                 log_err(self, 'failed to get')
                 raise Exception(log_get(self, 'failed to get'))

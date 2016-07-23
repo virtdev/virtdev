@@ -24,7 +24,7 @@ from lib import io
 from conf.log import LOG_UDO
 from lib.loader import Loader
 from datetime import datetime
-from conf.path import PATH_MNT
+from conf.env import PATH_MNT
 from lib.log import log_debug, log_err
 from lib.util import lock, mount_device
 from threading import Thread, Event, Lock

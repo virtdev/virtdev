@@ -26,7 +26,12 @@ from attr import Attr
 from edge import Edge
 from data import Data
 from vrtx import Vrtx
+from lib.types import *
+from lib.modes import *
+from lib.fields import *
 from errno import EINVAL
+from lib.attributes import *
+from lib.operations import *
 from conf.log import LOG_VDFS
 from lib.loader import Loader
 from lib.lock import NamedLock
@@ -37,18 +42,13 @@ from fuse import FuseOSError, Operations
 from dev.interface.lo import device_name
 from lib.util import DIR_MODE, named_lock
 from dev.driver import FREQ_MAX, load_driver
-from lib.fields import FIELD_VRTX, FIELD_EDGE, FIELD_ATTR
-from lib.modes import MODE_VIRT, MODE_VISI, MODE_LO, MODE_LINK, MODE_CLONE
-from lib.attributes import ATTR_MODE, ATTR_PROFILE, ATTR_HANDLER, ATTR_FILTER, ATTR_DISPATCHER, ATTR_FREQ, ATTR_PARENT, ATTR_TIMEOUT
-from lib.operations import OP_POLL, OP_MOUNT, OP_CLONE, OP_CREATE, OP_COMBINE, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_GET, OP_ADD, OP_JOIN, OP_ACCEPT, OP_SCAN
+
+PATH_MAX = 1024
+OPEN_DELAY = 0.1 # seconds
+TIMEOUT_MAX = 600 # seconds
 
 _stat_dir = dict(st_mode=(stat.S_IFDIR | DIR_MODE), st_nlink=1)
 _stat_dir['st_ctime'] = _stat_dir['st_mtime'] = _stat_dir['st_atime'] = time.time()
-
-PATH_MAX = 1024
-TYPE_VDEV = 'VDev'
-OPEN_DELAY = 0.1 # seconds
-TIMEOUT_MAX = 600 # seconds
 
 def show_path(func):
     def _show_path(*args, **kwargs):
@@ -225,11 +225,9 @@ class VDFS(Operations):
         obj.invalidate(uid, name)
     
     def _init(self, uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout):
-        lo = mode & MODE_LO
-        if lo:
-            if not typ or (self._shadow and not self._manager.has_lo()):
-                log_err(self, 'failed to initialize device, name=%s' % str(name))
-                raise FuseOSError(EINVAL)
+        if not typ:
+            log_err(self, 'failed to initialize device, no type, name=%s' % str(name))
+            raise FuseOSError(EINVAL)
         
         link = mode & MODE_LINK
         if link:
@@ -242,11 +240,8 @@ class VDFS(Operations):
         if not mode & MODE_VIRT:
             timeout = None
         
-        if mode & MODE_VIRT:
-            typ = TYPE_VDEV
-        
         if not prof:
-            if typ:
+            if self._shadow:
                 driver = load_driver(typ)
                 if not driver:
                     log_err(self, 'failed to initialize device, cannot load driver %s, name=%s' % (typ, str(name)))
@@ -257,6 +252,8 @@ class VDFS(Operations):
                     mode = driver.get_mode()
                 freq = driver.get_freq()
                 prof = driver.get_profile()
+            else:
+                prof = {'type':typ}
         
         self._data.initialize(uid, name)
         self._attr.initialize(uid, name, ATTR_MODE, mode)
@@ -273,18 +270,18 @@ class VDFS(Operations):
         if prof:
             self._attr.initialize(uid, name, ATTR_PROFILE, prof)
         
-        if mode & MODE_CLONE:
-            self._attr.initialize(uid, name, ATTR_PARENT, parent)
-        
         if disp:
             self._attr.initialize(uid, name, ATTR_DISPATCHER, disp)
         
         if timeout:
             self._attr.initialize(uid, name, ATTR_TIMEOUT, timeout)
         
+        if mode & MODE_CLONE:
+            self._attr.initialize(uid, name, ATTR_PARENT, parent)
+        
         if vrtx:
             if mode & MODE_CLONE:
-                log_err(self, 'failed to initialize device, invalid vertex, name=%s' % str(name))
+                log_err(self, 'failed to initialize device, cannot set vertex for a cloned device, name=%s' % str(name))
                 raise FuseOSError(EINVAL)
             self._vrtx.initialize(uid, name, vrtx)
             for v in vrtx:
@@ -296,7 +293,7 @@ class VDFS(Operations):
                     log_err(self, 'failed to initialize device, link error, name=%s' % str(name))
                     raise FuseOSError(EINVAL)
         else:
-            if lo and not mode & MODE_CLONE:
+            if link and not mode & MODE_CLONE:
                 self._manager.create(device_name(typ, name, mode), init=False)
     
     def _mount_device(self, uid, name, mode, vrtx, parent, freq=None, prof=None, hndl=None, filt=None, disp=None, typ=None, timeout=None):
@@ -304,6 +301,8 @@ class VDFS(Operations):
             name = uuid.uuid4().hex
         
         if self._shadow and (mode == None or not mode & MODE_LINK):
+            if mode != None:
+                mode |= MODE_LINK
             if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, prof=prof):
                 log_err(self, 'failed to mount device, link error, op=OP_ADD, name=%s' % str(name))
                 raise FuseOSError(EINVAL)
@@ -451,24 +450,19 @@ class VDFS(Operations):
         parent = args.get('parent')
         timeout = args.get('timeout')
         
+        if None == mode:
+            mode = MODE_VIRT
+        
         if op == OP_CLONE:
             if not parent:
                 log_err(self, 'failed to create device, no parent')
                 raise FuseOSError(EINVAL)
             prof = Loader(uid).get_profile(parent)
             typ = prof['type']
-        
-        if mode == None:
-            if not typ:
-                mode = MODE_VIRT
-            else:
-                mode = MODE_LO
-        
-        if op == OP_CREATE:
-            if typ:
-                mode |= MODE_VISI
-        elif op == OP_CLONE:
             mode |= MODE_CLONE
+        
+        if not typ:
+            typ = VDEV
         
         vrtx = args.get('vertex')
         if vrtx:
@@ -484,7 +478,7 @@ class VDFS(Operations):
                     raise FuseOSError(EINVAL)
         
         if parent and not self._check_uid(parent):
-            log_err(self, 'failed to create device, invalid parent')
+            log_err(self, 'failed to create device, invalid parent, parent=%s' % str(parent))
             raise FuseOSError(EINVAL)
         
         return self._mount_device(uid, None, mode, vrtx, parent, typ=typ, timeout=timeout)

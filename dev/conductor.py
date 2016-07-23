@@ -56,6 +56,10 @@ class ConductorServer(object):
     def __init__(self):
         self._ready = False
     
+    def _log(self, text):
+        if LOG_CONDUCTOR:
+            log_debug(self, text)
+    
     def initialize(self, manager):
         key = manager.key
         uid = manager.uid
@@ -161,8 +165,9 @@ class ConductorServer(object):
                     func(**args)
                 else:
                     func()
+                self._log('op=%s, args=%s' % (str(op), str(args)))
             else:
-                log_err(self, 'failed to process, invalid operation %s' % str(op))
+                log_err(self, 'failed to process, op=%s' % str(op))
     
     def _proc_safe(self, buf):
         try:
@@ -194,10 +199,6 @@ class Conductor(Thread):
         Thread.__init__(self)
         self._create = False
     
-    def _log(self, text):
-        if LOG_CONDUCTOR:
-            log_debug(self, text)
-    
     def create(self, manager):
         if not self._create:
             self._create = True
@@ -205,7 +206,6 @@ class Conductor(Thread):
             self.start()
     
     def run(self):
-        self._log('start ...')
         if not self._create:
             log_err(self, 'conductor is not initialized')
             return

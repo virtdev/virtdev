@@ -1,5 +1,0 @@
-PATH_LIB = '/var/lib/vdev'
-PATH_MNT = '/mnt/vdev'
-PATH_VAR = '/vdev'
-PATH_DHCP = '/etc/dhcp/dhcpd.conf'
-PATH_MQTT = '/etc/mosquitto/mosquitto.conf'

@@ -22,18 +22,18 @@ import json
 import time
 from lib import resolv
 from threading import Lock
-from conf.log import LOG_WRTC
 from lib.lock import NamedLock
+from conf.log import LOG_CHANNEL
 from lib.bridge import get_bridge
 from websocket import create_connection
 from lib.log import log_debug, log_err, log_get
-from lib.util import call, popen, get_dir, gen_key
+from lib.util import popen, get_dir, gen_key, pkill
 from conf.virtdev import BRIDGE_PORT, CONDUCTOR_PORT, ADAPTER_ADDR, ADAPTER_PORT
 
+RETRY_MAX = 24
 CHANNEL_MAX = 256
-VERIFY_RETRY = 24
 WAIT_INTERVAL = 1 # seconds
-VERIFY_INTERVAL = 1 # seconds
+RETRY_INTERVAL = 1 # seconds
 ADAPTER_NAME = 'wrtc'
 
 def adapter(func):
@@ -57,15 +57,20 @@ class Channel(object):
         self._channels = {}
         self._lock = NamedLock()
         self._init_lock = Lock()
-        self._path = os.path.join(get_dir(), 'bin', ADAPTER_NAME)
+        self._path = self._get_adapter_path()
     
     def _log(self, text):
-        if LOG_WRTC:
+        if LOG_CHANNEL:
             log_debug(self, text)
+    
+    def _get_adapter_path(self):
+        return os.path.join(get_dir(), 'lib', 'protocol', 'wrtc', ADAPTER_NAME)
     
     def _request(self, **args):
         if args:
             self._adapter.send(json.dumps(args))
+        else:
+            log_debug(self, 'no arguments')
     
     def _create_adapter(self):
         self._init_lock.acquire()
@@ -108,13 +113,13 @@ class Channel(object):
                     return
             time.sleep(WAIT_INTERVAL)
     
-    def _verify(self, addr):
-        for _ in range(VERIFY_RETRY + 1):
+    def _check_connection(self, addr):
+        for _ in range(RETRY_MAX + 1):
             self._request(cmd='exist', addr=addr)
             ret = self._adapter.recv()
             if ret == 'exist':
                 return True
-            time.sleep(VERIFY_INTERVAL)
+            time.sleep(RETRY_INTERVAL)
     
     def _can_connect(self, addr):
         if len(self._channels) >= CHANNEL_MAX and addr not in self._channels:
@@ -130,21 +135,22 @@ class Channel(object):
         return {'addr':addr, 'key':key, 'bridge':bridge}
     
     @adapter
-    def connect(self, addr, key, static, verify, bridge):
+    def connect(self, addr, key, bridge, gateway):
         if self._can_connect(addr):
             if self._channels.has_key(addr):
                 self._channels[addr] += 1
             else:
-                if static:
+                if gateway:
                     source = self._check_source(addr)
                     self._request(cmd='open', addr=addr, key=key, bridge=bridge, source=source)
                     self._log('connect, addr=%s, source=%s' % (addr, source))
                 else:
                     self._request(cmd='open', addr=addr, key=key, bridge=bridge)
-                if verify:
-                    if not self._verify(addr):
-                        log_err(self, 'failed to connect')
-                        raise Exception(log_get(self, 'failed to connect'))
+                    self._log('connect, addr=%s' % addr)
+            
+                if not self._check_connection(addr):
+                    log_err(self, 'failed to connect')
+                    raise Exception(log_get(self, 'failed to connect'))
                 self._channels[addr] = 1
     
     @adapter
@@ -154,20 +160,21 @@ class Channel(object):
                 self._channels[addr] -= 1
                 if self._channels[addr] == 0:
                     self._do_release(addr)
+                    self._log('disconnect, addr=%s' % addr)
     
     @adapter
     def put(self, addr, buf):
         self._request(cmd='write', addr=addr, buf=buf)
+        self._log('put, addr=%s' % addr)
     
     @adapter
     def exist(self, addr):
-        return self._verify(addr)
+        return self._check_connection(addr)
     
     def has_network(self, addr):
         return False
     
     def initialize(self):
-        self._log('initialize')
         popen(self._path, '-p', str(BRIDGE_PORT), '-l', str(ADAPTER_PORT))
     
     def create(self, addr, key, bridge):
@@ -175,4 +182,4 @@ class Channel(object):
         popen(self._path, '-b', bridge, '-p', str(BRIDGE_PORT), '-a', addr, '-k', key, '-c', str(CONDUCTOR_PORT), '-l', str(ADAPTER_PORT))
     
     def clean(self):
-        call('killall', '-9', ADAPTER_NAME)
+        pkill(ADAPTER_NAME)

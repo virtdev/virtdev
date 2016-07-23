@@ -21,7 +21,7 @@ import zerorpc
 from lib.domains import *
 from lib.log import log_err
 from lib.util import zmqaddr
-from conf.virtdev import EVENT_COLLECTOR_PORT
+from conf.meta import EVENT_COLLECTOR_PORT
 
 class EventEmitter(object):
     def __init__(self, router):

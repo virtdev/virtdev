@@ -27,8 +27,8 @@ from lib.loader import Loader
 from dev.driver import load_driver
 from conf.virtdev import LO_ADDR, LO_PORT
 from SocketServer import BaseRequestHandler
-from lib.util import member_list, create_server
-from lib.modes import MODE_LO, MODE_CTRL, MODE_CLONE, MODE_VIRT
+from lib.modes import MODE_CTRL, MODE_CLONE
+from lib.util import get_devices, create_server
 
 _devices = {}
 
@@ -100,16 +100,15 @@ class Lo(UDI):
     
     def _get_device(self, name):
         mode = self._core.get_mode(name)
-        if mode & MODE_LO or mode & MODE_VIRT:
-            prof = self._loader.get_profile(name)
-            if prof:
-                return device_name(prof['type'], name, mode)
+        prof = self._loader.get_profile(name)
+        if prof:
+            return device_name(prof['type'], name, mode)
     
     def scan(self):
         device_list = []
         if not self._active:
             self._active = True
-            names = member_list(self._uid, sort=True)
+            names = get_devices(self._uid, sort=True)
             if names:
                 for name in names:
                     device = self._get_device(name)

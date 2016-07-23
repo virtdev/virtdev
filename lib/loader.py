@@ -21,10 +21,10 @@ import os
 import json
 from util import unicode2str
 from fields import FIELD_ATTR
-from conf.path import PATH_MNT
+from conf.env import PATH_MNT
 from attributes import ATTR_PROFILE
 
-BUF_LEN = 1024
+BUF_LEN = 4096
 
 class Loader(object):
     def __init__(self, uid):

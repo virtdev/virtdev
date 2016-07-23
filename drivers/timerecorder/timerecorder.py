@@ -24,22 +24,22 @@ from dev.driver import Driver, check_input
 
 PRINT = False
 INTERVAL = 1
-PATH_TIMER = '/opt/timer'
-PATH_RECORDER = '/opt/timerecorder'
+HOME_TIMER = '/opt/timer'
+HOME_RECORDER = '/opt/timerecorder'
 
 class TimeRecorder(Driver):
     def setup(self):
         if self.get_name():
-            path = os.path.join(PATH_RECORDER, self.get_name())
+            path = os.path.join(HOME_RECORDER, self.get_name())
             if not os.path.exists(path):
                 os.makedirs(path, 0o755)
         self._cnt = {}
     
     def _get_timer_path(self, timer, name):
-        return os.path.join(PATH_TIMER, timer, name)
+        return os.path.join(HOME_TIMER, timer, name)
     
     def _get_path(self, timer, name):
-        return os.path.join(PATH_RECORDER, self.get_name(), name)
+        return os.path.join(HOME_RECORDER, self.get_name(), name)
     
     def _save(self, timer, name):
         t_end = datetime.utcnow()

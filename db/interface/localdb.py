@@ -19,11 +19,11 @@
 
 from lib.log import log_debug
 from conf.log import LOG_LOCALDB
-from conf.types import TYPE_LOCALDB
+from conf.prot import PROT_LOCALDB
 
-if TYPE_LOCALDB == 'sophia':
+if PROT_LOCALDB == 'sophia':
     from module.sophiadb import SophiaDB as DB
-elif TYPE_LOCALDB == 'leveldb':
+elif PROT_LOCALDB == 'leveldb':
     from module.level import LevelDB as DB
 
 def LocalDB(DB):

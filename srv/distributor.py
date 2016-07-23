@@ -35,7 +35,7 @@ from multiprocessing.pool import ThreadPool
 from lib.log import log_debug, log_err, log_get
 from zmq import DEALER, POLLIN, LINGER, IDENTITY, Context, Poller
 from lib.util import UID_SIZE, USERNAME_SIZE, zmqaddr, unicode2str
-from conf.virtdev import BROKER_SERVERS, BROKER_PORT, WORKER_SERVERS, WORKER_PORT
+from conf.meta import BROKER_SERVERS, BROKER_PORT, WORKER_SERVERS, WORKER_PORT
 
 POOL_SIZE = cpu_count() * 4
 SLEEP_TIME = 10 # seconds

@@ -23,12 +23,12 @@ import json
 from service import Service
 from db.marker import Marker
 from StringIO import StringIO
-from conf.path import PATH_MNT
-from lib.modes import MODE_LINK
+from conf.env import PATH_MNT
+from conf.virtdev import RSYNC
 from lib.domains import DOMAIN_DEV
+from conf.route import ROUTE, AREA
 from base64 import b64encode, b64decode
 from lib.log import log_err, log_warnning
-from conf.virtdev import EXTEND, RSYNC, AREA
 from lib.util import mount_device, update_device
 
 MAX_LEN = 1 << 24
@@ -40,11 +40,11 @@ if RSYNC:
 class Device(Service):
     def __init__(self, query):
         Service.__init__(self, query)
-        if EXTEND:
+        if ROUTE:
             self._marker = Marker()
     
     def _mark(self, name):
-        if EXTEND:
+        if ROUTE:
             self._marker.mark(name, DOMAIN_DEV, AREA)
     
     def find(self, uid, name):
@@ -58,7 +58,7 @@ class Device(Service):
     
     def add(self, uid, node, addr, name, mode, freq, prof):
         if mode != None and prof != None:
-            mount_device(uid, name, mode | MODE_LINK, freq, prof)
+            mount_device(uid, name, mode, freq, prof)
             self._mark(name)
         update_device(self._query, uid, node, addr, name)
         self._query.event.put(uid, name)

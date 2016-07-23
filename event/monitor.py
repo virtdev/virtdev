@@ -23,7 +23,7 @@ from lib.log import log_err
 from lib.lock import NamedLock
 from threading import Thread, Event
 from lib.util import zmqaddr, named_lock
-from conf.virtdev import EVENT_COLLECTOR_PORT, EVENT_MONITOR_PORT
+from conf.meta import EVENT_COLLECTOR_PORT, EVENT_MONITOR_PORT
 
 WAIT_TIME = 3600 # seconds
 

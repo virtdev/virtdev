@@ -22,7 +22,7 @@ import lo
 import bluetooth
 from dev.udi import UDI
 from conf.virtdev import LO
-from conf.path import PATH_LIB
+from conf.env import PATH_LIB
 from lib.bt import BluetoothSocket
 
 PIN = '1234'

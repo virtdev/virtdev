@@ -23,8 +23,8 @@ from datetime import datetime
 from conf.log import LOG_MARK
 from lib.domains import DOMAIN_USR, DOMAIN_DEV
 from lib.log import log_debug, log_err, log_get
+from conf.route import USR_SERVERS, DEV_SERVERS
 from interface.commondb import CommonDB, VAL_NAME
-from conf.virtdev import USR_SERVERS, DEV_SERVERS
 
 USR_MARK = 'usrmark'
 DEV_MARK = 'devmark'

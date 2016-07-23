@@ -20,15 +20,15 @@
 from lib import resolv
 from service import Service
 from db.marker import Marker
+from conf.route import ROUTE, AREA
 from lib.domains import DOMAIN_DEV
 from lib.log import log_err, log_get
-from conf.virtdev import EXTEND, AREA
 from lib.util import get_name, update_device, gen_key, gen_token
 
 class User(Service):
     def __init__(self, query):
         Service.__init__(self, query)
-        if EXTEND:
+        if ROUTE:
             self._marker = Marker()
     
     def _check_node(self, uid, node, addr, mode, key):
@@ -36,7 +36,7 @@ class User(Service):
         if self._query.key.get(name):
             self._query.node.delete(uid, (node,))
         else:
-            if EXTEND:
+            if ROUTE:
                 self._marker.mark(name, DOMAIN_DEV, AREA)
         self._query.key.put(name, key)
         self._query.node.put(uid, (node, addr, str(mode)))
