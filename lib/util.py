@@ -257,10 +257,10 @@ def create_server(addr, port, handler):
     server.server_activate()
     server.serve_forever()
 
-def server_list(addr, area=None):
-    if not addr or type(addr) != list:
+def server_info(addresses, area=None):
+    if not addresses or type(addresses) != list:
         return
-    length = len(addr)
+    length = len(addresses)
     if not area:
         t = 0.0
         area = [0] * length
@@ -291,7 +291,7 @@ def server_list(addr, area=None):
             pos.append(cnt)
             grp.append(j)
         peer = map(lambda x: grp_sz[x], grp)
-    return map(lambda a, b, c, d, e: (t, int(a), b, length, c, d, e), area, range(length), pos, peer, addr)
+    return map(lambda a, b, c, d, e: (t, int(a), b, length, c, d, e), area, range(length), pos, peer, addresses)
 
 def popen(*args):
     if OUTPUT:
@@ -313,3 +313,6 @@ def sigkill(pid):
 
 def status_zobie(pid):
     return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+
+
+

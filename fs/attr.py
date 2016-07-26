@@ -138,19 +138,21 @@ class Attr(Entry):
         return self.lsdir(uid, name)
     
     def _create_attr(self, uid, name, attr, val):
-        drop = False
+        error = False
         name = os.path.join(name, attr)
         f = self.create(uid, name)
         try:
             os.write(f, str(val))
         except:
-            drop = True
+            error = True
         finally:
             os.close(f)
-        if drop:
-            self.drop(uid, name)
+        
+        if error:
+            self.discard(uid, name)
             return
-        self.update(uid, name)
+        
+        self.commit(uid, name)
     
     def initialize(self, uid, name, attr, val):
         if attr not in ATTRIBUTES:
@@ -160,8 +162,8 @@ class Attr(Entry):
             val = json.dumps(val)
         self._create_attr(uid, name, attr, val)
     
-    def drop(self, uid, name):
-        return self._temp.drop(uid, name)
+    def discard(self, uid, name):
+        return self._temp.discard(uid, name)
     
-    def update(self, uid, name):
-        return self._temp.update(uid, name)
+    def commit(self, uid, name):
+        return self._temp.commit(uid, name)

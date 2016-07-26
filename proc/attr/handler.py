@@ -21,7 +21,7 @@ from proc import proc
 from lib.log import log_err
 from lib.loader import Loader
 from lib.attributes import ATTR_HANDLER
-from conf.virtdev import PROC_ADDR, HANDLER_PORT
+from conf.defaults import PROC_ADDR, HANDLER_PORT
 
 class Handler(object):  
     def __init__(self, uid, addr=PROC_ADDR):

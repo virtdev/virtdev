@@ -1,8 +1,0 @@
-1) Install:
-path/to/virtdev/install
-
-2) Run:
-path/to/virtdev/virtdev
-
-3) Configuration:
-path/to/virtdev/conf/virtdev.py

@@ -21,7 +21,7 @@ from proc import proc
 from lib.log import log_err
 from lib.loader import Loader
 from lib.attributes import ATTR_FILTER
-from conf.virtdev import PROC_ADDR, FILTER_PORT
+from conf.defaults import PROC_ADDR, FILTER_PORT
 
 class Filter(object):
     def __init__(self, uid, addr=PROC_ADDR):

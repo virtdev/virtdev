@@ -52,7 +52,7 @@ def _clean():
             ports.append(CACHE_PORTS[i])
     
     if LO:
-        from conf.virtdev import LO_PORT
+        from conf.defaults import LO_PORT
         ports.append(LO_PORT)
     
     if addr in BROKER_SERVERS:
@@ -92,7 +92,7 @@ def _clean():
         ports.append(EVENT_MONITOR_PORT)
     
     if FS:
-        from conf.virtdev import CONDUCTOR_PORT, DAEMON_PORT, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
+        from conf.defaults import CONDUCTOR_PORT, DAEMON_PORT, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
         ports.append(DAEMON_PORT)
         ports.append(FILTER_PORT)
         ports.append(HANDLER_PORT)

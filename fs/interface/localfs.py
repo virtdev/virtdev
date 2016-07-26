@@ -43,6 +43,9 @@ class LocalFS(object):
             shutil.copyfile(src, dest)
         return True
     
+    def move(self, uid, src, dest):
+        shutil.move(src, dest)
+    
     def remove(self, uid, path):
         if os.path.isdir(path):
             shutil.rmtree(path)

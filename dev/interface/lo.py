@@ -25,7 +25,7 @@ from lib.log import log_err
 from threading import Thread
 from lib.loader import Loader
 from dev.driver import load_driver
-from conf.virtdev import LO_ADDR, LO_PORT
+from conf.defaults import LO_ADDR, LO_PORT
 from SocketServer import BaseRequestHandler
 from lib.modes import MODE_CTRL, MODE_CLONE
 from lib.util import get_devices, create_server

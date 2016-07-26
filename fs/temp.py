@@ -93,19 +93,19 @@ class Temp(object):
             f.truncate(length)
     
     def open(self, uid, name, flags):
-        path = self._check_path(uid, name)
-        parent = self._parent.get_path(uid, name)
-        t = self._parent.get_mtime(uid, parent)
+        dest = self._check_path(uid, name)
+        src = self._parent.get_path(uid, name)
+        t = self._parent.get_mtime(uid, src)
         if not t or t != self.mtime(uid, name):
-            self._parent.load_file(uid, parent, path)
+            self._parent.load(uid, src, dest)
             if t:
                 self.set_mtime(uid, name, t)
         flg = os.O_RDWR
         if flags & os.O_TRUNC:
             flg |= os.O_TRUNC
-        ret = os.open(path, flg, FILE_MODE)
+        ret = os.open(dest, flg, FILE_MODE)
         if ret >= 0 and self._watcher:
-            self._watcher.register(path)
+            self._watcher.register(dest)
         return ret
     
     def release(self, uid, name, fh):
@@ -115,12 +115,13 @@ class Temp(object):
             if self._watcher and self._watcher.pop(path):
                 return True
     
-    def update(self, uid, name):
-        path = self.get_path(uid, name)
-        parent = self._parent.get_path(uid, name)
-        self._parent.save_file(uid, path, parent)
+    def commit(self, uid, name):
+        src = self.get_path(uid, name)
+        if os.path.exists(src):
+            dest = self._parent.get_path(uid, name)
+            self._parent.save(uid, src, dest)
     
-    def drop(self, uid, name):
+    def discard(self, uid, name):
         path = self.get_path(uid, name)
         if os.path.exists(path):
             os.remove(path)

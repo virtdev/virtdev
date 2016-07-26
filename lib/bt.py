@@ -19,7 +19,7 @@
 
 import time
 import bluetooth
-from conf.virtdev import BT_PORT
+from conf.defaults import BT_PORT
 
 TIMEOUT = 0.5
 WAIT_TIME = 0.5 # seconds

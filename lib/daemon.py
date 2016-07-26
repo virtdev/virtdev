@@ -20,7 +20,7 @@
 import zerorpc
 from json import dumps
 from threading import Thread
-from conf.virtdev import DAEMON_PORT
+from conf.defaults import DAEMON_PORT
 from lib.util import zmqaddr, get_name, get_node
 
 class DaemonRequest(object):

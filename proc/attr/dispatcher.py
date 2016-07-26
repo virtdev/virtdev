@@ -24,12 +24,13 @@ from threading import Lock
 from lib.queue import Queue
 from lib.loader import Loader
 from lib.lock import NamedLock
+from conf.virtdev import DEBUG
 from conf.log import LOG_DISPATCHER
 from multiprocessing import cpu_count
 from lib.attributes import ATTR_DISPATCHER
 from lib.log import log_debug, log_err, log_get
+from conf.defaults import PROC_ADDR, DISPATCHER_PORT
 from lib.util import lock, named_lock, edge_lock, is_local
-from conf.virtdev import DEBUG, PROC_ADDR, DISPATCHER_PORT
 
 CACHE = True
 QUEUE_LEN = 4

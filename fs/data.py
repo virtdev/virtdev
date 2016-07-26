@@ -83,8 +83,8 @@ class Data(Entry):
         f = self.create(uid, name)
         self.release(uid, name, f)
     
-    def drop(self, uid, name):
-        return self._temp.drop(uid, name)
+    def discard(self, uid, name):
+        return self._temp.discard(uid, name)
     
-    def update(self, uid, name):
-        return self._temp.update(uid, name)
+    def commit(self, uid, name):
+        return self._temp.commit(uid, name)

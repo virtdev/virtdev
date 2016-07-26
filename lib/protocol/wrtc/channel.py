@@ -21,20 +21,20 @@ import os
 import json
 import time
 from lib import resolv
-from threading import Lock
+from conf.defaults import *
 from lib.lock import NamedLock
 from conf.log import LOG_CHANNEL
+from threading import Lock, Event
 from lib.bridge import get_bridge
-from websocket import create_connection
+from conf.virtdev import BRIDGE_PORT
 from lib.log import log_debug, log_err, log_get
-from lib.util import popen, get_dir, gen_key, pkill
-from conf.virtdev import BRIDGE_PORT, CONDUCTOR_PORT, ADAPTER_ADDR, ADAPTER_PORT
+from lib.ws import WSHandler, ws_addr, ws_start, ws_connect
+from lib.util import popen, get_dir, gen_key, pkill, lock, close_port
 
-RETRY_MAX = 24
 CHANNEL_MAX = 256
 WAIT_INTERVAL = 1 # seconds
-RETRY_INTERVAL = 1 # seconds
 ADAPTER_NAME = 'wrtc'
+TIMEOUT = 30 # seconds
 
 def adapter(func):
     def _adapter(*args, **kwargs):
@@ -50,14 +50,68 @@ def adapter(func):
             self._lock.release(addr)
     return _adapter
 
+class ChannelEvent(object):
+    def __init__(self):
+        self._count = {}
+        self._event = {}
+        self._lock = Lock()
+    
+    @lock
+    def _set_event(self, name):
+        ev = self._event.get(name)
+        if ev:
+            ev.set()
+    
+    @lock
+    def _add_event(self, name):
+        ev = self._event.get(name)
+        if not ev:
+            ev = Event()
+            self._event.update({name:ev})
+            self._count.update({name:1})
+        else:
+            self._count[name] += 1
+        return ev
+    
+    @lock
+    def _remove_event(self, name):
+        if self._event.has_key(name):
+            self._count[name] -= 1
+            if 0 == self._count[name]:
+                del self._event[name]
+                del self._count[name]
+    
+    def set(self, name):
+        self._set_event(name)
+    
+    def wait(self, name, timeout=TIMEOUT):
+        ev = self._add_event(name)
+        ret = ev.wait(timeout)
+        self._remove_event(name)
+        return ret
+
+_channel_event = ChannelEvent()
+
+class ChannelEventHandler(WSHandler):
+    def on_message(self, buf):
+        if buf:
+            name = buf.strip()
+            if name:
+                _channel_event.set(name)
+
 class Channel(object):
     def __init__(self):
-        self._adapter = None
         self._sources = {}
         self._channels = {}
+        self._adapter = None
         self._lock = NamedLock()
         self._init_lock = Lock()
         self._path = self._get_adapter_path()
+        self._init_monitor()
+    
+    def _init_monitor(self):
+        close_port(CHANNEL_EVENT_PORT)
+        ws_start(ChannelEventHandler, CHANNEL_EVENT_PORT, CHANNEL_EVENT_ADDR)
     
     def _log(self, text):
         if LOG_CHANNEL:
@@ -76,8 +130,8 @@ class Channel(object):
         self._init_lock.acquire()
         try:
             if not self._adapter:
-                addr = "ws://%s:%d" % (ADAPTER_ADDR, ADAPTER_PORT)
-                self._adapter = create_connection(addr)
+                addr = ws_addr(ADAPTER_ADDR, ADAPTER_PORT)
+                self._adapter = ws_connect(addr)
         except:
             log_err(self, 'failed to create adapter')
         finally:
@@ -114,12 +168,7 @@ class Channel(object):
             time.sleep(WAIT_INTERVAL)
     
     def _check_connection(self, addr):
-        for _ in range(RETRY_MAX + 1):
-            self._request(cmd='exist', addr=addr)
-            ret = self._adapter.recv()
-            if ret == 'exist':
-                return True
-            time.sleep(RETRY_INTERVAL)
+        return _channel_event.wait(addr)
     
     def _can_connect(self, addr):
         if len(self._channels) >= CHANNEL_MAX and addr not in self._channels:
@@ -143,15 +192,14 @@ class Channel(object):
                 if gateway:
                     source = self._check_source(addr)
                     self._request(cmd='open', addr=addr, key=key, bridge=bridge, source=source)
-                    self._log('connect, addr=%s, source=%s' % (addr, source))
                 else:
                     self._request(cmd='open', addr=addr, key=key, bridge=bridge)
-                    self._log('connect, addr=%s' % addr)
-            
+                
                 if not self._check_connection(addr):
                     log_err(self, 'failed to connect')
                     raise Exception(log_get(self, 'failed to connect'))
                 self._channels[addr] = 1
+                self._log('connect, addr=%s' % addr)
     
     @adapter
     def disconnect(self, addr, release):
@@ -169,17 +217,30 @@ class Channel(object):
     
     @adapter
     def exist(self, addr):
-        return self._check_connection(addr)
+        self._request(cmd='exist', addr=addr)
+        ret = self._adapter.recv()
+        if ret == 'exist':
+            return True
     
     def has_network(self, addr):
         return False
     
     def initialize(self):
-        popen(self._path, '-p', str(BRIDGE_PORT), '-l', str(ADAPTER_PORT))
+        popen(self._path, 
+              '-p', str(BRIDGE_PORT),
+              '-l', str(ADAPTER_PORT),
+              '-e', str(CHANNEL_EVENT_PORT))
     
     def create(self, addr, key, bridge):
         self._log('create, addr=%s, bridge=%s' % (addr, bridge))
-        popen(self._path, '-b', bridge, '-p', str(BRIDGE_PORT), '-a', addr, '-k', key, '-c', str(CONDUCTOR_PORT), '-l', str(ADAPTER_PORT))
+        popen(self._path,
+              '-b', bridge,
+              '-p', str(BRIDGE_PORT),
+              '-a', addr,
+              '-k', key,
+              '-c', str(CONDUCTOR_PORT),
+              '-l', str(ADAPTER_PORT),
+              '-e', str(CHANNEL_EVENT_PORT))
     
     def clean(self):
         pkill(ADAPTER_NAME)

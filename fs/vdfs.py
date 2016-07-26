@@ -137,10 +137,12 @@ class VDFS(Operations):
                 if total != 2:
                     log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
                     raise FuseOSError(EINVAL)
+                
                 name = self._check_name(field[1])
                 if not name:
                     log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
                     raise FuseOSError(EINVAL)
+                
                 obj = self._data
             
             if total > 2:
@@ -148,10 +150,12 @@ class VDFS(Operations):
                     if total > 4:
                         log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
                         raise FuseOSError(EINVAL)
+                    
                     name = self._check_name(field[2])
                     if not name:
                         log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
                         raise FuseOSError(EINVAL)
+                    
                     if total == 4:
                         name = os.path.join(name, field[3])
                 else:      
@@ -159,6 +163,7 @@ class VDFS(Operations):
                     if not name:
                         log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
                         raise FuseOSError(EINVAL)
+                    
                     if total >= 4:
                         parent = self._check_name(field[-2])
                         name = os.path.join(parent, name)
@@ -186,7 +191,8 @@ class VDFS(Operations):
             if OPEN_DELAY:
                 time.sleep(OPEN_DELAY)
             buf = self._link.put(name=obj.parent(name), op=OP_GET, field=obj.field, item=obj.child(name), buf=obj.signature(uid, name))
-            obj.patch(uid, name, buf)
+            if buf:
+                obj.patch(uid, name, buf)
     
     def _do_release(self, obj, uid, name):
         if not self._shadow:
@@ -222,6 +228,7 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to invalidate, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         obj.invalidate(uid, name)
     
     def _init(self, uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout):
@@ -246,6 +253,7 @@ class VDFS(Operations):
                 if not driver:
                     log_err(self, 'failed to initialize device, cannot load driver %s, name=%s' % (typ, str(name)))
                     raise FuseOSError(EINVAL)
+                
                 if mode & MODE_CLONE:
                     mode = driver.get_mode() | MODE_CLONE
                 else:
@@ -283,6 +291,7 @@ class VDFS(Operations):
             if mode & MODE_CLONE:
                 log_err(self, 'failed to initialize device, cannot set vertex for a cloned device, name=%s' % str(name))
                 raise FuseOSError(EINVAL)
+            
             self._vrtx.initialize(uid, name, vrtx)
             for v in vrtx:
                 self._edge.initialize(uid, (v, name), hidden=True)
@@ -303,6 +312,7 @@ class VDFS(Operations):
         if self._shadow and (mode == None or not mode & MODE_LINK):
             if mode != None:
                 mode |= MODE_LINK
+            
             if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, prof=prof):
                 log_err(self, 'failed to mount device, link error, op=OP_ADD, name=%s' % str(name))
                 raise FuseOSError(EINVAL)
@@ -351,6 +361,7 @@ class VDFS(Operations):
             if type(vrtx) != list:
                 log_err(self, 'failed to mount, invalid vertex, name=%s' % str(name))
                 raise FuseOSError(EINVAL)
+            
             for i in vrtx:
                 if not self._check_uid(i):
                     log_err(self, 'failed to mount, name=%s' % str(name))
@@ -366,9 +377,11 @@ class VDFS(Operations):
         obj, uid, name = self._parse(path)
         if not name:
             return _stat_dir
+        
         if not obj:
             log_err(self, 'failed to getattr, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         return obj.getattr(uid, name)
     
     @named_lock
@@ -378,6 +391,7 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to create, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         self._do_create(obj, uid, name)
         return obj.create(uid, name)
     
@@ -388,6 +402,7 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to open, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         self._do_open(obj, uid, name, flags)
         return obj.open(uid, name, flags)
     
@@ -398,13 +413,14 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to release, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         if obj.release(uid, name, fh):
             try:
                 self._do_release(obj, uid, name)
             except:
-                obj.drop(uid, name)
+                obj.discard(uid, name)
                 return
-            obj.update(uid, name)
+            obj.commit(uid, name)
     
     @show_path
     def readdir(self, path, fh):
@@ -428,6 +444,7 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to unlink, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         self._do_unlink(obj, uid, name)
         obj.unlink(uid, name)
     
@@ -457,6 +474,7 @@ class VDFS(Operations):
             if not parent:
                 log_err(self, 'failed to create device, no parent')
                 raise FuseOSError(EINVAL)
+            
             prof = Loader(uid).get_profile(parent)
             typ = prof['type']
             mode |= MODE_CLONE
@@ -469,9 +487,11 @@ class VDFS(Operations):
             if mode & MODE_CLONE:
                 log_err(self, 'failed to create device, invalid mode')
                 raise FuseOSError(EINVAL)
+            
             if type(vrtx) != list:
                 log_err(self, 'failed to create device, invalid vertex')
                 raise FuseOSError(EINVAL)
+            
             for i in vrtx:
                 if not self._check_uid(i):
                     log_err(self, 'failed to create device, invalid vertex')
@@ -488,6 +508,7 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to enable, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         self._do_enable(obj, uid, name)
     
     def _disable(self, path):
@@ -495,24 +516,29 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to disable, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         self._do_disable(obj, uid, name)
     
     def _join(self, path, target):
         if not self._shadow:
             return
+        
         obj, _, name = self._parse(path)
         if not obj:
             log_err(self, 'failed to join, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         self._manager.guest.join(name, target)
     
     def _accept(self, path, target):
         if not self._shadow:
             return
+        
         obj, _, name = self._parse(path)
         if not obj:
             log_err(self, 'failed to accept, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         self._manager.guest.accept(name, target)
     
     def setxattr(self, path, name, value, options, position=0):
@@ -628,6 +654,7 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to truncate, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         obj.truncate(uid, name, length)
     
     @show_path
@@ -636,4 +663,5 @@ class VDFS(Operations):
         if not obj:
             log_err(self, 'failed to read link, no object, name=%s' % str(name))
             raise FuseOSError(EINVAL)
+        
         return obj.readlink(uid, name)

@@ -31,7 +31,7 @@ from operations import OP_ADD, OP_GET, OP_INVALIDATE, OP_MOUNT, OP_TOUCH, OP_ENA
 LINK_RETRY = 2
 LINK_INTERVAL = 12 # seconds
 
-CACHE = False
+ASYNC = False
 QUEUE_LEN = 4
 POOL_SIZE = cpu_count() * 4
 
@@ -81,7 +81,7 @@ class Downlink(object):
     def __init__(self, query):
         self.operations = [OP_MOUNT, OP_INVALIDATE, OP_TOUCH, OP_ENABLE, OP_DISABLE, OP_JOIN, OP_ACCEPT]
         self._query = query
-        if CACHE:
+        if ASYNC:
             self._pool = Pool()
             for _ in range(POOL_SIZE):
                 self._pool.add(DownlinkQueue(self))
@@ -221,7 +221,7 @@ class Downlink(object):
     
     @chkop
     def put(self, name, op, **args):
-        if CACHE:
+        if ASYNC:
             buf = {'name':name, 'op':op}
             if args:
                 buf.update(args)

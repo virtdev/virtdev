@@ -25,9 +25,10 @@ from datetime import datetime
 from lib.lock import NamedLock
 from conf.conf import CONF_DHCP
 from conf.log import LOG_CHANNEL
-from websocket import create_connection
+from conf.virtdev import BRIDGE_PORT
+from lib.ws import ws_connect, ws_addr
+from conf.defaults import CONDUCTOR_PORT
 from lib.log import log_debug, log_err, log_get
-from conf.virtdev import CONDUCTOR_PORT, BRIDGE_PORT
 from lib.util import call, popen, ifaddr, named_lock, get_networks, pkill, sigkill, status_zobie, ifdown
 
 NETSIZE = 30
@@ -74,7 +75,7 @@ class Channel(object):
         return self._get_iface(addr)
     
     def _get_url(self, addr):
-        return "ws://%s:%d/" % (addr, CONDUCTOR_PORT)
+        return ws_addr(addr, CONDUCTOR_PORT)
     
     def _can_disconnect(self, addr):
         address = ifaddr(self._get_iface(addr))
@@ -129,7 +130,13 @@ class Channel(object):
         bridge = '%s:%d' % (bridge, BRIDGE_PORT)
         iface = self._get_iface(addr)
         channel = self._get_channel(addr)
-        pid = popen(ADAPTER_NAME, '-r', '-d', iface, '-a', addr, '-s', NETMASK, '-c', channel, '-k', key, '-l', bridge)
+        pid = popen(ADAPTER_NAME, '-r',
+                    '-d', iface,
+                    '-a', addr,
+                    '-s', NETMASK,
+                    '-c', channel,
+                    '-k', key,
+                    '-l', bridge)
         if CLEAN_DHCP:
             pkill('dhcpd')
         call('dhcpd', '-q')
@@ -157,7 +164,7 @@ class Channel(object):
         url = self._get_url(addr)
         for i in range(CONNECT_RETRY + 1):
             try:
-                conn = create_connection(url)
+                conn = ws_connect(url)
                 break
             except:
                 if i != CONNECT_RETRY:
@@ -177,7 +184,13 @@ class Channel(object):
         bridge = '%s:%d' % (bridge, BRIDGE_PORT)
         iface = self._get_iface(addr)
         channel = self._get_channel(addr)
-        pid = popen(ADAPTER_NAME, '-r', '-d', iface, '-a', address, '-s', NETMASK, '-c', channel, '-k', key, '-l', bridge)
+        pid = popen(ADAPTER_NAME, '-r',
+                    '-d', iface,
+                    '-a', address,
+                    '-s', NETMASK,
+                    '-c', channel,
+                    '-k', key,
+                    '-l', bridge)
         if not self._check_pid(pid):
             log_err(self, 'failed to connect')
             raise Exception(log_get(self, 'failed to connect'))

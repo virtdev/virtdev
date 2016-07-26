@@ -24,7 +24,7 @@ from conf.log import LOG_MASTER
 from threading import Thread, Lock
 from interface.localdb import LocalDB
 from lib.log import log_debug, log_err, log_get
-from lib.util import zmqaddr, lock, server_list
+from lib.util import zmqaddr, lock, server_info
 from conf.route import MASTER_ADDR, FINDER_SERVERS, MAPPER_SERVERS, DATA_SERVERS
 from conf.route import MASTER_PORT, USR_FINDER_PORT, DEV_FINDER_PORT, USR_MAPPER_PORT, DEV_MAPPER_PORT
 
@@ -160,8 +160,8 @@ class MasterCache(object):
 
 class MasterServer(object):
     def __init__(self):
-        self._usr_server = MasterCache('us', server_list(DATA_SERVERS))
-        self._dev_server = MasterCache('ds', server_list(DATA_SERVERS))
+        self._usr_server = MasterCache('us', server_info(DATA_SERVERS))
+        self._dev_server = MasterCache('ds', server_info(DATA_SERVERS))
         self._usr_finder = MasterCache('uf', FINDER_SERVERS, USR_FINDER_PORT)
         self._dev_finder = MasterCache('df', FINDER_SERVERS, DEV_FINDER_PORT)
         self._usr_mapper = MasterCache('um', MAPPER_SERVERS, USR_MAPPER_PORT)

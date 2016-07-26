@@ -30,7 +30,7 @@ class Entry(object):
     def __init__(self, router=None, core=None):
         if not os.path.exists(PATH_VAR):
             os.mkdir(PATH_VAR)
-        name = self.__class__.__name__.lower()
+        name = self._get_name()
         if name in FIELDS:
             self._field = name
         else:
@@ -43,6 +43,9 @@ class Entry(object):
             from interface.remotefs import RemoteFS
             self._fs = RemoteFS(router)
         self._core = core
+    
+    def _get_name(self):
+        return self.__class__.__name__.lower()
     
     @property
     def field(self):
@@ -78,10 +81,10 @@ class Entry(object):
     def truncate(self, uid, name, length):
         pass
     
-    def drop(self, uid, name):
+    def discard(self, uid, name):
         pass
     
-    def update(self, uid, name):
+    def commit(self, uid, name):
         pass
     
     def patch(self, uid, name, buf):
@@ -93,10 +96,10 @@ class Entry(object):
     def get_mtime(self, uid, path):
         return self._fs.mtime(uid, path)
     
-    def load_file(self, uid, src, dest):
+    def load(self, uid, src, dest):
         return self._fs.load(uid, src, dest)
     
-    def save_file(self, uid, src, dest):
+    def save(self, uid, src, dest):
         return self._fs.save(uid, src, dest)
     
     def parent(self, name):
@@ -185,4 +188,5 @@ class Entry(object):
                     mode = mode | stat.S_IFLNK
                     st['st_mode'] = mode
                     st['st_nlink'] = 2
+        
         return st
