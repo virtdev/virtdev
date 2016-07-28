@@ -18,7 +18,7 @@
 #      MA 02110-1301, USA.
 
 from conf.log import LOG_QUEUE
-from conf.virtdev import DEBUG
+from conf.defaults import DEBUG
 from log import log_debug, log_err
 from threading import Thread, Event, Lock
 from multiprocessing.pool import ThreadPool

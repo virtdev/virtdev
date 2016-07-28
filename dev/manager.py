@@ -106,50 +106,44 @@ class ChannelManager(object):
     def __init__(self):
         self._lock = NamedLock()
     
-    def _try_connect(self, name):
+    def _allocate(self, name):
         uid, node, addr = conductor.get_device(name)
         if not uid:
-            log_err(self, 'failed to connect')
-            raise Exception(log_get(self, 'failed to connect'))
+            log_err(self, 'failed to allocate')
+            raise Exception(log_get(self, 'failed to allocate'))
         if not channel.exist(addr):
             key = conductor.get_key(uid, node)
             if not key:
-                log_err(self, 'failed to connect')
-                raise Exception(log_get(self, 'failed to connect'))
+                log_err(self, 'failed to allocate')
+                raise Exception(log_get(self, 'failed to allocate'))
             try:
-                channel.connect(uid, addr, key)
+                channel.allocate(uid, addr, key)
             except:
                 conductor.remove_device(name)
                 conductor.remove_key(uid, node)
         return True
     
     @named_lock
-    def connect(self, name):
+    def allocate(self, name):
         for _ in range(CONNECT_RETRY + 1):
-            if self._try_connect(name):
+            if self._allocate(name):
                 return    
-        log_err(self, 'failed to connect')
-        raise Exception(log_get(self, 'failed to connect'))
+        log_err(self, 'failed to allocate')
+        raise Exception(log_get(self, 'failed to allocate'))
     
     @named_lock
-    def disconnect(self, name):
+    def free(self, name):
         _, _, addr = conductor.get_device(name)
-        if channel.exist(addr):
-            channel.disconnect(addr)
+        channel.free(addr)
     
     @named_lock
-    def put(self, name, **args):
-        uid = conductor.uid
+    def put(self, dest, src, **args):
         token = conductor.token 
-        _, _, addr = conductor.get_device(name)
+        uid, _, addr = conductor.get_device(dest)
+        if uid != conductor.uid:
+            uid = src
+        args.update({'dest': dest, 'src':src})
         channel.put(uid, addr, 'put', args, token)
-    
-    @named_lock
-    def push(self, name, **args):
-        uid = conductor.uid
-        token = conductor.token 
-        _, _, addr = conductor.get_device(name)
-        channel.push(uid, addr, 'put', args, token)
 
 class MemberManager(object):
     def __init__(self):

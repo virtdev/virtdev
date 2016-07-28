@@ -139,4 +139,5 @@ npm install websocket
 npm install crypto
 npm install mqtt
 npm install electron-webrtc
+npm install simple-peer
 cd $CURRENT

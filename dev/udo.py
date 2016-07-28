@@ -25,6 +25,7 @@ from conf.log import LOG_UDO
 from lib.loader import Loader
 from datetime import datetime
 from conf.env import PATH_MNT
+from conf.defaults import UPLOAD
 from lib.log import log_debug, log_err
 from lib.util import lock, mount_device
 from threading import Thread, Event, Lock
@@ -316,7 +317,7 @@ class UDO(object):
             if not (mode & MODE_TRIG) or device.check_atime():
                 res = None
                 name = device.d_name
-                if mode & MODE_SYNC:
+                if mode & MODE_SYNC and UPLOAD:
                     try:
                         self._core.sync(name, buf)
                     except:

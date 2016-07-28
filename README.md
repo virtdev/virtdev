@@ -6,7 +6,7 @@ Virtdev is an environment used for creating virtual devices.
 ###### Run->path/to/virtdev/install
 
 ### 2. Start
-###### Run->path/to/virtdev/virtdev
+###### Run->path/to/virtdev/bin/virtdev
 
 ### 3. Configure
 The configuration files are contained in the following path

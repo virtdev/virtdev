@@ -108,10 +108,10 @@ class RequestHandler(object):
         ret = None
         try:
             cmd = {'srv':self._srv, 'op':self._op, 'args':kwargs}
-            buf = codec.encode(self._uid, cmd, self._token)
+            buf = codec.encode(cmd, self._token, self._uid)
             result = RequestSender().send(buf)
             if result:
-                ret = codec.decode(self._uid, result, self._token)
+                ret = codec.decode(result, self._token, self._uid)
             return ret
         except:
             log_err(self, "failed to request")

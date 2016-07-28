@@ -19,7 +19,7 @@
 
 from lib import io
 from conf.log import LOG_STUB
-from conf.virtdev import DEBUG
+from conf.defaults import DEBUG
 from lib.log import log_debug, log_err
 from lib.cmd import CMD_OPEN, CMD_CLOSE, CMD_GET, CMD_PUT, CMD_MOUNT, parse
 

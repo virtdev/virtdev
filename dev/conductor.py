@@ -20,10 +20,10 @@
 from lib.pool import Pool
 from lib.queue import Queue
 from threading import Event
-from conf.virtdev import DEBUG
 from lib import channel, codec
 from lib.request import Request
 from operation import Operation
+from conf.defaults import DEBUG
 from conf.log import LOG_CONDUCTOR
 from multiprocessing import cpu_count
 from lib.ws import WSHandler, ws_start
@@ -54,10 +54,6 @@ class ConductorServer(object):
     def __init__(self):
         self._ready = False
     
-    def _log(self, text):
-        if LOG_CONDUCTOR:
-            log_debug(self, text)
-    
     def initialize(self, manager):
         key = manager.key
         uid = manager.uid
@@ -69,10 +65,10 @@ class ConductorServer(object):
             raise Exception(log_get(self, 'failed to initialize'))
         
         self._keys = {}
+        self._tokens = {}
         self._devices = {}
         self._pool = Pool()
         self._event = Event()
-        self._tokens = {uid:token}
         self._op = Operation(manager)
         
         for _ in range(POOL_SIZE):
@@ -87,18 +83,30 @@ class ConductorServer(object):
         
         channel.create(uid, addr, key)
         self._ready = True
+        
+    def _log(self, text):
+        if LOG_CONDUCTOR:
+            log_debug(self, text)
     
-    def _get_token(self, uid, update=False):
+    def _get_head(self, buf):
+        return buf[0:UID_SIZE]
+    
+    def _get_token(self, head, update=False):
+        if head == self.uid:
+            return self.token
+        
         token = None
         if not update:
-            token = self._tokens.get(uid)
+            token = self._tokens.get(head)
+        
         if not token:
-            token = self.request.token.get(name=uid)
+            token = self.request.token.get(name=head)
             if token:
-                self._tokens.update({uid:token})
+                self._tokens.update({head:token})
             else:
-                log_err(self, 'failed to get token, uid=%s' % str(uid))
+                log_err(self, 'failed to get token, head=%s' % str(head))
                 raise Exception(log_get(self, 'failed to get token'))
+        
         return token
     
     @chkstat
@@ -141,19 +149,19 @@ class ConductorServer(object):
     def _proc(self, buf):
         if len(buf) <= UID_SIZE:
             return
-        uid = buf[0:UID_SIZE]
-        token = self._get_token(uid)
+        head = self._get_head(buf)
+        token = self._get_token(head)
         if not token:
             log_err(self, 'failed to process, no token')
             return
         try:
-            req = codec.decode(uid, buf, token)
+            req = codec.decode(buf, token)
         except:
-            token = self._get_token(uid, update=True)
+            token = self._get_token(head, update=True)
             if not token:
                 log_err(self, 'failed to process, no token')
                 return
-            req = codec.decode(uid, buf, token)
+            req = codec.decode(buf, token)
         if req:
             op = req.get('op')
             args = req.get('args')

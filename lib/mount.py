@@ -144,8 +144,8 @@ def mount():
         servers.append(Broker(ifaddr(), addr))
     
     if not SHADOW and ifaddr() in BRIDGE_SERVERS:
-        import bridge
-        servers.append(bridge.bridge)
+        from bridge import Bridge
+        servers.append(Bridge())
     
     if addr == MASTER_ADDR:
         from db.master import Master

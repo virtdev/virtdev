@@ -50,12 +50,12 @@ class Codec():
             raise Exception(log_get(self, 'failed to decode'))
         return ret[HEAD_SIZE:HEAD_SIZE + length]
 
-def encode(uid, buf, token):
+def encode(buf, token, uid):
     codec = Codec(token)
     body = bson.dumps({'body':buf})
     return str(uid) + codec.encode(body)
 
-def decode(uid, buf, token):
+def decode(buf, token, uid=None):
     length = len(buf)
     if length <= UID_SIZE or (uid and buf[0:UID_SIZE] != uid):
         return

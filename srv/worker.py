@@ -50,7 +50,7 @@ class WorkerServer(BaseRequestHandler):
                 uid = reqest['uid']
                 token = reqest['token']
                 buf = reqest['buf']
-                req = codec.decode(None, buf, token)
+                req = codec.decode(buf, token)
                 if not req:
                     log_err(self, 'failed to handle, invalid request')
                     return
@@ -77,7 +77,7 @@ class WorkerServer(BaseRequestHandler):
                 log_err(self, 'failed to handle, timeout')
             finally:
                 pool.join()
-            res = codec.encode(buf[:UID_SIZE], res, token)
+            res = codec.encode(res, token, buf[:UID_SIZE])
             io.send_pkt(self.request, bson.dumps({'':res}))
         except:
             pass

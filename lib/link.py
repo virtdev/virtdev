@@ -21,7 +21,7 @@ import time
 import channel
 from pool import Pool
 from queue import Queue
-from conf.virtdev import DEBUG
+from conf.defaults import DEBUG
 from multiprocessing import cpu_count
 from modes import MODE_LINK, MODE_CLONE
 from log import log_debug, log_err, log_get
@@ -104,7 +104,7 @@ class Downlink(object):
     
     def _request(self, uid, addr, op, args, token):
         try:
-            channel.put(uid, addr, op, args, token)
+            channel.send(uid, addr, op, args, token)
             return True
         except:
             log_err(self, 'failed to request, addr=%s, op=%s' % (addr, op))
@@ -121,7 +121,7 @@ class Downlink(object):
                 time.sleep(LINK_INTERVAL)
                 channel.connect(uid, addr, key, gateway=True)
                 try:
-                    channel.put(uid, addr, op, args, token)
+                    channel.send(uid, addr, op, args, token)
                 finally:
                     channel.disconnect(addr)
                 return True
