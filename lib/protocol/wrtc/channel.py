@@ -29,65 +29,86 @@ from lib.bridge import get_bridge
 from conf.virtdev import BRIDGE_PORT
 from lib.log import log_debug, log_err, log_get
 from lib.ws import WSHandler, ws_addr, ws_start, ws_connect
-from lib.util import popen, get_dir, gen_key, pkill, lock, close_port
+from lib.util import popen, get_dir, gen_key, pkill, close_port
 
+SEND_RETRY = 1;
 CHANNEL_MAX = 256
-WAIT_INTERVAL = 1 # seconds
 ADAPTER_NAME = 'wrtc'
-TIMEOUT = 30 # seconds
+WAIT_INTERVAL = 1 # sec
+KEEP_CONNECTION = True
 
-def adapter(func):
-    def _adapter(*args, **kwargs):
+TIMEOUT_CONN = 30 # sec
+TIMEOUT_SEND = 15 # sec
+
+EV_SEND = 'send'
+EV_CONNECT = 'connect'
+EV_TYPES = [EV_SEND, EV_CONNECT]
+
+def check_adapter(func):
+    def _check_adapter(*args, **kwargs):
         self = args[0]
         addr = args[1]
-        if not self._check_adapter():
+        if not self._adapter:
+            self._create_adapter()
+        if not self._adapter:
             log_err(self, 'no adapter')
-            return
+            raise Exception(log_get(self, 'no adapter'))
         self._lock.acquire(addr)
         try:
             return func(*args, **kwargs)
         finally:
             self._lock.release(addr)
-    return _adapter
+    return _check_adapter
+
+def check_type(func):
+    def _check_type(*args, **kwargs):
+        self = args[0]
+        ev_type = args[1]
+        if ev_type not in EV_TYPES:
+            log_err(self, 'invalid event type')
+            raise Exception(log_get(self, 'invalid event type'))
+        self._lock.acquire()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            self._lock.release()
+    return _check_type
 
 class ChannelEvent(object):
     def __init__(self):
-        self._count = {}
-        self._event = {}
         self._lock = Lock()
+        self._event = {i:{} for i in EV_TYPES}
+        self._count = {i:{} for i in EV_TYPES}
     
-    @lock
-    def _set_event(self, name):
-        ev = self._event.get(name)
+    @check_type
+    def _add_event(self, ev_type, ev_name):
+        ev = self._event[ev_type].get(ev_name)
+        if not ev:
+            ev = Event()
+            self._event[ev_type][ev_name] = ev
+            self._count[ev_type][ev_name] = 1
+        else:
+            self._count[ev_type][ev_name] += 1
+        return ev
+    
+    @check_type
+    def _remove_event(self, ev_type, ev_name):
+        if self._event[ev_type].has_key(ev_name):
+            self._count[ev_type][ev_name] -= 1
+            if 0 == self._count[ev_type][ev_name]:
+                del self._event[ev_type][ev_name]
+                del self._count[ev_type][ev_name]
+    
+    @check_type
+    def set(self, ev_type, ev_name):
+        ev = self._event[ev_type].get(ev_name)
         if ev:
             ev.set()
     
-    @lock
-    def _add_event(self, name):
-        ev = self._event.get(name)
-        if not ev:
-            ev = Event()
-            self._event.update({name:ev})
-            self._count.update({name:1})
-        else:
-            self._count[name] += 1
-        return ev
-    
-    @lock
-    def _remove_event(self, name):
-        if self._event.has_key(name):
-            self._count[name] -= 1
-            if 0 == self._count[name]:
-                del self._event[name]
-                del self._count[name]
-    
-    def set(self, name):
-        self._set_event(name)
-    
-    def wait(self, name, timeout=TIMEOUT):
-        ev = self._add_event(name)
+    def wait(self, ev_type, ev_name, timeout):
+        ev = self._add_event(ev_type, ev_name)
         ret = ev.wait(timeout)
-        self._remove_event(name)
+        self._remove_event(ev_type, ev_name)
         return ret
 
 _channel_event = ChannelEvent()
@@ -95,9 +116,12 @@ _channel_event = ChannelEvent()
 class ChannelEventHandler(WSHandler):
     def on_message(self, buf):
         if buf:
-            name = buf.strip()
-            if name:
-                _channel_event.set(name)
+            args = json.loads(buf)
+            if args:
+                ev_type = args.get('ev_type')
+                ev_name = args.get('ev_name')
+                if ev_type and ev_name:
+                    _channel_event.set(ev_type, ev_name)
 
 class Channel(object):
     def __init__(self):
@@ -125,7 +149,7 @@ class Channel(object):
         if args:
             self._adapter.send(json.dumps(args))
         else:
-            log_debug(self, 'failed to request, no arguments')
+            log_debug(self, 'failed to request')
     
     def _create_adapter(self):
         self._init_lock.acquire()
@@ -138,29 +162,64 @@ class Channel(object):
         finally:
             self._init_lock.release()
     
-    def _check_adapter(self):
-        if not self._adapter:
-            self._create_adapter()
-        if self._adapter:
-            return True
+    def _is_sent(self, addr):
+        return _channel_event.wait(EV_SEND, addr, TIMEOUT_SEND)
+    
+    def _is_connected(self, addr):
+        return _channel_event.wait(EV_CONNECT, addr, TIMEOUT_CONN)
+    
+    def _open(self, addr, key, bridge, source=None):
+        if source:
+            self._request(cmd='open', addr=addr, key=key, bridge=bridge, source=source)
+        else:
+            self._request(cmd='open', addr=addr, key=key, bridge=bridge)
+    
+    def _close(self, addr):
+        self._request(cmd='close', addr=addr)
+    
+    def _attach(self, addr):
+        key = gen_key()
+        src = resolv.get_addr()
+        bridge = get_bridge(src)
+        self._request(cmd='attach', addr=src, key=key, bridge=bridge)
+        self._sources[addr] = src
+        return {'addr':src, 'key':key, 'bridge':bridge}
+    
+    def _detach(self, addr):
+        src = self._sources.get(addr)
+        if src:
+            self._request(cmd='detach', addr=src)
+            del self._sources[addr]
+    
+    def _send(self, addr, buf):
+        for _ in range(SEND_RETRY + 1):
+            self._request(cmd='send', addr=addr, buf=buf)
+            if self._is_sent(addr):
+                return
+        
+        self._close(addr)
+        self._try_connect(addr)
+        self._request(cmd='send', addr=addr, buf=buf)
+        if not self._is_sent(addr):
+            log_err(self, 'failed to send, addr=%s' % str(addr))
+            raise Exception(log_get(self, 'failed to send'))
     
     def _release_connection(self, addr):
-        self._request(cmd='close', addr=addr)
-        if self._sources.has_key(addr):
-            self._request(cmd='detach', addr=self._sources[addr])
-            del self._sources[addr]
+        self._close(addr)
+        self._detach(addr)
     
     def _do_disconnect(self, addr):
         self._release_connection(addr)
-        del self._channels[addr]
+        if self._channels.has_key(addr):
+            del self._channels[addr]
     
-    @adapter
+    @check_adapter
     def _disconnect(self, addr):
         total = self._channels.get(addr)
         if total != None and total <= 0:
             self._do_disconnect(addr)
     
-    @adapter
+    @check_adapter
     def disconnect(self, addr, release):
         if self._channels.has_key(addr):
             if self._channels[addr] > 0:
@@ -178,29 +237,19 @@ class Channel(object):
                     return
             time.sleep(WAIT_INTERVAL)
     
-    def _check_connection(self, addr):
-        return _channel_event.wait(addr)
-    
-    def _add_source(self, name):
-        key = gen_key()
-        addr = resolv.get_addr()
-        bridge = get_bridge(addr)
-        self._request(cmd='attach', addr=addr, key=key, bridge=bridge)
-        self._sources[name] = addr
-        return {'addr':addr, 'key':key, 'bridge':bridge, 'keep':0}
-    
-    def _do_connect(self, addr, key, bridge, gateway):
+    def _do_connect(self, addr, key, bridge, gateway=False):
         if gateway:
-            source = self._add_source(addr)
-            self._request(cmd='open', addr=addr, key=key, bridge=bridge, source=source)
+            source = self._attach(addr)
+            self._open(addr, key, bridge, source)
         else:
-            self._request(cmd='open', addr=addr, key=key, bridge=bridge)
+            self._open(addr, key, bridge)
         
-        if not self._check_connection(addr):
-            log_err(self, 'failed to connect')
+        if not self._is_connected(addr):
+            self._release_connection(addr)
+            log_err(self, 'failed to connect, addr=%s' % str(addr))
             raise Exception(log_get(self, 'failed to connect'))
     
-    @adapter
+    @check_adapter
     def _connect(self, addr, key, bridge, gateway):
         if self._channels.has_key(addr):
             self._channels[addr] += 1
@@ -214,23 +263,12 @@ class Channel(object):
             self._wait()
         self._connect(addr, key, bridge, gateway)
     
-    def _send(self, addr, buf):
-        self._request(cmd='send', addr=addr, buf=buf)
-        self._log('send, addr=%s' % addr)
-    
-    @adapter
+    @check_adapter
     def send(self, addr, buf):
         self._send(addr, buf)
+        self._log('send, addr=%s' % addr)
     
-    def _allocate(self, addr):
-        if not self._alloc.has_key(addr):
-            log_err(self, 'failed to put')
-            raise Exception(log_get(self, 'failed to put'))
-        key = self._alloc[addr]['key']
-        bridge = self._alloc[addr]['bridge']
-        self._do_connect(addr, key, bridge, False)
-    
-    @adapter
+    @check_adapter
     def allocate(self, addr, key, bridge):
         if self._alloc.has_key(addr):
             self._free(addr)
@@ -240,21 +278,35 @@ class Channel(object):
         self._do_disconnect(addr)
         del self._alloc[addr]
     
-    @adapter
+    @check_adapter
     def free(self, addr):
         if self._alloc.has_key(addr):
             self._free(addr)
     
-    @adapter
+    def _try_connect(self, addr):
+        if not self._alloc.has_key(addr):
+            log_err(self, 'failed to connect, no allocation, addr=%s' % str(addr))
+            raise Exception(log_get(self, 'failed to connect'))
+        key = self._alloc[addr]['key']
+        bridge = self._alloc[addr]['bridge']
+        self._do_connect(addr, key, bridge)
+    
+    @check_adapter
     def put(self, addr, buf):
         if not self._alloc.has_key(addr):
             log_err(self, 'failed to put, no channel')
             raise Exception(log_get(self, 'failed to put'))
         
-        if not self._exist(addr):
-            self._allocate(addr)
+        if not KEEP_CONNECTION:
+            self._try_connect(addr)
+            self._send(addr, buf)
+            self._close(addr)
+        else:
+            if not self._exist(addr):
+                self._try_connect(addr)
+            self._send(addr, buf)
         
-        self._send(addr, buf)
+        self._log('put, addr=%s' % addr)
     
     def _exist(self, addr):
         self._request(cmd='exist', addr=addr)
@@ -262,7 +314,7 @@ class Channel(object):
         if ret == 'exist':
             return True
     
-    @adapter
+    @check_adapter
     def exist(self, addr):
         return self._exist(addr)
     
@@ -273,6 +325,7 @@ class Channel(object):
         popen(self._path, 
               '-p', str(BRIDGE_PORT),
               '-l', str(ADAPTER_PORT),
+              '-t', str(TIMEOUT_SEND),
               '-e', str(CHANNEL_EVENT_PORT))
     
     def create(self, addr, key, bridge):
@@ -282,6 +335,7 @@ class Channel(object):
               '-b', bridge,
               '-p', str(BRIDGE_PORT),
               '-l', str(ADAPTER_PORT),
+              '-t', str(TIMEOUT_SEND),
               '-c', str(CONDUCTOR_PORT),
               '-e', str(CHANNEL_EVENT_PORT))
     

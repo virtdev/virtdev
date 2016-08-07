@@ -32,8 +32,8 @@ from lib.log import log_debug, log_err, log_get
 from conf.defaults import PROC_ADDR, DISPATCHER_PORT
 from lib.util import lock, named_lock, edge_lock, is_local
 
-ASYNC = True
-QUEUE_LEN = 4
+ASYNC = False
+QUEUE_LEN = 2
 POOL_SIZE = cpu_count() * 4
 
 class DispatcherQueue(Queue):
@@ -56,6 +56,9 @@ class DispatcherScheduler(object):
     
     @lock
     def select(self, dest, src, buf, flags):
+        if self._busy.has_key(src):
+            return False
+        
         pos = None
         length = None
         for i in range(POOL_SIZE):
@@ -68,12 +71,11 @@ class DispatcherScheduler(object):
                         pos = i
             else:
                 return False
-        if self._busy.has_key(src):
-            return False
-        elif pos != None:
+        
+        if pos != None:
             queue = self._pool.get(pos)
             if not queue.push((dest, src, buf, flags)):
-                log_err(self, 'failed to select, cannot push')
+                log_err(self, 'failed to select')
                 raise Exception(log_get(self, 'failed to select'))
             return True
     
@@ -124,7 +126,7 @@ class DispatcherScheduler(object):
             self._core.put(dest, src, buf, flags)
         finally:
             self._release(dest)
-            
+    
     def wait(self):
         self._pool.wait()
 

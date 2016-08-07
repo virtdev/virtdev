@@ -2,6 +2,7 @@
 
 var mqtt = require('mqtt');
 var crypto = require("crypto");
+var uuid = require('node-uuid');
 var wrtc = require('electron-webrtc')();
 var SimplePeer = require('simple-peer');
 var WebSocketClient = require('websocket').client;
@@ -14,11 +15,20 @@ var bridgeAddr = argv.b;
 var bridgePort = argv.p;
 var adapterPort = argv.l;
 var conductorPort = argv.c;
+var sendTimeout = parseInt(argv.t) * 1000; //msec
 
-var debug = false;
+var debug = true;
+var pktEnd = '$';
+
+var waitTime = 50; // msec
 var localhost = '127.0.0.1';
+var highWaterMark = 1 << 23;
+var lowWaterMark = highWaterMark / 2;
+var waterMark = (highWaterMark + lowWaterMark) / 2;
+
 var listeners = new Object();
 var connections = new Object();
+var peerConnections = new Object();
 
 var peerConnectionConfig = {
   iceServers: [
@@ -28,13 +38,19 @@ var peerConnectionConfig = {
 
 var dataChannelConfig = {
   ordered: true,
-  reliable: true
+  reliable: false,
+  maxRetransmitTime: 4000
 };
 
 function log(str)
 {
   if (debug)
     console.log('wrtc: ' + str);
+}
+
+function log_err(str)
+{
+  console.log('wrtc: ' + str);
 }
 
 function encrypt(args, key)
@@ -68,13 +84,19 @@ function forward(data)
   client.connect('ws://' + localhost + ':' + conductorPort);
 }
 
-function trigger(data)
+function trigger(ev_type, ev_name)
 {
   var client = new WebSocketClient();
   
   client.on('connect', function(connection) {
-    if (connection.connected)
-      connection.sendUTF(data);
+    if (connection.connected) {
+      var args = new Object();
+      
+      args.ev_type = ev_type;
+      args.ev_name = ev_name;
+      
+      connection.sendUTF(JSON.stringify(args));
+    }
   });
   
   client.connect('ws://' + localhost + ':' + eventPort);
@@ -90,37 +112,166 @@ function notify(addr, key, bridge, args)
   });
 }
 
-function open(addr, key, bridge, source)
+function newPkt(buf)
 {
-  var identity = source.addr;
+  if (pktEnd) {
+    if (buf.indexOf(pktEnd) != -1) {
+      log_err('failed to create a packet');
+      return;
+    }
+    buf += pktEnd;
+  }
   
-  if (addr in connections) {
-    if (connections[addr].identity != identity)
-      close(addr);
-    else { 
-      if (connections[addr].ready)
-        trigger(addr);
+  return buf;
+}
+
+function deliverPkt(addr, buf)
+{
+  if (!pktEnd)
+    forward(buf);
+  else {
+    buf = String(buf);
+    if (buf.endsWith(pktEnd)) {
+      buf = buf.substring(0, buf.length - 1);
+      if (peerConnections[addr].buf) {
+        forward(peerConnections[addr].buf + buf);
+        delete peerConnections[addr].buf;
+      } else
+        forward(buf);
+    } else {
+      if (peerConnections[addr].buf)
+        peerConnections[addr].buf += buf
+      else
+        peerConnections[addr].buf = buf;
+    }
+  }
+}
+
+function join(dest, src)
+{ 
+  var id = src.id;
+  var key = src.key;
+  var addr = src.addr;
+  var desc = src.desc;
+  var bridge = src.bridge;
+  
+  if (!id || !key || !addr || !desc || !bridge) {
+    log_err('failed to join, invalid arguments');
+    return;
+  }
+  
+  if (addr in peerConnections) {
+    if (peerConnections[addr].id != id) {
+      var peer = peerConnections[addr].peer;
+      
+      delete peerConnections[addr];
+      peer.destroy();
+    } else {
+      peerConnections[addr].peer.signal(desc);
       return;
     }
   }
   
   var peer = new SimplePeer({
     wrtc: wrtc,
+    highWaterMark: highWaterMark,
+    config: peerConnectionConfig,
+    channelConfig: dataChannelConfig
+  });
+  
+  peerConnections[addr] = new Object();
+  peerConnections[addr].peer = peer;
+  peerConnections[addr].id = id;
+  
+  peer.on('signal', function (data) {
+    var args = new Object();
+    
+    args.id = id;
+    args.addr = dest;
+    args.desc = data;
+    args.cmd = 'response';
+    
+    notify(addr, key, bridge, args);
+  });
+  
+  peer.on('data', function (data) {
+    if (data)
+      deliverPkt(addr, data);
+  });
+  
+  peer.on('close', function() {
+    if ((addr in peerConnections) && (peerConnections[addr].id == id))
+      delete peerConnections[addr];
+  });
+  
+  peer.on('error', function (err) {
+    if ((addr in peerConnections) && (peerConnections[addr].id == id)) {
+      delete peerConnections[addr];
+      peer.destroy();
+    }
+    
+    log('join, error, addr=' + addr);
+  });
+  
+  peer.signal(desc);
+  log('join, addr=' + addr);
+}
+
+function response(dest)
+{
+  var id = dest.id;
+  var addr = dest.addr;
+  var desc = dest.desc;
+  
+  if (!addr || !desc || !id) {
+    log_err('failed to response, invalid arguments');
+    return;
+  }
+  
+  if ((addr in connections) && (connections[addr].id == id)) {
+    connections[addr].peer.signal(desc);
+    log('response, addr=' + addr);
+  }
+}
+
+function open(addr, key, bridge, source)
+{ 
+  if (addr in connections) {
+    if (connections[addr].src != source.addr) {
+      var peer = connections[addr].peer;
+      
+      delete connections[addr];
+      peer.destroy()
+    } else {
+      if (connections[addr].ready) {
+      	trigger('connect', addr);
+        log('open, connected, addr=' + addr);
+      }
+      return;
+    }
+  }
+  
+  var id = uuid.v4();
+  var peer = new SimplePeer({
+    wrtc: wrtc,
     initiator: true,
+    highWaterMark: highWaterMark,
     config: peerConnectionConfig,
     channelConfig: dataChannelConfig
   });
   
   connections[addr] = new Object();
-  connections[addr].identity = identity;
+  connections[addr].src = source.addr;
   connections[addr].ready = false;
   connections[addr].peer = peer;
+  connections[addr].id = id;
   
   peer.on('signal', function (data) {
     var args = new Object();
     
+    args.id = id;
     args.desc = data;
-    args.cmd = 'connect';
+    args.cmd = 'join';
     args.key = source.key;
     args.addr = source.addr;
     args.bridge = source.bridge;
@@ -129,20 +280,25 @@ function open(addr, key, bridge, source)
   });
   
   peer.on('connect', function () {
-    connections[addr].ready = true;
-    trigger(addr);
+    if ((addr in connections) && (connections[addr].id == id)) {
+      connections[addr].ready = true;
+      trigger('connect', addr);
+    }
   });
   
   peer.on('close', function() {
-    if (addr in connections)
+    if ((addr in connections) && (connections[addr].id == id))
       delete connections[addr];
   });
   
-  if (source.keep) {
-    peer.on('data', function (data) {
-      forward(data);
-    });
-  }
+  peer.on('error', function (err) {
+    if ((addr in connections) && (connections[addr].id == id)) {
+      delete connections[addr];
+      peer.destroy();
+    }
+    
+    log('open, error, addr=' + addr);
+  });
   
   log('open, addr=' + addr);
 }
@@ -154,71 +310,47 @@ function close(addr)
     
     delete connections[addr];
     peer.destroy();
+    
     log("close, addr=" + addr);
   }
 }
 
-function connect(addr, key, bridge, desc, identity)
-{ 
-  if (addr in connections) {
-    if (connections[addr].identity != identity)
-      close(addr);
-    else {
-      connections[addr].peer.signal(desc);
-      return;
-    }
-  }
-  
-  var peer = new SimplePeer({
-    wrtc: wrtc,
-    config: peerConnectionConfig,
-    channelConfig: dataChannelConfig
-  });
-  
-  connections[addr] = new Object();
-  connections[addr].identity = identity;
-  connections[addr].ready = false;
-  connections[addr].peer = peer;
-  
-  peer.on('signal', function (data) {
-    var args = new Object();
-    
-    args.desc = data;
-    args.cmd = 'accept';
-    args.addr = identity;
-    
-    notify(addr, key, bridge, args);
-  });
-  
-  peer.on('connect', function () {
-	connections[addr].ready = true;
-  });
-  
-  peer.on('data', function (data) {
-    forward(data);
-  });
-  
-  peer.on('close', function() {
-    if (addr in connections)
-      delete connections[addr];
-  });
-  
-  peer.signal(desc);
-  log('connect, addr=' + addr);
+function do_send(addr, buf)
+{
+  connections[addr].peer.send(buf);
+  trigger('send', addr);
 }
 
-function accept(addr, desc, identity)
+function try_send(addr, buf)
 {
-  if (addr in connections && connections[addr].identity == identity) {
-    connections[addr].peer.signal(desc);
-    log('accept, addr=' + addr);
-  }
+  var t = 0;
+  var intv = setInterval(function() {
+    t += waitTime;
+    if (!(addr in connections)
+    || !connections[addr].ready
+    || (t + waitTime >= sendTimeout)
+    || (connections[addr].peer.bufferSize < lowWaterMark)) {
+      clearInterval(intv);
+      if (addr in connections
+      && connections[addr].ready
+      && (connections[addr].peer.bufferSize < waterMark))
+        do_send(addr, buf);
+    }
+  }, waitTime);
 }
 
 function send(addr, buf)
 {
   if (addr in connections && connections[addr].ready && buf) {
-    connections[addr].peer.send(buf);
+    pkt = newPkt(buf);
+    if (!pkt)
+      return;
+    
+    if (!sendTimeout || (connections[addr].peer.bufferSize < lowWaterMark))
+      do_send(addr, pkt);
+    else
+      try_send(addr, pkt);
+    
     log('send, addr=' + addr);
   }
 }
@@ -237,12 +369,12 @@ function attach(addr, key, bridge)
     var data = decrypt(message.toString(), k, iv);
     var args = JSON.parse(data);
     
-    if ('connect' == args.cmd) {
-      connect(args.addr, args.key, args.bridge, args.desc, addr);
-    } else if ('accept' == args.cmd) {
-      accept(args.addr, args.desc, addr);
+    if ('join' == args.cmd) {
+      join(addr, args);
+    } else if ('response' == args.cmd) {
+      response(args);
     } else
-      log('failed to attach, invalid command');
+      log_err('failed to attach, invalid command');
   });
   
   listeners[addr] = client;
@@ -253,9 +385,9 @@ function detach(addr)
   if (addr in listeners) {
     var client = listeners[addr];
     
+    delete listeners[addr];
     client.unsubscribe(addr);
     client.end();
-    delete listeners[addr];
   }
 }
 
@@ -278,7 +410,6 @@ if (adapterPort) {
   var server = new websocket.Server({'port': adapterPort});
   
   if (sourceAddr) {
-    source.keep = 1;
     source.key = sourceKey;
     source.addr = sourceAddr;
     source.bridge = bridgeAddr;
@@ -304,7 +435,7 @@ if (adapterPort) {
       } else if ('send' == args.cmd) {
         send(args.addr, args.buf);
       }else
-        log("invalid command");
+        log_err("invalid command");
     });
   });
 }

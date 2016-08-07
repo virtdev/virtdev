@@ -38,7 +38,7 @@ from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_SYNC, MODE_TRIG
 RETRY_MAX = 3
 WAIT_TIME = 10 #seconds
 SLEEP_TIME = 10 # seconds
-OUTPUT_MAX = 1 << 26
+OUTPUT_MAX = 1 << 22
 POLL_INTERVAL = 0.01  # seconds
 
 class UDO(object):

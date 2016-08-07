@@ -31,9 +31,9 @@ from lib.util import UID_SIZE, get_name
 from conf.defaults import CONDUCTOR_PORT
 from lib.log import log_debug, log_err, log_get
 
-CACHE = True
-POOL_SIZE = cpu_count() * 2
+ASYNC = True
 QUEUE_LEN = 2
+POOL_SIZE = cpu_count() * 4
 
 def chkstat(func):
     def _chkstat(*args, **kwargs):
@@ -192,7 +192,7 @@ class ConductorServer(object):
     
     @chkstat
     def put(self, buf):
-        if not CACHE:
+        if not ASYNC:
             self.proc(buf)
         else:
             self._pool.push(buf)

@@ -32,7 +32,7 @@ LINK_RETRY = 2
 LINK_INTERVAL = 12 # seconds
 
 ASYNC = False
-QUEUE_LEN = 4
+QUEUE_LEN = 2
 POOL_SIZE = cpu_count() * 4
 
 def chkop(func):

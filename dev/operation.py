@@ -1,4 +1,4 @@
-#      oper.py
+#      operation.py
 #      
 #      Copyright (C) 2016 Yi-Wei Ci <ciyiwei@hotmail.com>
 #      
@@ -20,7 +20,7 @@
 import os
 import json
 from conf.env import PATH_MNT
-from lib.util import call, invalidate, mount
+from lib.util import invalidate, mount, touch
 
 class Operation(object):
     def __init__(self, manager):
@@ -36,12 +36,12 @@ class Operation(object):
     def invalidate(self, path):
         path = self._get_path(path)
         if not os.path.exists(path):
-            self._touch(path)
+            touch(path)
         invalidate(path)
     
     def touch(self, path):
         path = self._get_path(path)
-        call('touch', path)
+        touch(path)
     
     def put(self, dest, src, buf, flags):
         self._manager.core.put(dest, src, buf, flags)

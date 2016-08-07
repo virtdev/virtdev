@@ -231,6 +231,9 @@ def device_info(buf):
     except:
         pass
 
+def touch(path):
+    call('touch', path)
+
 def invalidate(path):
     xattr.setxattr(path, OP_INVALIDATE, "", symlink=True)
 
@@ -313,6 +316,3 @@ def sigkill(pid):
 
 def status_zobie(pid):
     return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
-
-
-

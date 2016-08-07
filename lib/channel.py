@@ -29,7 +29,7 @@ from protocols import PROTOCOL_N2N, PROTOCOL_WRTC
 
 ASYNC = False
 QUEUE_LEN = 2
-POOL_SIZE = cpu_count() * 2
+POOL_SIZE = cpu_count() * 4
 
 _pool = None
 _channel = None

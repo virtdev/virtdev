@@ -242,7 +242,7 @@ class Core(object):
                 self._log('dispatch blocks, name=%s' % name)
                 self._dispatcher.send_blocks(name, blocks)
     
-    def get_oper(self, buf, mode):
+    def _get_op(self, buf, mode):
         if type(buf) != dict:
             return
         if mode & MODE_SWITCH:
@@ -268,14 +268,14 @@ class Core(object):
     def _handle(self, name, buf):
         mode = self._mode.get(name)
         if not mode & MODE_VIRT:
-            oper = self.get_oper(buf, mode)
-            if not oper:
+            op = self._get_op(buf, mode)
+            if not op:
                 return
             for device in self._manager.devices:
                 dev = device.find(name)
                 if dev:
-                    self._log('handle, name=%s, oper=%s, dev=%s' % (name, oper, dev.d_name))
-                    return dev.proc(name, oper, buf)
+                    self._log('handle, name=%s, op=%s, dev=%s' % (name, op, dev.d_name))
+                    return dev.proc(name, op, buf)
         else:
             return buf
     
