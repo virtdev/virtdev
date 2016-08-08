@@ -31,7 +31,7 @@ from lib.log import log_debug, log_err, log_get
 from lib.ws import WSHandler, ws_addr, ws_start, ws_connect
 from lib.util import popen, get_dir, gen_key, pkill, close_port
 
-SEND_RETRY = 1;
+RETRY_MAX = 1
 CHANNEL_MAX = 256
 ADAPTER_NAME = 'wrtc'
 WAIT_INTERVAL = 1 # sec
@@ -40,9 +40,10 @@ KEEP_CONNECTION = True
 TIMEOUT_CONN = 30 # sec
 TIMEOUT_SEND = 15 # sec
 
+EV_PUT = 'put'
 EV_SEND = 'send'
 EV_CONNECT = 'connect'
-EV_TYPES = [EV_SEND, EV_CONNECT]
+EV_TYPES = [EV_PUT, EV_SEND, EV_CONNECT]
 
 def check_adapter(func):
     def _check_adapter(*args, **kwargs):
@@ -77,6 +78,7 @@ def check_type(func):
 class ChannelEvent(object):
     def __init__(self):
         self._lock = Lock()
+        self._error = {i:{} for i in EV_TYPES}
         self._event = {i:{} for i in EV_TYPES}
         self._count = {i:{} for i in EV_TYPES}
     
@@ -100,14 +102,21 @@ class ChannelEvent(object):
                 del self._count[ev_type][ev_name]
     
     @check_type
-    def set(self, ev_type, ev_name):
-        ev = self._event[ev_type].get(ev_name)
-        if ev:
-            ev.set()
+    def set(self, ev_type, ev_args):
+        ev_name = ev_args.get('name')
+        if ev_name:
+            ev = self._event[ev_type].get(ev_name)
+            if ev:
+                if ev_args.has_key('error'): 
+                    self._error[ev_type][ev_name] = ev_args['error']
+                ev.set()
     
     def wait(self, ev_type, ev_name, timeout):
         ev = self._add_event(ev_type, ev_name)
         ret = ev.wait(timeout)
+        if self._error[ev_type].has_key(ev_name):
+            ret = self._error[ev_type][ev_name]
+            del self._error[ev_type][ev_name]
         self._remove_event(ev_type, ev_name)
         return ret
 
@@ -119,9 +128,9 @@ class ChannelEventHandler(WSHandler):
             args = json.loads(buf)
             if args:
                 ev_type = args.get('ev_type')
-                ev_name = args.get('ev_name')
-                if ev_type and ev_name:
-                    _channel_event.set(ev_type, ev_name)
+                ev_args = args.get('ev_args')
+                if ev_type and ev_args:
+                    _channel_event.set(ev_type, ev_args)
 
 class Channel(object):
     def __init__(self):
@@ -162,6 +171,9 @@ class Channel(object):
         finally:
             self._init_lock.release()
     
+    def _is_put(self, addr):
+        return _channel_event.wait(EV_PUT, addr, TIMEOUT_SEND)
+    
     def _is_sent(self, addr):
         return _channel_event.wait(EV_SEND, addr, TIMEOUT_SEND)
     
@@ -191,18 +203,43 @@ class Channel(object):
             self._request(cmd='detach', addr=src)
             del self._sources[addr]
     
+    def _put(self, addr, buf):
+        self._request(cmd='put', addr=addr, buf=buf)
+        ret = self._is_put(addr)
+        if ret == True:
+            return
+        for _ in range(RETRY_MAX):
+            if ret == -1:
+                self._log('put, retry connecting, addr=%s' % str(addr))
+                try:
+                    self._try_connect(addr)
+                except:
+                    continue
+            self._log('put, retry sending, addr=%s' % str(addr))
+            self._request(cmd='put', addr=addr, buf=buf)
+            ret = self._is_put(addr)
+            if ret == True:
+                return
+        log_err(self, 'failed to put, addr=%s' % str(addr))
+        raise Exception(log_get(self, 'failed to put'))
+    
     def _send(self, addr, buf):
-        for _ in range(SEND_RETRY + 1):
+        self._request(cmd='send', addr=addr, buf=buf)
+        if self._is_sent(addr):
+            return
+        for _ in range(RETRY_MAX):
+            if not self._exist(addr):
+                self._log('send, retry connecting, addr=%s' % str(addr))
+                try:
+                    self._try_connect(addr)
+                except:
+                    continue
+            self._log('send, retry sending, addr=%s' % str(addr))
             self._request(cmd='send', addr=addr, buf=buf)
             if self._is_sent(addr):
                 return
-        
-        self._close(addr)
-        self._try_connect(addr)
-        self._request(cmd='send', addr=addr, buf=buf)
-        if not self._is_sent(addr):
-            log_err(self, 'failed to send, addr=%s' % str(addr))
-            raise Exception(log_get(self, 'failed to send'))
+        log_err(self, 'failed to send, addr=%s' % str(addr))
+        raise Exception(log_get(self, 'failed to send'))
     
     def _release_connection(self, addr):
         self._close(addr)
@@ -297,16 +334,15 @@ class Channel(object):
             log_err(self, 'failed to put, no channel')
             raise Exception(log_get(self, 'failed to put'))
         
+        self._log('put, addr=%s, len=%s' % (addr, len(buf)))
         if not KEEP_CONNECTION:
             self._try_connect(addr)
-            self._send(addr, buf)
+            self._put(addr, buf)
             self._close(addr)
         else:
             if not self._exist(addr):
                 self._try_connect(addr)
-            self._send(addr, buf)
-        
-        self._log('put, addr=%s' % addr)
+            self._put(addr, buf)
     
     def _exist(self, addr):
         self._request(cmd='exist', addr=addr)
@@ -325,7 +361,6 @@ class Channel(object):
         popen(self._path, 
               '-p', str(BRIDGE_PORT),
               '-l', str(ADAPTER_PORT),
-              '-t', str(TIMEOUT_SEND),
               '-e', str(CHANNEL_EVENT_PORT))
     
     def create(self, addr, key, bridge):
@@ -334,8 +369,8 @@ class Channel(object):
               '-k', key,
               '-b', bridge,
               '-p', str(BRIDGE_PORT),
-              '-l', str(ADAPTER_PORT),
               '-t', str(TIMEOUT_SEND),
+              '-l', str(ADAPTER_PORT),
               '-c', str(CONDUCTOR_PORT),
               '-e', str(CHANNEL_EVENT_PORT))
     
