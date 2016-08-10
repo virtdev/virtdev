@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if [ $# == 0 ]; then
+if [ $# = 0 ]; then
 	apt-get install -y bluez
 	apt-get install -y bluetooth
 	apt-get install -y bluez-tools
@@ -59,20 +59,20 @@ if [ $# == 0 ]; then
 	
 	ARCH=`arch`
 	if [  $ARCH = "i386" ]; then
-	  echo "TensorFlow cannot be installed (i386 is not supported)"
-	  exit
+		echo "TensorFlow cannot be installed (i386 is not supported)"
+		exit
 	fi
 	
 	if [ $ARCH = "armv7l" ]; then
-	  TF_BINARY_URL=https://github.com/samjabrahams/tensorflow-on-raspberry-pi/raw/master/bin/tensorflow-0.9.0-cp27-none-linux_armv7l.whl
-	  pip install --upgrade $TF_BINARY_URL
+		TF_BINARY_URL=https://github.com/samjabrahams/tensorflow-on-raspberry-pi/raw/master/bin/tensorflow-0.9.0-cp27-none-linux_armv7l.whl
+		pip install --upgrade $TF_BINARY_URL
 	fi
 	
 	if [ $ARCH = "x86_64" ]; then
-	  TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
-	  pip install --upgrade $TF_BINARY_URL
+		TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
+		pip install --upgrade $TF_BINARY_URL
 	fi	
-elif [ $# == 1 -a $1 == "-s" ]; then
+elif [ $# = 1 -a $1 = "-s" ]; then
 	apt-get install -y build-essential
 	apt-get install -y isc-dhcp-server
 	apt-get install -y libkrb5-dev
@@ -127,7 +127,7 @@ fi
 curl -sL https://deb.nodesource.com/setup_6.x | bash -
 apt-get install -y nodejs
 if [ ! -f /usr/bin/node ]; then
-	 ln -s /usr/bin/nodejs /usr/bin/node
+	ln -s /usr/bin/nodejs /usr/bin/node
 fi
 
 CURRENT=`pwd`

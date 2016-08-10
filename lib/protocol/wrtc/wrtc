@@ -1,5 +1,10 @@
 #!/usr/bin/node
 
+// Copyright (C) 2016 Yi-Wei Ci
+//
+// Distributed under the terms of the MIT license.
+//
+
 var mqtt = require('mqtt');
 var crypto = require("crypto");
 var uuid = require('node-uuid');
@@ -50,7 +55,7 @@ function log(str)
     console.log('wrtc: ' + str);
 }
 
-function log_err(str)
+function error(str)
 {
   console.log('wrtc: ' + str);
 }
@@ -74,7 +79,7 @@ function decrypt(data, k, iv)
   return res + decipher.final('utf8');
 }
 
-function is_ready(addr)
+function isReady(addr)
 {
   if ((addr in connections) && connections[addr].ready)
     return true;
@@ -125,7 +130,7 @@ function notify(addr, key, bridge, args)
 function newPkt(buf)
 {
   if (buf.indexOf(pktMark) != -1) {
-    log_err('failed to create a packet');
+    error('failed to create a packet');
     return;
   }
   
@@ -147,7 +152,7 @@ function newAckPkt(index)
 function newIndexedPkt(addr, buf)
 {
   if (buf.indexOf(pktMark) != -1) {
-    log_err('failed to create an indexed packet, addr=' + addr);
+    error('failed to create an indexed packet, addr=' + addr);
     return;
   }
   
@@ -184,7 +189,7 @@ function updatePkt(addr, buf)
     peerConnections[addr].buf = buf;
 }
 
-function do_deliver(addr, buf)
+function deliver(addr, buf)
 {
   var index = peerConnections[addr].index;
   
@@ -205,14 +210,14 @@ function deliverPkt(addr, buf)
   buf = String(buf);
   if (buf.startsWith(pktMark)) {
     if (buf.length < minLen) {
-      log_err("failed to deliver, invalid packet");
+      error("failed to deliver, invalid packet");
       return;
     }
     
     var index = Number('0x' + buf.substring(1, minLen - 1));
     
     if ((buf.length == minLen) && buf.endsWith(pktMark)) {
-      if (is_ready(addr) && (index in connections[addr].ack)) {
+      if (isReady(addr) && (index in connections[addr].ack)) {
         if (!connections[addr].ack[index]) {
           connections[addr].ack[index] = true;
           trigger('put', {'name': addr});
@@ -221,13 +226,13 @@ function deliverPkt(addr, buf)
       }
     } else if (checkPkt(addr, index)) {
       if (buf.endsWith(pktMark)) {
-        do_deliver(addr, buf.substring(minLen - 1, buf.length - 1));
+        deliver(addr, buf.substring(minLen - 1, buf.length - 1));
       } else {
         updatePkt(addr, buf.substring(minLen - 1, buf.length));
       }
     }
   } else if (buf.endsWith(pktMark)) {
-    do_deliver(addr, buf.substring(0, buf.length - 1));
+    deliver(addr, buf.substring(0, buf.length - 1));
   } else {
     updatePkt(addr, buf);
   }
@@ -242,7 +247,7 @@ function join(dest, src)
   var bridge = src.bridge;
   
   if (!id || !key || !addr || !desc || !bridge) {
-    log_err('failed to join, invalid arguments');
+    error('failed to join, invalid arguments');
     return;
   }
   
@@ -313,7 +318,7 @@ function response(dest)
   var desc = dest.desc;
   
   if (!addr || !desc || !id) {
-    log_err('failed to response, invalid arguments');
+    error('failed to response, invalid arguments');
     return;
   }
   
@@ -434,17 +439,17 @@ function chunkify(addr, buf)
     connections[addr].peer.send(buf);
 }
 
-function do_send(addr, buf)
+function sendPkt(addr, buf)
 {
   chunkify(addr, buf);
   trigger('send', {'name':addr});
 }
 
-function try_send(addr, buf)
+function trySend(addr, buf)
 {
   var t = 0;
   var intv = setInterval(function() {
-    if (!is_ready(addr)) {
+    if (!isReady(addr)) {
       clearInterval(intv);
       log('failed to send, addr=' + addr);
     } else {
@@ -454,7 +459,7 @@ function try_send(addr, buf)
       if ((t + waitTime >= sendTimeout) || (size < lowWaterMark)) {
         clearInterval(intv);
         if (size < waterMark)
-          do_send(addr, buf);
+          sendPkt(addr, buf);
       }
     }
   }, waitTime);
@@ -469,9 +474,9 @@ function send(addr, buf)
       return;
     
     if (!sendTimeout || (connections[addr].peer.bufferSize < lowWaterMark))
-      do_send(addr, pkt);
+      sendPkt(addr, pkt);
     else
-      try_send(addr, pkt);
+      trySend(addr, pkt);
     
     log('send, addr=' + addr);
   }
@@ -485,7 +490,7 @@ function waitAck(addr, pkt)
   var timeout = sendTimeout - 100;
   var retryTime = sendTimeout / 2;
   var intv = setInterval(function () {
-    if (!is_ready(addr)) {
+    if (!isReady(addr)) {
       clearInterval(intv);
       trigger('put', {'name':addr, 'error':-1});
       log('cannot get ack, no connection, addr=' + addr);
@@ -513,7 +518,7 @@ function put(addr, buf)
     var pkt = newIndexedPkt(addr, buf);
     
     if (!pkt) {
-      log_err('failed to put, invalid data');
+      error('failed to put, invalid data');
       return;
     }
     
@@ -541,7 +546,7 @@ function attach(addr, key, bridge)
     } else if ('response' == args.cmd) {
       response(args);
     } else
-      log_err('failed to attach, invalid command');
+      error('failed to attach, invalid command');
   });
   
   listeners[addr] = client;
@@ -605,7 +610,7 @@ if (adapterPort) {
       } else if ('put' == args.cmd) {
         put(args.addr, args.buf);
       }else
-        log_err("invalid command");
+        error("invalid command");
     });
   });
 }

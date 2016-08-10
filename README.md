@@ -11,3 +11,6 @@ Virtdev is an environment used for creating virtual devices.
 ### 3. Configure
 The configuration files are contained in the following path
 ###### path/to/virtdev/conf
+
+# License
+Distributed under the terms of the MIT license.
