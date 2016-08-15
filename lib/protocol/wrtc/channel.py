@@ -5,7 +5,6 @@
 # Distributed under the terms of the MIT license.
 #
 
-
 import os
 import json
 import time
@@ -20,6 +19,7 @@ from lib.log import log_debug, log_err, log_get
 from lib.ws import WSHandler, ws_addr, ws_start, ws_connect
 from lib.util import popen, get_dir, gen_key, pkill, close_port
 
+RELIABLE = False
 RETRY_MAX = 1
 CHANNEL_MAX = 256
 ADAPTER_NAME = 'wrtc'
@@ -28,11 +28,14 @@ KEEP_CONNECTION = True
 
 TIMEOUT_CONN = 30 # sec
 TIMEOUT_SEND = 15 # sec
+TIMEOUT_EXIST = 3 # sec
+TIMEOUT_PUT = TIMEOUT_SEND
 
 EV_PUT = 'put'
 EV_SEND = 'send'
+EV_EXIST = 'exist'
 EV_CONNECT = 'connect'
-EV_TYPES = [EV_PUT, EV_SEND, EV_CONNECT]
+EV_TYPES = [EV_PUT, EV_SEND, EV_EXIST, EV_CONNECT]
 
 def check_adapter(func):
     def _check_adapter(*args, **kwargs):
@@ -161,13 +164,18 @@ class Channel(object):
             self._init_lock.release()
     
     def _is_put(self, addr):
-        return _channel_event.wait(EV_PUT, addr, TIMEOUT_SEND)
+        return _channel_event.wait(EV_PUT, addr, TIMEOUT_PUT)
     
     def _is_sent(self, addr):
         return _channel_event.wait(EV_SEND, addr, TIMEOUT_SEND)
     
     def _is_connected(self, addr):
         return _channel_event.wait(EV_CONNECT, addr, TIMEOUT_CONN)
+    
+    def _exist(self, addr):
+        ret = _channel_event.wait(EV_EXIST, addr, TIMEOUT_EXIST)
+        if ret == True:
+            return True
     
     def _open(self, addr, key, bridge, source=None):
         if source:
@@ -323,21 +331,20 @@ class Channel(object):
             log_err(self, 'failed to put, no channel')
             raise Exception(log_get(self, 'failed to put'))
         
-        self._log('put, addr=%s, len=%s' % (addr, len(buf)))
         if not KEEP_CONNECTION:
             self._try_connect(addr)
-            self._put(addr, buf)
-            self._close(addr)
         else:
             if not self._exist(addr):
                 self._try_connect(addr)
+        
+        if RELIABLE:
             self._put(addr, buf)
-    
-    def _exist(self, addr):
-        self._request(cmd='exist', addr=addr)
-        ret = self._adapter.recv()
-        if ret == 'exist':
-            return True
+        else:
+            self._send(addr, buf)
+        
+        if not KEEP_CONNECTION:
+            self._close(addr)
+        self._log('put, addr=%s, len=%s' % (addr, len(buf)))
     
     @check_adapter
     def exist(self, addr):

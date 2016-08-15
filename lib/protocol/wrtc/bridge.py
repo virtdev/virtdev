@@ -5,7 +5,6 @@
 # Distributed under the terms of the MIT license.
 #
 
-
 import os
 from lib.util import call
 from threading import Thread

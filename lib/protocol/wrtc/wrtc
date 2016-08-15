@@ -260,7 +260,6 @@ function join(dest, src)
       log('join, clear connection, addr=' + addr);
     } else {
       peerConnections[addr].peer.signal(desc);
-      log('join, signaling, addr=' + addr);
       return;
     }
   }
@@ -303,7 +302,7 @@ function join(dest, src)
     if ((addr in peerConnections) && (peerConnections[addr].id == id)) {
       delete peerConnections[addr];
       peer.destroy();
-      log('join, catch an error, addr=' + addr);
+      error('join, connection is lost, addr=' + addr);
     }
   });
   
@@ -393,14 +392,16 @@ function open(addr, key, bridge, source)
     if ((addr in connections) && (connections[addr].id == id)) {
       delete connections[addr];
       peer.destroy();
-      log('open, catch an error, addr=' + addr);
+      error('open, connection is lost, addr=' + addr);
     }
   });
   
   if (source.listen) {
     peer.on('data', function (data) {
-      if (data)
+      if (data) {
         deliverPkt(addr, data);
+        log('open, receive data, addr=' + addr + ', length=' + data.length.toString());
+      }
     });
   }
   
@@ -430,13 +431,23 @@ function chunkify(addr, buf)
       var l = start + chunkSize <= length ? chunkSize : length - start;
       
       if (addr in connections) {
-        connections[addr].peer.send(buf.substring(start, start + l));
+        var data = buf.substring(start, start + l);
+        
+        connections[addr].peer.send(data);
         start += l;
-      } else
-        break;  
+      } else {
+        error('failed to chunkify, addr=' + addr);
+        return;
+      }
     }
-  } else if (addr in connections)
-    connections[addr].peer.send(buf);
+    log('chunkify, length=' + length.toString() + ', chunkSize=' + chunkSize.toString() + ', addr=' + addr);
+  } else {
+    if (addr in connections) {
+      connections[addr].peer.send(buf);
+      log('chunkify, send data directly, addr=' + addr);
+    } else
+      error('failed to chunkify, addr=' + addr);
+  }
 }
 
 function sendPkt(addr, buf)
@@ -479,7 +490,8 @@ function send(addr, buf)
       trySend(addr, pkt);
     
     log('send, addr=' + addr);
-  }
+  } else
+    error('failed to send, addr=' + addr);
 }
 
 function waitAck(addr, pkt)
@@ -505,7 +517,7 @@ function waitAck(addr, pkt)
         } else if (!retry) {
           retry = true;
           chunkify(addr, pkt.data);
-          log('retry sending, addr=' + addr);
+          log('put, retry sending, addr=' + addr);
         }
       }
     }
@@ -524,7 +536,9 @@ function put(addr, buf)
     
     chunkify(addr, pkt.data);
     waitAck(addr, pkt);
-  }
+    log('put, addr=' + addr);
+  } else
+    error('failed to put, addr=' + addr);
 }
 
 function attach(addr, key, bridge)
@@ -560,16 +574,19 @@ function detach(addr)
     delete listeners[addr];
     client.unsubscribe(addr);
     client.end();
+    log('detach, addr=' + addr);
   }
 }
 
-function exist(addr, socket)
+function exist(addr)
 {
   if (addr in connections && connections[addr].ready) {
-    socket.send('exist');
+    trigger('exist', {'name':addr});
     log('exist, addr=' + addr);
-  } else
-    socket.send('');
+  } else {
+    trigger('exist', {'name':addr, 'error':-1});
+    log("exist, no connection, addr=" + addr);
+  }
 }
 
 if (sourceAddr) {
@@ -604,7 +621,7 @@ if (adapterPort) {
       } else if ('detach' == args.cmd) {
         detach(args.addr);
       } else if ('exist' == args.cmd) {
-        exist(args.addr, socket);
+        exist(args.addr);
       } else if ('send' == args.cmd) {
         send(args.addr, args.buf);
       } else if ('put' == args.cmd) {
