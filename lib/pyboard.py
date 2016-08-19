@@ -1,7 +1,7 @@
 # pyboard.py 
 #
-# Copyright (c) 2013, 2014 Damien P. George
-# Copyright (c) 2016 Yi-Wei Ci
+# Copyright (C) 2013, 2014 Damien P. George
+# Copyright (C) 2016 Yi-Wei Ci
 #
 # Distributed under the terms of the MIT license.
 #

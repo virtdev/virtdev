@@ -45,22 +45,11 @@ class Monitor(object):
                 del self._events[uid]
     
     @named_lock
-    def _get_result(self, uid):
+    def _get(self, uid):
         ret = self._results.get(uid)
         if ret:
             del self._results[uid]
         return ret
-    
-    @named_lock
-    def _put_result(self, uid, buf):
-        if not self._results.get(uid):
-            self._results[uid] = []
-        for i in buf:
-            if i not in self._results[uid]:
-                self._results[uid].append(i)
-        ev = self._events.get(uid)
-        if ev:
-            ev[0].set()
     
     def get(self, uid):
         ret = ''
@@ -74,7 +63,7 @@ class Monitor(object):
                     event = self._get_event(uid)
                     try:
                         event.wait(WAIT_TIME)
-                        ret = self._get_result(uid)
+                        ret = self._get(uid)
                     finally:
                         self._put_event(uid)
             return str(ret)
@@ -83,10 +72,18 @@ class Monitor(object):
         finally:
             cli.close()
     
+    @named_lock
     def put(self, uid, buf):
         if not buf:
             return
-        self._put_result(uid, buf)
+        if not self._results.get(uid):
+            self._results[uid] = []
+        for i in buf:
+            if i not in self._results[uid]:
+                self._results[uid].append(i)
+        ev = self._events.get(uid)
+        if ev:
+            ev[0].set()
 
 class EventMonitor(Thread):
     def __init__(self, addr, router):
