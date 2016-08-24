@@ -141,4 +141,5 @@ npm install mqtt
 npm install electron-webrtc
 npm install simple-peer
 npm install node-uuid
+npm install zerorpc
 cd $CURRENT
