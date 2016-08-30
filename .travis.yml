@@ -5,33 +5,34 @@ python:
 
 before_install:
   - sudo apt-get install bluez
-  - sudo apt-get install -y bluetooth
-  - sudo apt-get install -y bluez-tools
-  - sudo apt-get install -y build-essential
-  - sudo apt-get install -y isc-dhcp-server
-  - sudo apt-get install -y libbluetooth-dev
-  - sudo apt-get install -y libopencv-dev
-  - sudo apt-get install -y librsync-dev
-  - sudo apt-get install -y libfuse-dev
-  - sudo apt-get install -y libzbar-dev
-  - sudo apt-get install -y libzmq-dev
-  - sudo apt-get install -y lsof
-  - sudo apt-get install -y n2n
-  - sudo apt-get install -y python-all-dev
-  - sudo apt-get install -y python-bluez
-  - sudo apt-get install -y python-cffi
-  - sudo apt-get install -y python-dbus
-  - sudo apt-get install -y python-gevent
-  - sudo apt-get install -y python-gi-dev
-  - sudo apt-get install -y python-imaging
-  - sudo apt-get install -y python-numpy
-  - sudo apt-get install -y python-opencv
-  - sudo apt-get install -y python-pil
-  - sudo apt-get install -y python-pip
-  - sudo apt-get install -y python-pygame
-  - sudo apt-get install -y python-scipy
-  - sudo apt-get install -y python-zbar
-  - sudo apt-get install -y xvfb
+  - sudo apt-get install bluetooth
+  - sudo apt-get install bluez-tools
+  - sudo apt-get install build-essential
+  - sudo apt-get install isc-dhcp-server
+  - sudo apt-get install libbluetooth-dev
+  - sudo apt-get install libopencv-dev
+  - sudo apt-get install librsync-dev
+  - sudo apt-get install libfuse-dev
+  - sudo apt-get install libzbar-dev
+  - sudo apt-get install libzmq1
+  - sudo apt-get install libzmq-dev
+  - sudo apt-get install lsof
+  - sudo apt-get install n2n
+  - sudo apt-get install python-all-dev
+  - sudo apt-get install python-bluez
+  - sudo apt-get install python-cffi
+  - sudo apt-get install python-dbus
+  - sudo apt-get install python-gevent
+  - sudo apt-get install python-gi-dev
+  - sudo apt-get install python-imaging
+  - sudo apt-get install python-numpy
+  - sudo apt-get install python-opencv
+  - sudo apt-get install python-pil
+  - sudo apt-get install python-pip
+  - sudo apt-get install python-pygame
+  - sudo apt-get install python-scipy
+  - sudo apt-get install python-zbar
+  - sudo apt-get install xvfb
 
 install:
   - pip install fusepy
