@@ -21,7 +21,7 @@ from lib.log import log_debug, log_err, log_get
 
 ASYNC = True
 QUEUE_LEN = 2
-POOL_SIZE = cpu_count() * 8
+POOL_SIZE = cpu_count() * 2
 
 def chkstat(func):
     def _chkstat(*args, **kwargs):

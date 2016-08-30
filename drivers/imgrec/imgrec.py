@@ -6,7 +6,7 @@
 #
 
 from dev.driver import Driver, check_output
-from classiify_image import maybe_download_and_extract, recognize
+from classify_image import maybe_download_and_extract, recognize
 
 class ImgRec(Driver):
     def setup(self):

@@ -26,7 +26,7 @@ ADAPTER_NAME = 'wrtc'
 KEEP_CONNECTION = True
 
 WAIT_INTERVAL = 1 # seconds
-TIMEOUT_SEND = 15 # seconds
+TIMEOUT_SEND = 30 # seconds
 TIMEOUT_EXIST = 3 # seconds
 TIMEOUT_CONNECT = 30 # seconds
 TIMEOUT_PUT = TIMEOUT_SEND

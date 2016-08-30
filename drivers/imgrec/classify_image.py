@@ -184,7 +184,7 @@ def run_inference_on_image(image):
     tf.logging.fatal('File does not exist %s', image)
   image_data = tf.gfile.FastGFile(image, 'rb').read()
   res = recognize(image_data)
-  print str(res)
+  print(str(res))
 
 def maybe_download_and_extract():
   """Download and extract model tar file."""
