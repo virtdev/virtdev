@@ -18,7 +18,6 @@ before_install:
   - sudo apt-get install n2n
   - sudo apt-get install python-all-dev
   - sudo apt-get install python-bluez
-  - sudo apt-get install python-cffi
   - sudo apt-get install python-dbus
   - sudo apt-get install python-gevent
   - sudo apt-get install python-gi-dev
