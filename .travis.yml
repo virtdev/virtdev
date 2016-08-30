@@ -14,8 +14,6 @@ before_install:
   - sudo apt-get install librsync-dev
   - sudo apt-get install libfuse-dev
   - sudo apt-get install libzbar-dev
-  - sudo apt-get install libzmq1
-  - sudo apt-get install libzmq-dev
   - sudo apt-get install lsof
   - sudo apt-get install n2n
   - sudo apt-get install python-all-dev
