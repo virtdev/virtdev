@@ -65,6 +65,4 @@ install:
   - pip install python-inotify==0.6-test
   - pip install snakebite
   - pip install leveldb
-  - if [ `arch` == "x86_64" ]; then
-  -   pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
-  - fi
+  - pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
