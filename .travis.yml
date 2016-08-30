@@ -24,7 +24,6 @@ before_install:
   - sudo apt-get install python-imaging
   - sudo apt-get install python-numpy
   - sudo apt-get install python-opencv
-  - sudo apt-get install python-pil
   - sudo apt-get install python-pip
   - sudo apt-get install python-pygame
   - sudo apt-get install python-scipy
