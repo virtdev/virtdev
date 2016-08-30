@@ -64,7 +64,6 @@ install:
   - pip install python-memcached
   - pip install python-inotify==0.6-test
   - pip install snakebite
-  - pip install sophia
   - pip install leveldb
 
 script:
