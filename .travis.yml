@@ -67,13 +67,4 @@ install:
   - pip install leveldb
 
 script:
-  - #!/bin/bash
-  - ARCH=`arch`
-  - if [ $ARCH = "armv7l" ]; then
-  -   TF_BINARY_URL=https://github.com/samjabrahams/tensorflow-on-raspberry-pi/raw/master/bin/tensorflow-0.9.0-cp27-none-linux_armv7l.whl
-  -   pip install --upgrade $TF_BINARY_URL
-  - fi
-  - if [ $ARCH = "x86_64" ]; then
-  -   TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
-  -   pip install --upgrade $TF_BINARY_URL
-  - fi
+  - if [ `arch` = "x86_64" ]; pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl; fi
