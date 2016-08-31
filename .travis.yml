@@ -5,8 +5,11 @@ python:
 
 before_install:
   - sudo apt-get install fuse
+  - sudo apt-get install libzmq-dev
+  - sudo apt-get install memcached
+  - sudo apt-get install mosquitto
   - sudo apt-get install build-essential
-  - apt-get install -y isc-dhcp-server
+  - sudo apt-get install isc-dhcp-server
   - sudo apt-get install libopencv-dev
   - sudo apt-get install librsync-dev
   - sudo apt-get install libfuse-dev
