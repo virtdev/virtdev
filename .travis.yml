@@ -9,7 +9,6 @@ before_install:
   - sudo apt-get install mosquitto
   - sudo apt-get install libzmq-dev
   - sudo apt-get install build-essential
-  - sudo apt-get install isc-dhcp-server
   - sudo apt-get install libopencv-dev
   - sudo apt-get install librsync-dev
   - sudo apt-get install libfuse-dev
@@ -71,13 +70,13 @@ services:
 
 before_script:
   - sleep 5
-  - bin/virtdev -s &
+  - sudo bin/virtdev -s &
   - sleep 5
-  - bin/virtdev -e &
+  - sudo bin/virtdev -e &
   - sleep 10
 
 dist:
   - xenial
 
 script:
-  - scripts/test-drivers.sh
+  - sudo scripts/test-drivers.sh
