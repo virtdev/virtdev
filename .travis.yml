@@ -5,7 +5,6 @@ python:
 
 before_install:
   - sudo apt-get install fuse
-  - sudo apt-get install libzmq-dev
   - sudo apt-get install memcached
   - sudo apt-get install mosquitto
   - sudo apt-get install build-essential
