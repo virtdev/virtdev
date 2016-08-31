@@ -17,7 +17,7 @@ from lib.protocols import PROTOCOL_WRTC
 from lib.domains import DOMAIN_DEV, DOMAIN_USR
 from conf.virtdev import LO, FS, SHADOW, IFBACK, EXPOSE, GATEWAY_SERVERS, BRIDGE_SERVERS
 from conf.meta import DISTRIBUTOR, META_SERVERS, CACHE_SERVERS, BROKER_SERVERS, WORKER_SERVERS
-from lib.util import UID_SIZE, start_servers, wait_servers, stop_servers, ifaddr, get_conf_path, get_mnt_path
+from lib.util import start_servers, wait_servers, stop_servers, ifaddr, get_conf_path, get_mnt_path
 from conf.route import ROUTE, MASTER_ADDR, DATA_SERVER, USR_FINDER, USR_MAPPER, DEV_FINDER, DEV_MAPPER, DATA_SERVERS
 
 def _clean_fs():
@@ -258,7 +258,12 @@ def initialize(edgenode=False, supernode=False):
         _clean()
     
     _check_settings()
-    resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999))
+    
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999))
+    except:
+        pass
+    
     if not SHADOW:
         channel.initialize()
     
