@@ -4,12 +4,7 @@ python:
   - 2.7
 
 before_install:
-  - sudo apt-get install bluez
-  - sudo apt-get install bluetooth
-  - sudo apt-get install bluez-tools
   - sudo apt-get install build-essential
-  - sudo apt-get install isc-dhcp-server
-  - sudo apt-get install libbluetooth-dev
   - sudo apt-get install libopencv-dev
   - sudo apt-get install librsync-dev
   - sudo apt-get install libfuse-dev
@@ -17,7 +12,6 @@ before_install:
   - sudo apt-get install lsof
   - sudo apt-get install n2n
   - sudo apt-get install python-all-dev
-  - sudo apt-get install python-bluez
   - sudo apt-get install python-dbus
   - sudo apt-get install python-gevent
   - sudo apt-get install python-gi-dev
