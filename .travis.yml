@@ -72,6 +72,7 @@ before_script:
   - bin/virtdev -s &
   - sleep 5
   - bin/virtdev -e &
+  - sleep 5
 
 script:
   - scripts/test-drivers.sh
