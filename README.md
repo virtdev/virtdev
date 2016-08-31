@@ -14,4 +14,4 @@ The configuration files are contained in the following path
 * path/to/virtdev/conf
 
 # License
-- Virtdev is released under the terms of the MIT License.
+Virtdev is released under the terms of the MIT License.
