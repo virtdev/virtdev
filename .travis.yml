@@ -7,6 +7,7 @@ before_install:
   - sudo apt-get install fuse
   - sudo apt-get install memcached
   - sudo apt-get install mosquitto
+  - sudo apt-get install libzmq-dev
   - sudo apt-get install build-essential
   - sudo apt-get install isc-dhcp-server
   - sudo apt-get install libopencv-dev
@@ -27,6 +28,7 @@ before_install:
   - sudo apt-get install python-scipy
   - sudo apt-get install python-zbar
   - sudo apt-get install xvfb
+  - sudo pip install pip --upgrade
   - sudo pip install xattr
   - sudo pip install pytz
   - sudo pip install fusepy
@@ -73,6 +75,9 @@ before_script:
   - sleep 5
   - bin/virtdev -e &
   - sleep 10
+
+dist:
+  - xenial
 
 script:
   - scripts/test-drivers.sh
