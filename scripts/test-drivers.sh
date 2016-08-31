@@ -1,3 +1,4 @@
+#!/bin/sh
 CWD=`readlink -f $0`
 DIR=`dirname $CWD`
 HOME=`dirname $DIR`
