@@ -31,8 +31,8 @@ before_install:
   - sudo apt-get install xvfb
 
 install:
-  - easy_install pytz
   - easy_install xattr
+  - pip install pytz
   - pip install fusepy
   - pip install gensim
   - pip install hash_ring
