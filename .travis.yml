@@ -23,10 +23,9 @@ before_install:
   - sudo apt-get install python-scipy
   - sudo apt-get install python-zbar
   - sudo apt-get install xvfb
-
+  - sudo pip install xattr
+  - sudo pip install pytz
 install:
-  - pip install xattr
-  - pip install pytz
   - pip install fusepy
   - pip install gensim
   - pip install hash_ring
