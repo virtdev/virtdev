@@ -25,41 +25,40 @@ before_install:
   - sudo apt-get install xvfb
   - sudo pip install xattr
   - sudo pip install pytz
-install:
-  - pip install fusepy
-  - pip install gensim
-  - pip install hash_ring
-  - pip install html2text
-  - pip install isodate
-  - pip install langid
-  - pip install netifaces
-  - pip install -U nltk
-  - pip install psutil
-  - pip install pycrypto
-  - pip install pynetlinux
-  - pip install pypng
-  - pip install pyqrcode
-  - pip install pyserial
-  - pip install python-librsync
-  - pip install python-rake
-  - pip install pyzmq
-  - pip install RestrictedPython
-  - pip install stop-words
-  - pip install textblob
-  - pip install tornado
-  - pip install websocket-client
-  - pip install wget
-  - pip install xattr
-  - pip install zerorpc
-  - pip install hdfs
-  - pip install happybase
-  - pip install hash_ring
-  - pip install pymongo
-  - pip install python-memcached
-  - pip install python-inotify==0.6-test
-  - pip install snakebite
-  - pip install leveldb
-  - pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
+  - sudo pip install fusepy
+  - sudo pip install gensim
+  - sudo pip install hash_ring
+  - sudo pip install html2text
+  - sudo pip install isodate
+  - sudo pip install langid
+  - sudo pip install netifaces
+  - sudo pip install -U nltk
+  - sudo pip install psutil
+  - sudo pip install pycrypto
+  - sudo pip install pynetlinux
+  - sudo pip install pypng
+  - sudo pip install pyqrcode
+  - sudo pip install pyserial
+  - sudo pip install python-librsync
+  - sudo pip install python-rake
+  - sudo pip install pyzmq
+  - sudo pip install RestrictedPython
+  - sudo pip install stop-words
+  - sudo pip install textblob
+  - sudo pip install tornado
+  - sudo pip install websocket-client
+  - sudo pip install wget
+  - sudo pip install xattr
+  - sudo pip install zerorpc
+  - sudo pip install hdfs
+  - sudo pip install happybase
+  - sudo pip install hash_ring
+  - sudo pip install pymongo
+  - sudo pip install python-memcached
+  - sudo pip install python-inotify==0.6-test
+  - sudo pip install snakebite
+  - sudo pip install leveldb
+  - sudo pip install --upgrade https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
 
 services:
   - mongodb

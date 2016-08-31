@@ -1,6 +1,6 @@
 # Virtdev [![Build Status](https://travis-ci.org/virtdev/virtdev.svg?branch=unstable)](https://travis-ci.org/virtdev/virtdev)
 
-#### Virtdev is an environment used for creating virtual devices
+Virtdev is an environment used for creating virtual devices
 
 # Quick Start
 ### 1. Install
