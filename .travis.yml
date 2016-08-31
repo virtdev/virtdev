@@ -32,7 +32,7 @@ before_install:
 
 install:
   - easy_install xattr
-  - pip install pytz
+  - easy_install pytz
   - pip install fusepy
   - pip install gensim
   - pip install hash_ring
@@ -49,7 +49,6 @@ install:
   - pip install pyserial
   - pip install python-librsync
   - pip install python-rake
-  - pip install pytz
   - pip install pyzmq
   - pip install RestrictedPython
   - pip install stop-words
@@ -71,6 +70,9 @@ install:
 
 services:
   - mongodb
+
+dist:
+  - trusty
 
 before_script:
   - sleep 5
