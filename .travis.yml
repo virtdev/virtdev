@@ -6,6 +6,7 @@ python:
 before_install:
   - sudo apt-get install fuse
   - sudo apt-get install build-essential
+  - apt-get install -y isc-dhcp-server
   - sudo apt-get install libopencv-dev
   - sudo apt-get install librsync-dev
   - sudo apt-get install libfuse-dev
@@ -64,15 +65,12 @@ before_install:
 services:
   - mongodb
 
-dist:
-  - trusty
-
 before_script:
   - sleep 5
   - bin/virtdev -s &
   - sleep 5
   - bin/virtdev -e &
-  - sleep 5
+  - sleep 10
 
 script:
   - scripts/test-drivers.sh
