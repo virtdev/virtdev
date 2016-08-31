@@ -9,22 +9,24 @@ import os
 import stat
 from lib.log import log_err
 from fuse import FuseOSError
-from lib.util import get_temp
 from errno import EINVAL, ENOENT
-from conf.env import PATH_VAR, PATH_MNT
 from lib.fields import FIELDS, FIELD_DATA, FIELD_ATTR
+from lib.util import get_temp, get_mnt_path, get_var_path
 
 class Entry(object):
     def __init__(self, router=None, core=None):
-        if not os.path.exists(PATH_VAR):
-            os.mkdir(PATH_VAR)
+        path = get_var_path()
+        if not os.path.exists(path):
+            os.mkdir(path)
+        
         name = self._get_name()
         if name in FIELDS:
             self._field = name
         else:
             log_err(self, 'invalid entry')
             raise Exception('Error: invalid entry')
-        if not router:
+        
+        if not router or router.local:
             from interface.localfs import LocalFS
             self._fs = LocalFS()
         else:
@@ -114,7 +116,8 @@ class Entry(object):
             return os.path.join(self._field, *name)
     
     def get_path(self, uid, name='', parent=''):
-        return str(os.path.join(PATH_VAR, uid, FIELDS[self._field], parent, name))
+        path = get_var_path(uid)
+        return str(os.path.join(path, FIELDS[self._field], parent, name))
     
     def check_path(self, uid, name='', parent=''):
         path = self.get_path(uid, name, parent)
@@ -146,8 +149,9 @@ class Entry(object):
         return self._fs.lsdir(uid, path)
     
     def lslink(self, uid, name):
+        mnt = get_mnt_path(uid)
         child = self.child(name)
-        return os.path.join(PATH_MNT, uid, self._field, child)
+        return os.path.join(mnt, self._field, child)
     
     def lsattr(self, uid, name, symlink=False):
         st = None

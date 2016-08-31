@@ -9,13 +9,13 @@ import os
 import ast
 import time
 from lib import io
+from lib.api import mount
 from conf.log import LOG_UDO
 from lib.loader import Loader
 from datetime import datetime
-from conf.env import PATH_MNT
 from conf.defaults import UPLOAD
 from lib.log import log_debug, log_err
-from lib.util import lock, mount_device
+from lib.util import lock, get_mnt_path
 from threading import Thread, Event, Lock
 from lib.attributes import ATTR_MODE, ATTR_FREQ
 from driver import FREQ_MAX, FREQ_MIN, need_freq
@@ -307,9 +307,9 @@ class UDO(object):
                 name = device.d_name
                 if mode & MODE_SYNC and UPLOAD:
                     try:
-                        self._core.sync(name, buf)
+                        self._core.save(name, buf)
                     except:
-                        log_err(self, 'failed to handle, cannot synchronize, name=%s' % name)
+                        log_err(self, 'failed to handle, cannot save, name=%s' % name)
                         return
                 if self._core.has_handler(name):
                     try:
@@ -347,7 +347,7 @@ class UDO(object):
             self._listener = Thread(target=self._listen)
             self._listener.start()
     
-    def _init(self):
+    def _mount(self):
         if self._children:
             self._mode |= MODE_VIRT
         
@@ -359,7 +359,7 @@ class UDO(object):
             mode = self._mode
             freq = self._freq
             prof = self.d_profile
-            path = os.path.join(PATH_MNT, self._uid, self._name)
+            path = get_mnt_path(self._uid, self._name)
             if os.path.exists(path):
                 loader = Loader(self._uid)
                 curr_prof = loader.get_profile(self._name)
@@ -377,7 +377,7 @@ class UDO(object):
                         freq = loader.get_attr(self._name, ATTR_FREQ, float)
         
         if not self._children:
-            mount_device(self._uid, self.d_name, mode, freq, prof)
+            mount(self._uid, name=self.d_name, mode=mode, freq=freq, prof=prof)
             self._log('mount %s [%s*]' % (self.d_type, self.d_name[:8]))
     
     def mount(self, uid, name, core, sock=None, init=True):
@@ -386,7 +386,7 @@ class UDO(object):
         self._core = core
         self._socket = sock
         if init:
-            self._init()
+            self._mount()
         self._start()
     
     @lock

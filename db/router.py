@@ -24,6 +24,7 @@ CACHE_MAX = 10000
 class Router(object):
     def __init__(self, servers=None, sync=True):
         self._cache = {}
+        self.local = False
         self._servers = servers
         self._user_mapper = Member()
         self._device_mapper = Member()

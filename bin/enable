@@ -2,26 +2,31 @@
 
 import os
 import sys
-import xattr
 import commands
+import argparse
 
 _bin = commands.getoutput('readlink -f %s' % sys.argv[0])
 _path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from conf.env import PATH_MNT
-from lib.operations import OP_ENABLE
-
-def usage():
-    print('usage: enable [uid] [name]')
+from lib.api import enable
 
 if __name__ == '__main__':
-    argc = len(sys.argv)
-    if argc != 3:
-        usage()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', dest='uid', default=None)
+    parser.add_argument('-n', dest='name', default=None)
+    parser.add_argument('-s', '--supernode', action='store_true')
+    
+    args = parser.parse_args(sys.argv[1:])
+    uid = args.uid
+    name = args.name
+    if not uid or not name:
+        parser.print_help()
         sys.exit()
-    uid = sys.argv[1]
-    name = sys.argv[2]
-    path = os.path.join(PATH_MNT, uid, name)
-    xattr.setxattr(path, OP_ENABLE, '')
+    
+    if args.supernode:
+        from lib.util import set_supernode
+        set_supernode()
+    
+    enable(uid, name)

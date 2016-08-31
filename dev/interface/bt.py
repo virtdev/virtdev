@@ -10,7 +10,7 @@ import lo
 import bluetooth
 from dev.udi import UDI
 from conf.virtdev import LO
-from conf.env import PATH_LIB
+from lib.util import get_conf_path
 from lib.bt import BluetoothSocket
 
 PIN = '1234'
@@ -20,7 +20,7 @@ class Bluetooth(UDI):
     def _get_devices(self):
         cnt = 0
         device_list = []
-        path = os.path.join(PATH_LIB, 'devices')
+        path = os.path.join(get_conf_path(), 'devices')
         if os.path.exists(path):
             with open(path, 'r') as f:
                 while True:

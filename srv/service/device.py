@@ -8,16 +8,16 @@
 import os
 import ast
 import json
+from lib.api import mount
 from service import Service
 from db.marker import Marker
 from StringIO import StringIO
-from conf.env import PATH_MNT
-from conf.virtdev import RSYNC
 from lib.domains import DOMAIN_DEV
 from conf.route import ROUTE, AREA
+from conf.virtdev import RSYNC, HISTORY
 from base64 import b64encode, b64decode
 from lib.log import log_err, log_warnning
-from lib.util import mount_device, update_device
+from lib.util import update_device, get_mnt_path
 
 MAX_LEN = 1 << 24
 RECORD_LEN = 1 << 24
@@ -46,7 +46,7 @@ class Device(Service):
     
     def add(self, uid, node, addr, name, mode, freq, prof):
         if mode != None and prof != None:
-            mount_device(uid, name, mode, freq, prof)
+            mount(uid, name=name, mode=mode, freq=freq, prof=prof)
             self._mark(name)
         update_device(self._query, uid, node, addr, name)
         self._query.event.put(uid, name)
@@ -71,17 +71,19 @@ class Device(Service):
         if len(record) > RECORD_LEN:
             log_err(self, 'failed to put, name=%s' % str(name))
             return
-        path = os.path.join(PATH_MNT, uid, name)
+        path = get_mnt_path(uid, name)
         with open(path, 'w') as f:
             f.write(record)
-        self._query.history.put(uid, name, **fields)
+        if HISTORY:
+            self._query.history.put(uid, name, **fields)
         self._query.event.put(uid, name)
         return True
     
     def get(self, uid, name, field, item, buf):
         if RSYNC:
             sig = StringIO(b64decode(buf))
-        path = os.path.join(PATH_MNT, uid, field, name, item)
+        mnt = get_mnt_path(uid)
+        path = os.path.join(mnt, field, name, item)
         fd = os.open(path, os.O_RDONLY)
         try:
             res = os.read(fd, MAX_LEN)

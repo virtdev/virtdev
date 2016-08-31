@@ -2,7 +2,6 @@
 
 import os
 import sys
-import xattr
 import argparse
 import commands
 
@@ -11,15 +10,15 @@ _path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from lib.util import get_cmd
-from conf.env import PATH_MNT
-from lib.operations import OP_CREATE
+from lib.api import create
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-u', dest='uid', default=None)
     parser.add_argument('-p', dest='parent', default=None)
     parser.add_argument('-t', dest='device_type', default=None)
+    parser.add_argument('-s', '--supernode', action='store_true')
+    
     args = parser.parse_args(sys.argv[1:])
     uid = args.uid
     parent = args.parent
@@ -27,10 +26,14 @@ if __name__ == '__main__':
     if not uid or not device_type:
         parser.print_help()
         sys.exit()
-    attr = {}
-    attr['type'] = device_type
+    
+    if args.supernode:
+        from lib.util import set_supernode
+        set_supernode()
+    
     if parent:
-        attr['parent'] = parent
-    path = os.path.join(PATH_MNT, uid)
-    name = xattr.getxattr(path, get_cmd(OP_CREATE, attr))
-    print str(name)
+        ret = create(uid, type=device_type, parent=parent)
+    else:
+        ret = create(uid, type=device_type)
+    
+    print str(ret)

@@ -6,9 +6,8 @@
 #
 
 import os
-from conf.env import PATH_VAR
 from lib.fields import TEMP, FIELDS
-from lib.util import DIR_MODE, FILE_MODE
+from lib.util import DIR_MODE, FILE_MODE, get_var_path
 
 class Temp(object):
     def __init__(self, parent, rdonly):
@@ -30,7 +29,8 @@ class Temp(object):
         return ret
     
     def _get_dir(self, uid, field):
-        return os.path.join(PATH_VAR, uid, TEMP, FIELDS[field])
+        path = get_var_path(uid)
+        return os.path.join(path, TEMP, FIELDS[field])
     
     def _check_dir(self, uid, field):
         path = self._get_dir(uid, field)

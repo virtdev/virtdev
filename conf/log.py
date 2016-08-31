@@ -1,16 +1,12 @@
-LOG_ERR = True
-LOG_DEBUG = True
-LOG_WARNNING = True
-
 LOG_UDO = False
+LOG_STUB = True
 LOG_ATTR = False
 LOG_CORE = False
 LOG_FREQ = False
 LOG_INFO = False
 LOG_MARK = False
 LOG_MODE = False
-LOG_STUB = True
-LOG_UTIL = True
+LOG_UTIL = False
 LOG_VDFS = False
 LOG_MOUNT = False
 LOG_QUEUE = False

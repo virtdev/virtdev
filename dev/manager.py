@@ -20,12 +20,11 @@ from lib.request import Request
 from lib.modes import MODE_VISI
 from threading import Lock, Thread
 from lib.log import log_err, log_get
-from conf.env import PATH_LIB, PATH_MNT
 from conductor import Conductor, conductor
 from lib.operations import OP_OPEN, OP_CLOSE
-from conf.virtdev import LO, BT, USB, FS, SHADOW, EXPOSE, COMP
+from conf.virtdev import LO, BT, USB, FS, EXPOSE, COMP
 from conf.defaults import PROC_ADDR, FILTER_PORT, HANDLER_PORT, DISPATCHER_PORT
-from lib.util import USERNAME_SIZE, PASSWORD_SIZE, get_node, get_name, lock, named_lock
+from lib.util import USERNAME_SIZE, PASSWORD_SIZE, get_node, get_name, lock, named_lock, get_conf_path, get_mnt_path
 
 LOGIN_RETRY = 1
 CONNECT_RETRY = 1
@@ -136,7 +135,7 @@ class ChannelManager(object):
 class MemberManager(object):
     def __init__(self):
         self._lock = Lock()
-        self._path = os.path.join(PATH_LIB, get_name(conductor.uid, get_node()))
+        self._path = os.path.join(get_conf_path(), get_name(conductor.uid, get_node()))
     
     @lock
     def list(self):
@@ -197,7 +196,7 @@ class Manager(object):
         self._init()
     
     def _init(self):
-        if not FS or not SHADOW:
+        if not FS:
             return
         self._init_user()
         self._init_proc()
@@ -269,14 +268,18 @@ class Manager(object):
         self.token = token
     
     def _get_password(self):
-        path = os.path.join(PATH_LIB, 'user')
-        d = shelve.open(path)
-        try:
-            user = d['user']
-            password = d['password']
-        finally:
-            d.close()
-        return (user, password)
+        path = os.path.join(get_conf_path(), 'user')
+        if os.path.exists(path):
+            d = shelve.open(path)
+            try:
+                user = d['user']
+                password = d['password']
+                return (user, password)
+            finally:
+                d.close()
+        else:
+            from conf.user import USER, PASSWORD
+            return (USER, PASSWORD)
     
     def _login(self, user, password):
         length = len(user)
@@ -306,7 +309,7 @@ class Manager(object):
     def _start(self):
         while not self.uid:
             time.sleep(0.1)
-        path = os.path.join(PATH_MNT, self.uid)
+        path = get_mnt_path(self.uid)
         while not os.path.exists(path):
             time.sleep(0.1)
         for device in self.devices:

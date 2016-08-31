@@ -2,24 +2,23 @@
 
 import os
 import sys
-import xattr
-import argparse
 import commands
+import argparse
 
 _bin = commands.getoutput('readlink -f %s' % sys.argv[0])
 _path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from lib.util import get_cmd
-from conf.env import PATH_MNT
-from lib.operations import OP_COMBINE
+from lib.api import combine
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-u', dest='uid', default=None)
     parser.add_argument('-t', dest='timeout', default=None)
+    parser.add_argument('-s', '--supernode', action='store_true')
     parser.add_argument('-d', nargs='+', dest='device', default=None)
+    
     args = parser.parse_args(sys.argv[1:])
     uid = args.uid
     device = args.device
@@ -27,10 +26,14 @@ if __name__ == '__main__':
     if not uid or not device:
         parser.print_help()
         sys.exit()
-    attr = {}
+    
+    if args.supernode:
+        from lib.util import set_supernode
+        set_supernode()
+    
     if timeout:
-        attr['timeout'] = timeout
-    attr['vertex'] = device
-    path = os.path.join(PATH_MNT, uid)
-    name = xattr.getxattr(path, get_cmd(OP_COMBINE, attr))
-    print(str(name))
+        ret = combine(uid, timeout=timeout, vertex=device)
+    else:
+        ret = combine(uid, vertex=device)
+    
+    print(str(ret))

@@ -9,7 +9,6 @@ import os
 import ast
 import sys
 import uuid
-import xattr
 import psutil
 import struct
 import commands
@@ -21,7 +20,6 @@ from socket import inet_aton
 from datetime import datetime
 from pynetlinux.ifconfig import Interface
 from SocketServer import ThreadingTCPServer
-from operations import OP_MOUNT, OP_INVALIDATE
 from fields import FIELDS, FIELD_DATA, DATA, ATTR
 from netifaces import AF_INET, interfaces, ifaddresses
 
@@ -32,7 +30,7 @@ sys.path.append(_dir)
 
 from conf.log import LOG_UTIL
 from conf.virtdev import IFNAME
-from conf.env import PATH_MNT, PATH_VAR
+from conf.env import PATH_MNT, PATH_VAR, PATH_CONF
 
 UID_SIZE = 32
 TOKEN_SIZE = 32
@@ -50,6 +48,52 @@ INFO = ['mode', 'type', 'freq', 'spec']
 
 _node = None
 _ifaddr = None
+_mnt = PATH_MNT
+
+def set_mnt_path(path):
+    if not path or path.startswith('/'):
+        raise Exception('failed to set mnt')
+    global _mnt
+    _mnt = path
+
+def set_edgenode():
+    from conf.defaults import MNT_EDGENODE
+    set_mnt_path(MNT_EDGENODE)
+
+def set_supernode():
+    from conf.defaults import MNT_SUPERNODE
+    set_mnt_path(MNT_SUPERNODE)
+
+def get_dir():
+    return _dir
+
+def get_conf_path():
+    if PATH_CONF.startswith('/'):
+        return PATH_CONF
+    else:
+        return os.path.join(get_dir(), PATH_CONF)
+
+def get_mnt_path(uid=None, name=None):
+    if PATH_MNT.startswith('/'):
+        path = PATH_MNT
+    else:
+        path = os.path.join(get_dir(), _mnt)
+    
+    if uid:
+        path = os.path.join(path, uid)
+        if name:
+            path = os.path.join(path, name)
+    return path
+
+def get_var_path(uid=None):
+    if PATH_VAR.startswith('/'):
+        path = PATH_VAR
+    else:
+        path = os.path.join(get_dir(), PATH_VAR)
+        
+    if uid:
+        path = os.path.join(path, uid)
+    return path
 
 def get_network(ifname):
     iface = ifaddresses(ifname)[AF_INET][0]
@@ -95,9 +139,6 @@ def get_devices(uid, name='', field='', sort=False):
     else:
         key = lambda f: os.stat(os.path.join(path, f)).st_mtime
         return sorted(os.listdir(path), key=key)
-
-def get_dir():
-    return _dir
 
 def gen_uid():
     return uuid.uuid4().hex
@@ -181,24 +222,12 @@ def close_port(port):
     cmd = 'lsof -i:%d -Fp | cut -c2- | xargs --no-run-if-empty kill -9 2>/dev/null' % port
     os.system(cmd)
 
-def mount(uid, attr):
-    path = os.path.join(PATH_MNT, uid)
-    xattr.setxattr(path, OP_MOUNT, str(attr))
-
-def mount_device(uid, name, mode, freq, prof):
-    attr = {}
-    attr.update({'name':name})
-    attr.update({'mode':mode})
-    attr.update({'freq':freq})
-    attr.update({'prof':prof})
-    mount(uid, attr)
-
 def update_device(query, uid, node, addr, name):
     query.device.put(name, {'uid':uid, 'addr':addr, 'node':node})
     query.member.delete(uid, (name,))
     query.member.put(uid, (name, node))
 
-def device_sync(manager, name, buf):
+def save_device(manager, name, buf):
     if type(buf) != str and type(buf) != unicode:
         buf = str(buf)
     path = os.path.join(PATH_VAR, manager.uid, DATA, name)
@@ -218,12 +247,6 @@ def device_info(buf):
         return info
     except:
         pass
-
-def touch(path):
-    call('touch', path)
-
-def invalidate(path):
-    xattr.setxattr(path, OP_INVALIDATE, "", symlink=True)
 
 def is_local(uid, name):
     path = os.path.join(PATH_VAR, uid, ATTR, name)

@@ -19,7 +19,7 @@ from threading import Event, Thread
 from attr.dispatcher import Dispatcher
 from lib.fields import FIELD_EDGE, FIELD_VRTX
 from lib.log import log_debug, log_err, log_get
-from lib.util import named_lock, get_devices, device_sync
+from lib.util import named_lock, get_devices, save_device
 from lib.operations import OP_GET, OP_PUT, OP_OPEN, OP_CLOSE
 from lib.modes import MODE_VIRT, MODE_SWITCH, MODE_IN, MODE_OUT, MODE_REFLECT, MODE_CLONE
 
@@ -362,6 +362,6 @@ class Core(object):
                 self._dispatcher.sendto(src, dest, res, hidden=True, flags=flags)
         return True
     
-    def sync(self, name, buf):
-        device_sync(self._manager, name, buf)
-        self._log('sync, name=%s' % name)
+    def save(self, name, buf):
+        save_device(self._manager, name, buf)
+        self._log('save, name=%s' % name)

@@ -24,8 +24,8 @@ from conf.log import LOG_VDFS
 from lib.loader import Loader
 from lib.lock import NamedLock
 from dev.manager import Manager
-from conf.virtdev import EXPOSE
 from lib.log import log_debug, log_err
+from conf.virtdev import EXPOSE, HISTORY
 from fuse import FuseOSError, Operations
 from dev.interface.lo import device_name
 from lib.util import DIR_MODE, named_lock
@@ -221,7 +221,7 @@ class VDFS(Operations):
     
     def _init(self, uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout):
         if not typ:
-            log_err(self, 'failed to initialize device, no type, name=%s' % str(name))
+            log_err(self, 'failed to initialize, no type, name=%s' % str(name))
             raise FuseOSError(EINVAL)
         
         link = mode & MODE_LINK
@@ -229,7 +229,7 @@ class VDFS(Operations):
             mode &= ~MODE_LINK
         
         if mode & MODE_CLONE and not parent:
-            log_err(self, 'failed to initialize device, no parent, name=%s' % str(name))
+            log_err(self, 'failed to initialize, no parent, name=%s' % str(name))
             raise FuseOSError(EINVAL)
         
         if not mode & MODE_VIRT:
@@ -239,7 +239,7 @@ class VDFS(Operations):
             if self._shadow:
                 driver = load_driver(typ)
                 if not driver:
-                    log_err(self, 'failed to initialize device, cannot load driver %s, name=%s' % (typ, str(name)))
+                    log_err(self, 'failed to initialize, cannot load driver %s, name=%s' % (typ, str(name)))
                     raise FuseOSError(EINVAL)
                 
                 if mode & MODE_CLONE:
@@ -277,7 +277,7 @@ class VDFS(Operations):
         
         if vrtx:
             if mode & MODE_CLONE:
-                log_err(self, 'failed to initialize device, cannot set vertex for a cloned device, name=%s' % str(name))
+                log_err(self, 'failed to initialize, cannot set vertex for a cloned device, name=%s' % str(name))
                 raise FuseOSError(EINVAL)
             
             self._vrtx.initialize(uid, name, vrtx)
@@ -287,13 +287,13 @@ class VDFS(Operations):
         if not self._shadow:
             if not link:
                 if not self._link.mount(uid, name, mode, vrtx, typ, parent, timeout):
-                    log_err(self, 'failed to initialize device, link error, name=%s' % str(name))
+                    log_err(self, 'failed to initialize, link error, name=%s' % str(name))
                     raise FuseOSError(EINVAL)
         else:
             if link and not mode & MODE_CLONE:
                 self._manager.create(device_name(typ, name, mode), init=False)
     
-    def _mount_device(self, uid, name, mode, vrtx, parent, freq=None, prof=None, hndl=None, filt=None, disp=None, typ=None, timeout=None):
+    def _do_mount(self, uid, name, mode, vrtx, parent, freq=None, prof=None, hndl=None, filt=None, disp=None, typ=None, timeout=None):
         if not name:
             name = uuid.uuid4().hex
         
@@ -302,7 +302,7 @@ class VDFS(Operations):
                 mode |= MODE_LINK
             
             if not self._link.put(name=name, op=OP_ADD, mode=mode, freq=freq, prof=prof):
-                log_err(self, 'failed to mount device, link error, op=OP_ADD, name=%s' % str(name))
+                log_err(self, 'failed to mount, link error, op=OP_ADD, name=%s' % str(name))
                 raise FuseOSError(EINVAL)
         
         if mode != None:
@@ -359,7 +359,7 @@ class VDFS(Operations):
             log_err(self, 'failed to mount, invalid timeout, name=%s' % str(name))
             raise FuseOSError(EINVAL)
         
-        self._mount_device(uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout)
+        self._do_mount(uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout)
     
     def getattr(self, path, fh=None):
         obj, uid, name = self._parse(path)
@@ -489,7 +489,7 @@ class VDFS(Operations):
             log_err(self, 'failed to create device, invalid parent, parent=%s' % str(parent))
             raise FuseOSError(EINVAL)
         
-        return self._mount_device(uid, None, mode, vrtx, parent, typ=typ, timeout=timeout)
+        return self._do_mount(uid, None, mode, vrtx, parent, typ=typ, timeout=timeout)
     
     def _enable(self, path):
         obj, uid, name = self._parse(path)
@@ -558,7 +558,7 @@ class VDFS(Operations):
     
     def _scan(self, path):
         result = ''
-        if self._shadow:
+        if not HISTORY or self._shadow:
             return result
         obj, uid, name = self._parse(path)
         if not obj or not obj.can_scan():

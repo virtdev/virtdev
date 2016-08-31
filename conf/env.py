@@ -1,3 +1,3 @@
-PATH_LIB = '/var/lib/vdev'
-PATH_MNT = '/mnt/vdev'
-PATH_VAR = '/vdev'
+PATH_MNT = 'mnt'
+PATH_VAR = 'var'
+PATH_CONF = 'conf'
