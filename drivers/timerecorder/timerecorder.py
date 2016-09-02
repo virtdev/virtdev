@@ -12,15 +12,14 @@ from dev.driver import Driver, check_input
 
 PRINT = False
 INTERVAL = 1
-HOME_TIMER = '/opt/timer'
-HOME_RECORDER = '/opt/timerecorder'
+HOME_TIMER = '~/vdev/dev/timer'
+HOME_RECORDER = '~/vdev/dev/timerecorder'
 
 class TimeRecorder(Driver):
     def setup(self):
         if self.get_name():
             path = os.path.join(HOME_RECORDER, self.get_name())
-            if not os.path.exists(path):
-                os.makedirs(path, 0o755)
+            os.system('mkdir -p %s' % path)
         self._cnt = {}
     
     def _get_timer_path(self, timer, name):

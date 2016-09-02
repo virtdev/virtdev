@@ -1,3 +1,3 @@
-PATH_MNT = 'mnt'
-PATH_VAR = 'var'
-PATH_CONF = 'conf'
+PATH_MNT = '~/vdev/mnt'
+PATH_VAR = '~/vdev/var'
+PATH_CONF = '~/vdev/conf'

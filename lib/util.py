@@ -11,6 +11,7 @@ import sys
 import uuid
 import psutil
 import struct
+import getpass
 import commands
 import subprocess
 import collections
@@ -49,9 +50,11 @@ INFO = ['mode', 'type', 'freq', 'spec']
 _node = None
 _ifaddr = None
 _mnt = PATH_MNT
+_var = PATH_VAR
+_conf = PATH_CONF
 
 def set_mnt_path(path):
-    if not path or path.startswith('/'):
+    if not path:
         raise Exception('failed to set mnt')
     global _mnt
     _mnt = path
@@ -67,18 +70,47 @@ def set_supernode():
 def get_dir():
     return _dir
 
-def get_conf_path():
-    if PATH_CONF.startswith('/'):
-        return PATH_CONF
+def _readlink(path):
+    if path.startswith('..'):
+        home = commands.getoutput('readlink -f ..')
+        path = path[2:]
+    elif path.startswith('.'):
+        home = commands.getoutput('readlink -f %s' % path[0])
+        path = path[1:]
+    elif path.startswith('~'):
+        user = getpass.getuser()
+        if user == 'root':
+            home = '/root'
+        else:
+            home = os.path.join('/home', user)
+        path = path[1:]
     else:
-        return os.path.join(get_dir(), PATH_CONF)
+        if not path.startswith('/'):
+            return os.path.join(get_dir(), path)
+        else:
+            return path
+    
+    if not path.startswith('/'):
+        raise Exception('Error: failed to read link')
+    
+    path = path[1:]
+    if path.startswith('.') or path.startswith('/'):
+        raise Exception('Error: failed to read link')
+    
+    return os.path.join(home, path)
+
+def get_conf_path():
+    global _conf
+    path = _readlink(_conf)
+    if _conf != path:
+        _conf = path
+    return path
 
 def get_mnt_path(uid=None, name=None):
-    if PATH_MNT.startswith('/'):
-        path = PATH_MNT
-    else:
-        path = os.path.join(get_dir(), _mnt)
-    
+    global _mnt
+    path = _readlink(_mnt)
+    if _mnt != path:
+        _mnt = path
     if uid:
         path = os.path.join(path, uid)
         if name:
@@ -86,11 +118,10 @@ def get_mnt_path(uid=None, name=None):
     return path
 
 def get_var_path(uid=None):
-    if PATH_VAR.startswith('/'):
-        path = PATH_VAR
-    else:
-        path = os.path.join(get_dir(), PATH_VAR)
-        
+    global _var
+    path = _readlink(_var)
+    if _var != path:
+        _var = path
     if uid:
         path = os.path.join(path, uid)
     return path
@@ -327,3 +358,7 @@ def sigkill(pid):
 
 def status_zobie(pid):
     return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+
+def mkdir(path):
+    os.system('mkdir -p %s' % path)
+

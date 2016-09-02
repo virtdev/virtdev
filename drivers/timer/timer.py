@@ -11,7 +11,7 @@ from datetime import datetime
 from dev.driver import Driver, check_input
 
 PRINT = False
-HOME = '/opt/timer'
+HOME = '~/vdev/dev/timer'
 
 class Timer(Driver):
     def _get_dir(self):
@@ -23,8 +23,7 @@ class Timer(Driver):
     def setup(self):
         if self.get_name():
             path = self._get_dir()
-            if not os.path.exists(path):
-                os.makedirs(path, 0o755)
+            os.system('mkdir -p %s' % path)
     
     def _save(self, name):
         t = str(datetime.utcnow())

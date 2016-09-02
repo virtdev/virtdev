@@ -11,12 +11,11 @@ from threading import Thread
 from dev.driver import Driver, check_output
 
 PRINT = False
-HOME = "/opt/downloads"
+HOME = "~/vdev/dev/downloader"
 
 class Downloader(Driver):
     def setup(self):
-        if not os.path.exists(HOME):
-            os.makedirs(HOME, 0o755)
+        os.system('mkdir -p %s' % HOME)
     
     def _do_download(self, url):
         try:

@@ -11,13 +11,12 @@ from lib.log import log_err
 from fuse import FuseOSError
 from errno import EINVAL, ENOENT
 from lib.fields import FIELDS, FIELD_DATA, FIELD_ATTR
-from lib.util import get_temp, get_mnt_path, get_var_path
+from lib.util import get_temp, get_mnt_path, get_var_path, mkdir
 
 class Entry(object):
     def __init__(self, router=None, core=None):
         path = get_var_path()
-        if not os.path.exists(path):
-            os.mkdir(path)
+        mkdir(path)
         
         name = self._get_name()
         if name in FIELDS:

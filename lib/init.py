@@ -17,7 +17,7 @@ from lib.protocols import PROTOCOL_WRTC
 from lib.domains import DOMAIN_DEV, DOMAIN_USR
 from conf.virtdev import LO, FS, SHADOW, IFBACK, EXPOSE, GATEWAY_SERVERS, BRIDGE_SERVERS
 from conf.meta import DISTRIBUTOR, META_SERVERS, CACHE_SERVERS, BROKER_SERVERS, WORKER_SERVERS
-from lib.util import start_servers, wait_servers, stop_servers, ifaddr, get_conf_path, get_mnt_path
+from lib.util import start_servers, wait_servers, stop_servers, ifaddr, get_conf_path, get_mnt_path, mkdir
 from conf.route import ROUTE, MASTER_ADDR, DATA_SERVER, USR_FINDER, USR_MAPPER, DEV_FINDER, DEV_MAPPER, DATA_SERVERS
 
 def _clean_fs():
@@ -139,12 +139,10 @@ def _initialize(query, router, edgenode, supernode):
     
     mnt = get_mnt_path()
     _unmount(mnt)
-    if not os.path.exists(mnt):
-        os.makedirs(mnt, 0o755)
+    mkdir(mnt)
     
     conf = get_conf_path()
-    if not os.path.exists(conf):
-        os.makedirs(conf, 0o755)
+    mkdir(conf)
     
     if LOG_MOUNT:
         log('starting vdfs ...')

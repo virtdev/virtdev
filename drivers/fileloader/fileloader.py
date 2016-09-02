@@ -10,7 +10,7 @@ from base64 import b64encode
 from dev.driver import Driver
 from lib.modes import MODE_OVP, MODE_SWITCH
 
-HOME = '/opt/fileloader'
+HOME = '~/vdev/dev/fileloader'
 
 class FileLoader(Driver):
     def __init__(self, name=None):
@@ -19,8 +19,8 @@ class FileLoader(Driver):
     def setup(self):
         if self.get_name():
             path = self._get_path()
-            if not os.path.exists(path):
-                os.makedirs(path, 0o755)
+            os.system('mkdir -p %s' % path)
+        
         self._files = None
         self._active = False
     
