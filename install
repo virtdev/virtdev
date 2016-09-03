@@ -1,6 +1,7 @@
-#!/bin/sh
+#!/bin/bash
 
-if [ $# = 0 ]; then
+function install_edgenode()
+{
 	dhcpd=`which dhcpd`
 	if [ "$dhcpd" != "" ]; then
 		apt-get install -y isc-dhcp-server
@@ -76,7 +77,10 @@ if [ $# = 0 ]; then
 		TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
 		pip install --upgrade $TF_BINARY_URL
 	fi
-elif [ $# = 1 -a $1 = "-s" ]; then
+}
+
+function install_supernode()
+{
 	dhcpd=`which dhcpd`
 	if [ "$dhcpd" != "" ]; then
 		apt-get install -y isc-dhcp-server
@@ -126,28 +130,42 @@ elif [ $# = 1 -a $1 = "-s" ]; then
 	pip install xattr
 	pip install zerorpc
 	pip install leveldb
+}
+
+function install_nodejs()
+{
+	curl -sL https://deb.nodesource.com/setup_6.x | bash -
+	apt-get install -y nodejs
+	if [ ! -f /usr/bin/node ]; then
+		ln -s /usr/bin/nodejs /usr/bin/node
+	fi
+	
+	CURRENT=`pwd`
+	FILENAME=`readlink -f $0`
+	INST=`/usr/bin/dirname $FILENAME`
+	cd $INST
+	npm install ws
+	npm install websocket
+	npm install crypto
+	npm install mqtt
+	npm install electron-webrtc
+	npm install simple-peer
+	npm install node-uuid
+	npm install zerorpc
+	cd $CURRENT
+}
+
+if [ $# = 0 ]; then
+	install_edgenode;
+elif [ $# = 1 -a $1 = "-s" ]; then
+	install_supernode;
+elif [ $# = 1 -a $1 = "-a" ]; then
+	install_edgenode;
+	intsall_supernode;
 else
 	echo "usage: $0 [-s]"
 	echo "-s: server installation"
 	exit
 fi
 
-curl -sL https://deb.nodesource.com/setup_6.x | bash -
-apt-get install -y nodejs
-if [ ! -f /usr/bin/node ]; then
-	ln -s /usr/bin/nodejs /usr/bin/node
-fi
-
-CURRENT=`pwd`
-FILENAME=`readlink -f $0`
-INST=`/usr/bin/dirname $FILENAME`
-cd $INST
-npm install ws
-npm install websocket
-npm install crypto
-npm install mqtt
-npm install electron-webrtc
-npm install simple-peer
-npm install node-uuid
-npm install zerorpc
-cd $CURRENT
+install_nodejs;
