@@ -1,12 +1,15 @@
 #!/bin/sh
 
 if [ $# = 0 ]; then
+	dhcpd=`which dhcpd`
+	if [ "$dhcpd" != "" ]; then
+		apt-get install -y isc-dhcp-server
+	fi
 	apt-get install -y fuse
 	apt-get install -y bluez
 	apt-get install -y bluetooth
 	apt-get install -y bluez-tools
 	apt-get install -y build-essential
-	apt-get install -y isc-dhcp-server
 	apt-get install -y libbluetooth-dev
 	apt-get install -y libopencv-dev
 	apt-get install -y librsync-dev
@@ -30,7 +33,7 @@ if [ $# = 0 ]; then
 	apt-get install -y python-scipy
 	apt-get install -y python-zbar
 	apt-get install -y xvfb
-	
+
 	pip install fusepy
 	pip install gensim
 	pip install hash_ring
@@ -57,26 +60,29 @@ if [ $# = 0 ]; then
 	pip install wget
 	pip install xattr
 	pip install zerorpc
-	
+
 	ARCH=`arch`
 	if [  $ARCH = "i386" ]; then
 		echo "TensorFlow cannot be installed (i386 is not supported)"
 		exit
 	fi
-	
+
 	if [ $ARCH = "armv7l" ]; then
 		TF_BINARY_URL=https://github.com/samjabrahams/tensorflow-on-raspberry-pi/raw/master/bin/tensorflow-0.9.0-cp27-none-linux_armv7l.whl
 		pip install --upgrade $TF_BINARY_URL
 	fi
-	
+
 	if [ $ARCH = "x86_64" ]; then
 		TF_BINARY_URL=https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow-0.9.0rc0-cp27-none-linux_x86_64.whl
 		pip install --upgrade $TF_BINARY_URL
-	fi	
+	fi
 elif [ $# = 1 -a $1 = "-s" ]; then
+	dhcpd=`which dhcpd`
+	if [ "$dhcpd" != "" ]; then
+		apt-get install -y isc-dhcp-server
+	fi
 	apt-get install -y fuse
 	apt-get install -y build-essential
-	apt-get install -y isc-dhcp-server
 	apt-get install -y libkrb5-dev
 	apt-get install -y librsync-dev
 	apt-get install -y libsasl2-dev
@@ -96,7 +102,7 @@ elif [ $# = 1 -a $1 = "-s" ]; then
 	apt-get install -y python-numpy
 	apt-get install -y python-pip
 	apt-get install -y xvfb
-	
+
 	pip install fusepy
 	pip install hdfs
 	pip install happybase
