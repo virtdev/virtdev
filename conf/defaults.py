@@ -22,4 +22,6 @@ NOTIFIER_ADDR = '127.0.0.1'
 CHANNEL_EVENT_ADDR = '127.0.0.1'
 
 MNT_EDGENODE = '~/vdev/mnt/edge'
+VAR_EDGENODE = '~/vdev/var/edge'
 MNT_SUPERNODE = '~/vdev/mnt/super'
+VAR_SUPERNODE = '~/vdev/var/super'

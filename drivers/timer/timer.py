@@ -8,6 +8,7 @@
 import os
 import shelve
 from datetime import datetime
+from lib.util import readlink
 from dev.driver import Driver, check_input
 
 PRINT = False
@@ -15,15 +16,15 @@ HOME = '~/vdev/dev/timer'
 
 class Timer(Driver):
     def _get_dir(self):
-        return os.path.join(HOME, self.get_name())
+        path = os.path.join(HOME, self.get_name())
+        return readlink(path)
     
     def _get_path(self, name):
         return os.path.join(self._get_dir(), name)
     
     def setup(self):
-        if self.get_name():
-            path = self._get_dir()
-            os.system('mkdir -p %s' % path)
+        path = self._get_dir()
+        os.system('mkdir -p %s' % path)
     
     def _save(self, name):
         t = str(datetime.utcnow())

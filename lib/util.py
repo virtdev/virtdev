@@ -55,22 +55,30 @@ _conf = PATH_CONF
 
 def set_mnt_path(path):
     if not path:
-        raise Exception('failed to set mnt')
+        raise Exception('failed to set mnt path')
     global _mnt
     _mnt = path
+    
+def set_var_path(path):
+    if not path:
+        raise Exception('failed to set var path')
+    global _var
+    _var = path
 
 def set_edgenode():
-    from conf.defaults import MNT_EDGENODE
+    from conf.defaults import MNT_EDGENODE, VAR_EDGENODE
     set_mnt_path(MNT_EDGENODE)
+    set_var_path(VAR_EDGENODE)
 
 def set_supernode():
-    from conf.defaults import MNT_SUPERNODE
+    from conf.defaults import MNT_SUPERNODE, VAR_SUPERNODE
     set_mnt_path(MNT_SUPERNODE)
+    set_var_path(VAR_SUPERNODE)
 
 def get_dir():
     return _dir
 
-def _readlink(path):
+def readlink(path):
     if path.startswith('..'):
         home = commands.getoutput('readlink -f ..')
         path = path[2:]
@@ -101,14 +109,14 @@ def _readlink(path):
 
 def get_conf_path():
     global _conf
-    path = _readlink(_conf)
+    path = readlink(_conf)
     if _conf != path:
         _conf = path
     return path
 
 def get_mnt_path(uid=None, name=None):
     global _mnt
-    path = _readlink(_mnt)
+    path = readlink(_mnt)
     if _mnt != path:
         _mnt = path
     if uid:
@@ -119,7 +127,7 @@ def get_mnt_path(uid=None, name=None):
 
 def get_var_path(uid=None):
     global _var
-    path = _readlink(_var)
+    path = readlink(_var)
     if _var != path:
         _var = path
     if uid:
@@ -155,14 +163,15 @@ def get_temp(path):
 
 def get_devices(uid, name='', field='', sort=False):
     if not name and not field:
-        path = os.path.join(PATH_MNT, uid)
+        path = get_mnt_path(uid)
     else:
         if not field:
             field = FIELD_DATA
         elif not FIELDS.get(field):
             log_err(None, 'invalid filed %s' % str(field))
             return
-        path = os.path.join(PATH_MNT, uid, field, name)
+        mnt = get_mnt_path(uid)
+        path = os.path.join(mnt, field, name)
     if not os.path.exists(path):
         return
     if not sort:
@@ -261,7 +270,7 @@ def update_device(query, uid, node, addr, name):
 def save_device(manager, name, buf):
     if type(buf) != str and type(buf) != unicode:
         buf = str(buf)
-    path = os.path.join(PATH_VAR, manager.uid, DATA, name)
+    path = os.path.join(get_var_path(manager.uid), DATA, name)
     with open(path, 'wb') as f:
         f.write(buf)
     manager.device.put(name, buf)
@@ -280,7 +289,7 @@ def device_info(buf):
         pass
 
 def is_local(uid, name):
-    path = os.path.join(PATH_VAR, uid, ATTR, name)
+    path = os.path.join(get_var_path(uid), ATTR, name)
     return os.path.exists(path)
 
 def start_servers(servers):
