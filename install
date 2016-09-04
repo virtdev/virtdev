@@ -161,7 +161,7 @@ elif [ $# = 1 -a $1 = "-s" ]; then
 	install_supernode;
 elif [ $# = 1 -a $1 = "-a" ]; then
 	install_edgenode;
-	intsall_supernode;
+	install_supernode;
 else
 	echo "usage: $0 [-s]"
 	echo "-s: server installation"
