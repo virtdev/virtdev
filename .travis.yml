@@ -69,6 +69,7 @@ services:
   - mongodb
 
 before_script:
+  - mongo 127.0.0.1 test --eval 'db.user.update({"user":"test"}, {$set:{"user":"test", "password":"00000000000000000000000000000000", "uid":"00000000000000000000000000000000"}}, true, false)'
   - sleep 5
   - sudo bin/virtdev -s &
   - sleep 5
