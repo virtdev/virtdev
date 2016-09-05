@@ -149,18 +149,9 @@ def _initialize(query, router, edgenode, supernode):
     
     FUSE(VDFS(query, router), mnt, foreground=True)
 
-def _check_user(addr):
-    from db.interface.module.mongo import Mongo
-    db = Mongo('user')
-    conn = db.connect(addr)
-    if not db.get(conn, 'user'):
-        from conf.user import UID, USER, PASSWORD
-        db.put(conn, {'user':USER}, {'user':USER, 'password':PASSWORD, 'uid':UID}, create=True)
-
 def _init_supernode():
     servers = []
     addr = '127.0.0.1'
-    _check_user(addr)
     
     from srv.broker import Broker
     servers.append(Broker(addr, addr))
