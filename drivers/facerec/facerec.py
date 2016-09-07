@@ -10,7 +10,7 @@ import numpy
 from PIL import Image
 from base64 import b64decode
 from StringIO import StringIO
-from dev.driver import Driver, check_output
+from dev.driver import Driver, wrapper
 
 PRINT = False
 RESIZE = False
@@ -40,9 +40,9 @@ class FaceRec(Driver):
             if PRINT:
                 print('FaceRec: failed to recognize')
     
-    @check_output
-    def put(self, args):
-        image = args.get('content')
+    @wrapper
+    def put(self, *args, **kwargs):
+        image = kwargs.get('content')
         if self._recognize(image):
             return {'enable':'true'}
         else:

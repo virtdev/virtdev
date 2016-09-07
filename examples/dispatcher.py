@@ -1,5 +1,5 @@
-def func(args):
-    if args and type(args) == dict:
+def func(**args):
+    if args and len(args) >= 3:
         cnt = 0
         res = [[] for _ in range(3)]
         for i in args:

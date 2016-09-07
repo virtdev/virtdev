@@ -7,7 +7,7 @@
 
 from base64 import b64decode
 from textblob import TextBlob
-from dev.driver import Driver, check_output
+from dev.driver import Driver, wrapper
 
 PRINT = False
 
@@ -24,9 +24,9 @@ class Blob(Driver):
         else:
             return (None, None)
     
-    @check_output
-    def put(self, args):
-        text = args.get('content')
+    @wrapper
+    def put(self, *args, **kwargs):
+        text = kwargs.get('content')
         if text:
             polarity, subjectivity = self._get_sentiment(text)
             if polarity != None and subjectivity != None:

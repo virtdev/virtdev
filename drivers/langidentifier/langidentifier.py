@@ -7,7 +7,7 @@
 
 import langid
 from base64 import b64decode
-from dev.driver import Driver, check_output
+from dev.driver import Driver, wrapper
 
 PRINT = False
 
@@ -21,9 +21,9 @@ class LangIdentifiyer(Driver):
                 print('LangIdentifier: lang=%s' % lang)
             return lang
     
-    @check_output
-    def put(self, args):
-        text = args.get('content')
+    @wrapper
+    def put(self, *args, **kwargs):
+        text = kwargs.get('content')
         if text:
             lang = self._get_lang(text)
             if lang:

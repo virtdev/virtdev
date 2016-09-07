@@ -44,6 +44,6 @@ class Handler(object):
                 code = self._get_code(name)
                 if not code:
                     return
-            return proc.put(self._addr, HANDLER_PORT, code=code, args=buf)
+            return proc.put(self._addr, HANDLER_PORT, code, buf)
         except:
             log_err(self, 'failed to put')

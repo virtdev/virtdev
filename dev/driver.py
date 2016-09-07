@@ -6,7 +6,6 @@
 #
 
 import os
-import ast
 import imp
 from lib.util import get_dir
 from lib.modes import MODE_IV, MODE_POLL, MODE_TRIG, MODE_CTRL
@@ -14,43 +13,21 @@ from lib.modes import MODE_IV, MODE_POLL, MODE_TRIG, MODE_CTRL
 FREQ_MIN = 0.1 # HZ
 FREQ_MAX = 100 # HZ
 
-def _get_arguments(buf):
-    try:
-        args = ast.literal_eval(buf)
-        if type(args) != dict:
-            return
-        return args
-    except:
-        pass
-
 def need_freq(mode):
     return mode & MODE_POLL or (mode & MODE_TRIG and mode & MODE_CTRL)
 
-def check_input(func):
-    def _check_input(*args, **kwargs):
-        self = args[0]
-        buf = args[1]
-        arguments = _get_arguments(buf)
-        if arguments:
-            return func(self, arguments)
-    return _check_input
-
-def check_output(func):
-    def _check_output(*args, **kwargs):
-        self = args[0]
-        buf = args[1]
-        arguments = _get_arguments(buf)
-        if arguments:
-            ret = func(self, arguments)
-            if ret and type(ret) == dict:
-                name = arguments.get('name')
-                if name:
-                    ret.update({'name':name})
-                timer = arguments.get('timer')
-                if timer:
-                    ret.update({'timer':timer})
-                return ret
-    return _check_output
+def wrapper(func):
+    def _wrapper(*args, **kwargs):
+        ret = func(*args, **kwargs)
+        if ret and type(ret) == dict:
+            name = kwargs.get('name')
+            if name:
+                ret.update({'name':name})
+            timer = kwargs.get('timer')
+            if timer:
+                ret.update({'timer':timer})
+            return ret
+    return _wrapper
 
 def load_driver(typ, name=None):
     try:
@@ -93,13 +70,10 @@ class Driver(object):
     def close(self):
         pass
     
-    def put(self, buf):
-        pass
-    
     def get(self):
         pass
     
-    def evaluate(self):
+    def put(self, *args, **args):
         pass
     
     def set_index(self, index):

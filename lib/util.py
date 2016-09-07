@@ -370,4 +370,3 @@ def status_zobie(pid):
 
 def mkdir(path):
     os.system('mkdir -p %s' % path)
-

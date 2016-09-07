@@ -8,9 +8,9 @@
 from base64 import b64decode
 from gensim import corpora, models
 from stop_words import get_stop_words
+from dev.driver import Driver, wrapper
 from nltk.tokenize import RegexpTokenizer
 from nltk.stem.porter import PorterStemmer
-from dev.driver import Driver, check_output
 
 PRINT = False
 NR_WORDS = 4
@@ -36,9 +36,9 @@ class Topic(Driver):
                 print('Topic: topics=%s' % topics)
             return topics
     
-    @check_output
-    def put(self, args):
-        text = args.get('content')
+    @wrapper
+    def put(self, *args, **kwargs):
+        text = kwargs.get('content')
         if text:
             topics = self._get_topics(text)
             if topics:

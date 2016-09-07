@@ -1,4 +1,5 @@
-def func(args):
-    if args and type(args) == dict:
-        k = args.keys()[0]
-        return {k:args[k]}
+def func(**args):
+    if args:
+        key = args.keys()[0]
+        args = {key:args[key]}
+    return args

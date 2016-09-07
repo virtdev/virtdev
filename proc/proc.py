@@ -15,10 +15,13 @@ from lib.util import unicode2str, create_server
 
 _manager = None
 
-def put(addr, port, **args):
+def put(addr, port, code, args):
+    if not code or type(args) != dict:
+        raise Exception('Error: cannot process')
+    
     sock = io.connect(addr, port)
     try:
-        buf = bson.dumps(args)
+        buf = bson.dumps({'code':code, 'args':args})
         io.send_pkt(sock, buf)
         res = io.recv_pkt(sock)
         return unicode2str(bson.loads(res)[''])
@@ -50,19 +53,18 @@ def _getiter_(obj):
     else:
         raise RuntimeError('invalid object')
 
-def _exec(device, code, args):
+def _exec(device, code, **args):
     try:
         if device:
-            return device.execute(code, args)
+            return device.execute(code, **args)
         else:
             func = None
             res = compile_restricted(code, '<string>', 'exec')
             exec(res)
             if func:
-                return func(args)
+                return func(**args)
     except:
         log_err(None, 'failed to execute')
-
 
 class ProcServer(BaseRequestHandler):
     def handle(self):
@@ -73,7 +75,7 @@ class ProcServer(BaseRequestHandler):
                 req = unicode2str(bson.loads(buf))
                 if type(req) == dict:
                     device = _manager.compute_unit
-                    ret = _exec(device, req['code'], req['args'])
+                    ret = _exec(device, req['code'], **req['args'])
                     if ret:
                         res = ret
             io.send_pkt(self.request, bson.dumps({'':res}))
@@ -90,3 +92,4 @@ class Proc(object):
     
     def start(self):
         Thread(target=create_server, args=(self._addr, self._port, ProcServer)).start()
+

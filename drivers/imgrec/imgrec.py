@@ -5,16 +5,16 @@
 # Distributed under the terms of the MIT license.
 #
 
-from dev.driver import Driver, check_output
+from dev.driver import Driver, wrapper
 from classify_image import maybe_download_and_extract, recognize
 
 class ImgRec(Driver):
     def setup(self):
         maybe_download_and_extract()
     
-    @check_output
-    def put(self, args):
-        image = args.get('content')
+    @wrapper
+    def put(self, *args, **kwargs):
+        image = kwargs.get('content')
         res = recognize(image)
         if res:
             return {'objects':res}

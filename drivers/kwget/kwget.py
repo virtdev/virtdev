@@ -8,7 +8,7 @@
 import os
 from RAKE import Rake
 from base64 import b64decode
-from dev.driver import Driver, check_output
+from dev.driver import Driver, wrapper
 
 PRINT = False
 STOPWORDS = 'stoplist'
@@ -25,9 +25,10 @@ class KWGet(Driver):
             print('KWGet: keywords=%s' % str(keywords))
         return keywords
     
-    @check_output
-    def put(self, args):
-        text = args.get('content')
-        keywords = self._get_keywords(text)
-        if keywords:
-            return {'keywords':keywords}
+    @wrapper
+    def put(self, *args, **kwargs):
+        text = kwargs.get('content')
+        if text:
+            keywords = self._get_keywords(text)
+            if keywords:
+                return {'keywords':keywords}

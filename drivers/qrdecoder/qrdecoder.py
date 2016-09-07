@@ -9,7 +9,7 @@ import zbar
 import Image
 from base64 import b64decode
 from StringIO import StringIO
-from dev.driver import Driver, check_output
+from dev.driver import Driver, wrapper
 
 PRINT = False
 
@@ -32,9 +32,9 @@ class QRDecoder(Driver):
                         print('QRDecoder: url=%s' % url)
                     return url
     
-    @check_output
-    def put(self, args):
-            image = args.get('content')
+    @wrapper
+    def put(self, *args, **kwargs):
+            image = kwargs.get('content')
             if image:
                 url = self._decode(image)
                 if url:

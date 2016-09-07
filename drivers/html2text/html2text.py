@@ -6,8 +6,8 @@
 #
 
 import html2text
+from dev.driver import Driver, wrapper
 from base64 import b64encode, b64decode
-from dev.driver import Driver, check_output
 
 PRINT = False
 IGNORE_LINKS = True
@@ -31,9 +31,9 @@ class HTML2Text(Driver):
                 if PRINT:
                     print('HTML2Text: failed to convert')
     
-    @check_output
-    def put(self, args):
-        html = args.get('content')
+    @wrapper
+    def put(self, *args, **kwargs):
+        html = kwargs.get('content')
         if html:
             text = self._convert(html)
             if text:

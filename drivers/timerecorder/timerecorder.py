@@ -9,7 +9,7 @@ import os
 import shelve
 from datetime import datetime
 from lib.util import readlink
-from dev.driver import Driver, check_input
+from dev.driver import Driver, wrapper
 
 PRINT = False
 INTERVAL = 1
@@ -51,10 +51,10 @@ class TimeRecorder(Driver):
             print('TimeRecorder: name=%s, time=%f' % (name, t))
         return t
     
-    @check_input
-    def put(self, args):
-        name = args.get('name')
-        timer = args.get('timer')
+    @wrapper
+    def put(self, *args, **kwargs):
+        name = kwargs.get('name')
+        timer = kwargs.get('timer')
         if name and timer:
             if not self._cnt.has_key(name):
                 cnt = 0
@@ -68,3 +68,4 @@ class TimeRecorder(Driver):
                     t = self._save(timer, name)
                     if t:
                         return {'name':name, 'time':t}
+

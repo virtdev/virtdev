@@ -389,6 +389,23 @@ class UDO(object):
             self._mount()
         self._start()
     
+    def _check_args(self, buf):
+        if not buf or type(buf) != dict:
+            log_err(self, 'invalid arguments')
+            return
+        args = []
+        kwargs = {}
+        for i in buf:
+            val = ast.literal_eval(buf[i])
+            if type(val) == dict:
+                kwargs.update(val)
+            elif type(val) == list or type(val) == str or type(val) == unicode:
+                args.append(val)
+            else:
+                log_err(self, 'invalid arguments')
+                return
+        return str({'args':args, 'kwargs':kwargs})
+    
     @lock
     def proc(self, name, op, buf=None):
         if not self._socket:
@@ -418,7 +435,7 @@ class UDO(object):
                     self._del_event(name)
             elif op == OP_PUT:
                 self._add_event(name)
-                val = str(buf[buf.keys()[0]])
+                val = self._check_args(buf)
                 if self._write_device(cmd_put(index, val)):
                     self._log('put, type=%s, name=%s' % (device.d_type, device.d_name))
                     return self._get(name)

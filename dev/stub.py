@@ -5,6 +5,7 @@
 # Distributed under the terms of the MIT license.
 #
 
+import ast
 from lib import io
 from conf.log import LOG_STUB
 from conf.defaults import DEBUG
@@ -57,6 +58,25 @@ class Stub(object):
         except:
             log_err(self, 'failed to create, driver=%s, cmd=%s' % (str(self._driver), str(cmd)))
     
+    def _check_args(self, buf):
+        try:
+            buf = ast.literal_eval(buf)
+        except:
+            log_err(self, 'invalid arguments')
+            return (None, None)
+        
+        if type(buf) != dict:
+            log_err(self, 'invalid arguments')
+            return (None, None)
+        
+        args = buf.get('args')
+        kwargs = buf.get('kwargs')
+        if args != None and type(args) == list and kwargs != None and type(kwargs) == dict:
+            return (args, kwargs)
+        else:
+            log_err(self, 'invalid arguments')
+            return (None, None)
+    
     def _proc(self, cmd, buf):
         result = ''
         force = False
@@ -71,9 +91,11 @@ class Stub(object):
                 result = ret
         elif cmd == CMD_PUT:
             force = True
-            ret = self._driver.put(buf)
-            if ret:
-                result = ret
+            args, kwargs = self._check_args(buf)
+            if args != None and kwargs != None:
+                ret = self._driver.put(*args, **kwargs)
+                if ret:
+                    result = ret
         else:
             log_err(self, 'failed to process, invalid command, driver=%s, cmd=%s' % (str(self._driver), str(cmd)))
         

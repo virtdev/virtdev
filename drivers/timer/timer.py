@@ -7,9 +7,10 @@
 
 import os
 import shelve
+from copy import copy
 from datetime import datetime
 from lib.util import readlink
-from dev.driver import Driver, check_input
+from dev.driver import Driver, wrapper
 
 PRINT = False
 HOME = '~/vdev/dev/timer'
@@ -39,10 +40,12 @@ class Timer(Driver):
                 print('Timer: name=%s, time=%s' % (name, t))
         return True
     
-    @check_input
-    def put(self, args):
-        name = args.get('name')
+    @wrapper
+    def put(self, *args, **kwargs):
+        name = kwargs.get('name')
         if name:
             if self._save(name):
-                args.update({'timer':self.get_name()})
-                return args
+                output = copy(kwargs)
+                output.update({'timer':self.get_name()})
+                return output
+
