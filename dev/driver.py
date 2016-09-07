@@ -18,14 +18,14 @@ def need_freq(mode):
 
 def wrapper(func):
     def _wrapper(*args, **kwargs):
+        reserve = {}
+        if kwargs.has_key('name'):
+            reserve.update({'name':kwargs['name']})
+        if kwargs.has_key('timer'):
+            reserve.update({'timer':kwargs['timer']})
         ret = func(*args, **kwargs)
         if ret and type(ret) == dict:
-            name = kwargs.get('name')
-            if name:
-                ret.update({'name':name})
-            timer = kwargs.get('timer')
-            if timer:
-                ret.update({'timer':timer})
+            ret.update(reserve)
             return ret
     return _wrapper
 
@@ -73,7 +73,7 @@ class Driver(object):
     def get(self):
         pass
     
-    def put(self, *args, **args):
+    def put(self, *args, **kwargs):
         pass
     
     def set_index(self, index):
