@@ -222,13 +222,13 @@ class Core(object):
     def dispatch(self, name, buf):
         self._check_paths(name)
         if not self._dispatcher.check(name):
-            self._log('dispatch, name=%s' % name)
             self._dispatcher.send(name, buf)
+            self._log('dispatch, name=%s' % name)
         else:
             blocks = self._dispatcher.put(name, buf)
             if blocks and type(blocks) == list:
-                self._log('dispatch blocks, name=%s' % name)
                 self._dispatcher.send_blocks(name, blocks)
+                self._log('dispatch blocks, name=%s' % name)
     
     def _get_op(self, buf, mode):
         if type(buf) != dict:
@@ -248,8 +248,7 @@ class Core(object):
             else:
                 return OP_CLOSE
         elif mode & MODE_IN:
-            if 1 == len(buf):
-                return OP_PUT
+            return OP_PUT
         elif mode & MODE_OUT:
             return OP_GET
     
@@ -262,8 +261,9 @@ class Core(object):
             for device in self._manager.devices:
                 dev = device.find(name)
                 if dev:
+                    ret = dev.proc(name, op, buf)
                     self._log('handle, name=%s, op=%s, dev=%s' % (name, op, dev.d_name))
-                    return dev.proc(name, op, buf)
+                    return ret
         else:
             return buf
     
@@ -326,13 +326,19 @@ class Core(object):
                 self._members[dest][src].append((buf, datetime.utcnow()))
                 if self._check_timeout(dest):
                     args = self._pop_args(dest)
+                    self._log('try_put: timeout, dest=%s, src=%s, args=%s' % (dest, src, str(args)))
+                else:
+                    self._log('try_put: not ready, dest=%s, src=%s' % (dest, src))
             else:
                 args = self._get_args(dest, src, buf, flags)
+                self._log('try_put: ready, dest=%s, src=%s, args=%s' % (dest, src, str(args)))
             if args:
                 if self._filter.check(dest):
                     args = self._filter.put(dest, args)
                 if args and type(args) == dict:
-                    return self._proc(dest, args)
+                    ret = self._proc(dest, args)
+                    self._log('try_put: dest=%s, src=%s, ret=%s' % (dest, src, str(ret)))
+                    return ret
         except:
             log_err(self, 'failed to put, dest=%s, src=%s' % (dest, src))
     
@@ -358,8 +364,8 @@ class Core(object):
             if not flags & MODE_REFLECT:
                 self.dispatch(dest, res)
             else:
-                self._log('put, dest=%s, src=%s' % (src, dest))
                 self._dispatcher.sendto(src, dest, res, hidden=True, flags=flags)
+            self._log('put, dest=%s, src=%s' % (src, dest))
         return True
     
     def save(self, name, buf):

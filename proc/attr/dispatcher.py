@@ -8,11 +8,11 @@
 from proc import proc
 from lib.pool import Pool
 from random import randint
-from threading import Lock
 from lib.queue import Queue
 from lib.loader import Loader
 from lib.lock import NamedLock
 from conf.defaults import DEBUG
+from threading import Lock, Thread
 from conf.log import LOG_DISPATCHER
 from multiprocessing import cpu_count
 from lib.attributes import ATTR_DISPATCHER
@@ -20,9 +20,9 @@ from lib.log import log_debug, log_err, log_get
 from conf.defaults import PROC_ADDR, DISPATCHER_PORT
 from lib.util import lock, named_lock, edge_lock, is_local
 
-ASYNC = False
-QUEUE_LEN = 2
-POOL_SIZE = cpu_count() * 4
+ASYNC = True
+QUEUE_LEN = 0
+POOL_SIZE = cpu_count() * 2
 
 class DispatcherQueue(Queue):
     def __init__(self, scheduler):
@@ -132,7 +132,7 @@ class Dispatcher(object):
         self._channel = channel
         self._lock = NamedLock()
         self._loader = Loader(self._uid)
-        if ASYNC:
+        if ASYNC and QUEUE_LEN:
             self._scheduler = DispatcherScheduler(core)
     
     def _log(self, text):
@@ -146,22 +146,27 @@ class Dispatcher(object):
             self._dispatchers.update({name:buf})
         return buf
     
-    def _send(self, dest, src, buf, flags):
+    def _deliver(self, dest, src, buf, flags):
         try:
             if ASYNC:
-                while True:
-                    ret = self._scheduler.select(dest, src, buf, flags)
-                    if ret == None:
-                        self._scheduler.wait()
-                    else:
-                        if not ret:
-                            self._scheduler.put(dest, src, buf, flags)
-                        break
+                if QUEUE_LEN:
+                    while True:
+                        ret = self._scheduler.select(dest, src, buf, flags)
+                        if ret == None:
+                            self._scheduler.wait()
+                        else:
+                            if not ret:
+                                self._scheduler.put(dest, src, buf, flags)
+                            break
+                else:
+                    Thread(target=self._core.put, args=(dest, src, buf, flags)).start()
             else:
                 self._core.put(dest, src, buf, flags)
-            self._log('send, dest=%s, src=%s' % (dest, src))                      
         except:
-            log_err(self, 'failed to send, dest=%s, src=%s' % (dest, src))
+            log_err(self, 'failed to deliver, dest=%s, src=%s' % (dest, src))
+    
+    def _send(self, dest, src, buf, flags):
+        self._channel.put(dest, src, buf=buf, flags=flags)
     
     @edge_lock
     def add_edge(self, edge, hidden=False):
@@ -190,7 +195,7 @@ class Dispatcher(object):
             self._paths[src].update({dest:1})
         else:
             self._paths[src][dest] += 1
-        self._log('add edge, edge=%s, local=%s' % (str(edge), str(local)))
+        self._log('add edge, dest=%s, src=%s, local=%s' % (dest, src, str(local)))
     
     @edge_lock
     def remove_edge(self, edge, hidden=False):
@@ -209,7 +214,7 @@ class Dispatcher(object):
             del self._paths[src][dest]
             if not local:
                 self._channel.free(dest)
-        self._log('remove edge, edge=%s, local=%s' % (str(edge), str(local)))
+        self._log('remove edge, dest=%s, src=%s, local=%s' % (dest, src, str(local)))
     
     @named_lock
     def has_edge(self, name):
@@ -247,9 +252,9 @@ class Dispatcher(object):
         else:
             local = self._visible[src][dest]
         if not local:
-            self._channel.put(dest, src, buf=buf, flags=flags)
-        else:
             self._send(dest, src, buf, flags)
+        else:
+            self._deliver(dest, src, buf, flags)
         self._log('sendto, dest=%s, src=%s' % (dest, src))
     
     def send(self, name, buf, flags=0):
@@ -260,10 +265,10 @@ class Dispatcher(object):
             return
         for i in dest:
             if not dest[i]:
-                self._channel.put(i, name, buf=buf, flags=flags)
-            else:
                 self._send(i, name, buf, flags)
-        self._log('send, dest=%s, src=%s' % (str(dest), name))
+            else:
+                self._deliver(i, name, buf, flags)
+            self._log('send, dest=%s, src=%s' % (i, name))
     
     def send_blocks(self, name, blocks):
         if not blocks:
@@ -282,10 +287,10 @@ class Dispatcher(object):
             for _ in range(window):
                 if blocks[cnt]:
                     if not dest[i]:
-                        self._channel.put(i, name, buf=blocks[cnt], flags=0)
-                        self._log('send blocks, dest=%s, src=%s' % (i, name))
-                    else:
                         self._send(i, name, blocks[cnt], 0)
+                    else:
+                        self._deliver(i, name, blocks[cnt], 0)
+                    self._log('send a block, dest=%s, src=%s' % (i, name))
                 cnt += 1
                 if cnt == len_blks:
                     return

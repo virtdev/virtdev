@@ -16,9 +16,8 @@ class Zero(Driver):
         output = copy(kwargs)
         if output and output.has_key('__cnt__'):
             if int(output['__cnt__']) == 0:
-                del output['__cnt__']
-                if not output:
-                    output = {'enable':'true'}
+                if len(output) > 1:
+                    del output['__cnt__']
                 if PRINT:
                     print('Zero: output=%s' % str(output))
                 return output

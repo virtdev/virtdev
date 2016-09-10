@@ -63,6 +63,8 @@ def _exec(device, code, **args):
             exec(res)
             if func:
                 return func(**args)
+            else:
+                log_err(None, 'failed to execute, no function')
     except:
         log_err(None, 'failed to execute')
 

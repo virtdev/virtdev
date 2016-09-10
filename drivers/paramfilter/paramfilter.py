@@ -1,4 +1,4 @@
-# inputfilter.py
+# paramfilter.py
 #
 # Copyright (C) 2016 Yi-Wei Ci
 #
@@ -9,14 +9,14 @@ from dev.driver import Driver, wrapper
 
 PRINT = False
 
-class InputFilter(Driver):
+class ParamFilter(Driver):
     @wrapper
     def put(self, *args, **kwargs):
         output = {}
         for i in kwargs:
-            if not i.startswith('__'):
+            if i.startswith('__'):
                 output[i] = kwargs[i]
         if output:
             if PRINT:
-                print('InputFilter: output=%s' % str(output))
+                print('ParamFilter: output=%s' % str(output))
             return output
