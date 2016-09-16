@@ -1,4 +1,4 @@
-LOG_API = True
+LOG_API = False
 LOG_UDO = False
 LOG_STUB = True
 LOG_ATTR = False
