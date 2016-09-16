@@ -9,8 +9,8 @@ import os
 import ast
 import time
 from lib import io
-from lib.api import mount
 from conf.log import LOG_UDO
+from lib.api import api_mount
 from lib.loader import Loader
 from datetime import datetime
 from conf.defaults import UPLOAD
@@ -377,7 +377,7 @@ class UDO(object):
                         freq = loader.get_attr(self._name, ATTR_FREQ, float)
         
         if not self._children:
-            mount(self._uid, name=self.d_name, mode=mode, freq=freq, prof=prof)
+            api_mount(self._uid, name=self.d_name, mode=mode, freq=freq, prof=prof)
             self._log('mount %s [%s*]' % (self.d_type, self.d_name[:8]))
     
     def mount(self, uid, name, core, sock=None, init=True):

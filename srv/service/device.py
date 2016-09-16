@@ -8,10 +8,10 @@
 import os
 import ast
 import json
-from lib.api import mount
 from service import Service
 from db.marker import Marker
 from StringIO import StringIO
+from lib.api import api_mount
 from lib.domains import DOMAIN_DEV
 from conf.route import ROUTE, AREA
 from conf.virtdev import RSYNC, HISTORY
@@ -46,7 +46,7 @@ class Device(Service):
     
     def add(self, uid, node, addr, name, mode, freq, prof):
         if mode != None and prof != None:
-            mount(uid, name=name, mode=mode, freq=freq, prof=prof)
+            api_mount(uid, name=name, mode=mode, freq=freq, prof=prof)
             self._mark(name)
         update_device(self._query, uid, node, addr, name)
         self._query.event.put(uid, name)

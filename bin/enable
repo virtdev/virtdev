@@ -10,7 +10,7 @@ _path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from lib.api import enable
+from lib.api import api_enable
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -29,4 +29,4 @@ if __name__ == '__main__':
         from lib.util import set_supernode
         set_supernode()
     
-    enable(uid, name)
+    api_enable(uid, name)

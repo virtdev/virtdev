@@ -6,7 +6,7 @@
 #
 
 import json
-from lib.api import invalidate, exists, mount, touch
+from lib.api import api_invalidate, api_exists, api_mount, api_touch
 
 class Operation(object):
     def __init__(self, manager):
@@ -15,15 +15,15 @@ class Operation(object):
     
     def mount(self, attr):
         attr = eval(attr)
-        mount(self._uid, **attr)
+        api_mount(self._uid, **attr)
     
     def invalidate(self, path):
-        if not exists(self._uid, path):
-            touch(self._uid, path)
-        invalidate(self._uid, path)
+        if not api_exists(self._uid, path):
+            api_touch(self._uid, path)
+        api_invalidate(self._uid, path)
     
     def touch(self, path):
-        touch(self._uid, path)
+        api_touch(self._uid, path)
     
     def put(self, dest, src, buf, flags):
         self._manager.core.put(dest, src, buf, flags)

@@ -10,7 +10,7 @@ _path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from lib.api import combine
+from lib.api import api_combine
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -32,8 +32,8 @@ if __name__ == '__main__':
         set_supernode()
     
     if timeout:
-        ret = combine(uid, timeout=timeout, vertex=device)
+        ret = api_combine(uid, timeout=timeout, vertex=device)
     else:
-        ret = combine(uid, vertex=device)
+        ret = api_combine(uid, vertex=device)
     
     print(str(ret))

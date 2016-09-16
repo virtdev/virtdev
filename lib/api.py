@@ -7,7 +7,9 @@
 
 import os
 import xattr
+from log import log
 from operations import *
+from conf.log import LOG_API
 from util import get_mnt_path, get_cmd, call
 
 def check_uid(func):
@@ -23,46 +25,68 @@ def check_uid(func):
         return func(path, **kwargs)
     return _check_uid
 
-@check_uid
-def enable(uid, **args):
-    return xattr.setxattr(uid, OP_ENABLE, '')
+def _log(text):
+    if LOG_API:
+        log(text)
 
 @check_uid
-def disable(uid, **args):
-    return xattr.setxattr(uid, OP_DISABLE, '')
+def api_enable(uid, **args):
+    ret = xattr.setxattr(uid, OP_ENABLE, '')
+    _log('api_enable: %s' % uid)
+    return ret
 
 @check_uid
-def mount(uid, **attr):
+def api_disable(uid, **args):
+    ret = xattr.setxattr(uid, OP_DISABLE, '')
+    _log('api_disable: %s' % uid)
+    return ret
+
+@check_uid
+def api_mount(uid, **attr):
     xattr.setxattr(uid, OP_MOUNT, str(attr))
+    _log('api_mount: %s' % uid)
 
 @check_uid
-def invalidate(uid):
+def api_invalidate(uid):
     xattr.setxattr(uid, OP_INVALIDATE, '', symlink=True)
+    _log('api_invalidate: %s' % uid)
 
 @check_uid
-def clone(uid, **attr):
-    return xattr.getxattr(uid, get_cmd(OP_CLONE, attr))
+def api_clone(uid, **attr):
+    ret = xattr.getxattr(uid, get_cmd(OP_CLONE, attr))
+    _log('api_clone: %s' % uid)
+    return ret
 
 @check_uid
-def combine(uid, **attr):
-    return xattr.getxattr(uid, get_cmd(OP_COMBINE, attr))
+def api_combine(uid, **attr):
+    ret = xattr.getxattr(uid, get_cmd(OP_COMBINE, attr))
+    _log('api_combine: %s' % uid)
+    return ret
 
 @check_uid
-def create(uid, **attr):
-    return xattr.getxattr(uid, get_cmd(OP_CREATE, attr))
+def api_create(uid, **attr):
+    ret = xattr.getxattr(uid, get_cmd(OP_CREATE, attr))
+    _log('api_create: %s' % uid)
+    return ret
 
 @check_uid
-def poll(uid):
-    return xattr.getxattr(uid, OP_POLL)
+def api_poll(uid):
+    ret = xattr.getxattr(uid, OP_POLL)
+    _log('api_poll: %s' % uid)
+    return ret
 
 @check_uid
-def scan(uid):
-    return xattr.getxattr(uid, OP_SCAN)
+def api_scan(uid):
+    ret = xattr.getxattr(uid, OP_SCAN)
+    _log('api_scan: %s' % uid)
+    return ret
 
 @check_uid
-def exists(uid):
+def api_exists(uid):
     os.path.exists(uid)
+    _log('api_exists: %s' % uid)
 
 @check_uid
-def touch(uid):
+def api_touch(uid):
     call('touch', uid)
+    _log('api_touch: %s' % uid)

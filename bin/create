@@ -10,7 +10,7 @@ _path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from lib.api import create
+from lib.api import api_create
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -32,8 +32,8 @@ if __name__ == '__main__':
         set_supernode()
     
     if parent:
-        ret = create(uid, type=device_type, parent=parent)
+        ret = api_create(uid, type=device_type, parent=parent)
     else:
-        ret = create(uid, type=device_type)
+        ret = api_create(uid, type=device_type)
     
     print str(ret)

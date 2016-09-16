@@ -10,7 +10,7 @@ _path = os.path.dirname(_bin)
 _dir = os.path.dirname(_path)
 sys.path.append(_dir)
 
-from lib.api import scan
+from lib.api import api_scan
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -29,5 +29,5 @@ if __name__ == '__main__':
         from lib.util import set_supernode
         set_supernode()
     
-    ret = scan(uid, name)
+    ret = api_scan(uid, name)
     print(str(ret))
