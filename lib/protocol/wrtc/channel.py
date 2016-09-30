@@ -20,16 +20,16 @@ from lib.log import log_debug, log_err, log_get
 from lib.util import popen, get_dir, gen_key, pkill, close_port, named_lock, zmqaddr
 
 RELIABLE = True
-RETRY_MAX = 1
+RETRY_MAX = 2
 CHANNEL_MAX = 256
 ADAPTER_NAME = 'wrtc'
 KEEP_CONNECTION = True
 
-WAIT_INTERVAL = 1 # seconds
+TIMEOUT_PUT = 150 # seconds
 TIMEOUT_SEND = 30 # seconds
 TIMEOUT_EXIST = 3 # seconds
 TIMEOUT_CONNECT = 30 # seconds
-TIMEOUT_PUT = TIMEOUT_SEND
+WAIT_INTERVAL = 1 # seconds
 
 EV_PUT = 'put'
 EV_SEND = 'send'
@@ -228,8 +228,6 @@ class Channel(object):
                 ret = self._put(addr, buf)
                 if ret == True:
                     return
-            else:
-                break
         log_err(self, 'failed to put, addr=%s' % str(addr))
         raise Exception(log_get(self, 'failed to put'))
     
@@ -247,8 +245,6 @@ class Channel(object):
                 ret = self._send(addr, buf)
                 if ret == True:
                     return
-            else:
-                break
         log_err(self, 'failed to send, addr=%s' % str(addr))
         raise Exception(log_get(self, 'failed to send'))
     
@@ -329,20 +325,20 @@ class Channel(object):
         self._connect(addr, key, bridge)
     
     @named_lock
-    def put(self, addr, buf):
+    def put(self, addr, buf, reliable=RELIABLE, keep_connection=KEEP_CONNECTION):
         if not self._alloc.has_key(addr):
             log_err(self, 'failed to put, no channel')
             raise Exception(log_get(self, 'failed to put'))
         
-        if not KEEP_CONNECTION:
+        if not keep_connection:
             self._try_connect(addr)
         
-        if RELIABLE:
+        if reliable:
             self._try_put(addr, buf)
         else:
             self._try_send(addr, buf)
         
-        if not KEEP_CONNECTION:
+        if not keep_connection:
             self._disconnect(addr)
         
         self._log('put, addr=%s, len=%s' % (addr, len(buf)))
@@ -366,6 +362,7 @@ class Channel(object):
               '-k', key,
               '-b', bridge,
               '-p', str(BRIDGE_PORT),
+              '-w', str(TIMEOUT_PUT),
               '-t', str(TIMEOUT_SEND),
               '-l', str(ADAPTER_PORT),
               '-c', str(CONDUCTOR_PORT),

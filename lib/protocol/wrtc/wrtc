@@ -21,33 +21,47 @@ var bridgeAddr = argv.b;
 var bridgePort = argv.p;
 var adapterPort = argv.l;
 var conductorPort = argv.c;
-var sendTimeout = parseInt(argv.t) * 1000; //msec
+
+var putTimeout = parseInt(argv.w) * 1000; // msec
+var sendTimeout = parseInt(argv.t) * 1000; // msec
 
 var debug = true;
-var pktMark = '|';
+var retry = true;
+var reliable = false;
 
+var pktMark = '|';
+var pktSize = 1 << 23;
+var chunkSize = 1 << 16;
+
+var retryMax = 2;
 var waitTime = 50; // msec
-var pktSize = 1 << 26;
-var chunkSize = 65536;
+var retryInterval = 15000; // msec
 var localhost = '127.0.0.1';
-var highWaterMark = 1 << 24;
-var lowWaterMark = highWaterMark / 2;
+var highWaterMark = 1 << 26;
+var lowWaterMark = highWaterMark * 3 / 4;
 
 var listeners = new Object();
 var connections = new Object();
 var peerConnections = new Object();
+var dataChannelConfig = {};
+
+if (!reliable) {
+  dataChannelConfig = {
+    ordered: true,
+    reliable: false,
+    maxRetransmitTime: 5000
+  };
+} else {
+  dataChannelConfig = {
+    reliable: true
+  }
+}
 
 var peerConnectionConfig = {
   iceServers: [
     {url:'stun:stun.ekiga.net'}
   ]
-};
-
-var dataChannelConfig = {
-  ordered: true,
-  reliable: false,
-  maxRetransmitTime: 3000
-};
+}; 
 
 function log(str)
 {
@@ -62,8 +76,9 @@ function error(str)
 
 function encrypt(args, key)
 {
-  var k = key.substring(0, 16);
-  var iv = key.substring(16, 32);
+  var keystr = String(key);
+  var k = keystr.substring(0, 16);
+  var iv = keystr.substring(16, 32);
   var data = JSON.stringify(args);
   var encipher = crypto.createCipheriv('aes-128-cbc', k, iv);
   var res = encipher.update(data, 'utf8', 'binary');
@@ -187,8 +202,10 @@ function checkPkt(addr, index, id)
     peerConnections[addr].index = index;
     peerConnections[addr].id = id;
     return true;
-  } else
+  } else {
+    peerConnections[addr].peer.send(newAckPkt(index));
     return false;
+  }
 }
 
 function updatePkt(data, addr, id)
@@ -261,8 +278,9 @@ function checkIndex(addr, index)
   if (!connections[addr].ack || (index > connections[addr].ack)) {
     connections[addr].ack = index;
     return true;
-  } else
+  } else {
     return false;
+  }
 }
 
 function deliverPkt(data, addr, id)
@@ -503,38 +521,44 @@ function chunkify(addr, data)
   return true;
 }
 
-function addCallback(addr, pkt, callback, event)
-{
-  var t = 0;
-  var waterMark = (highWaterMark + lowWaterMark) / 2;
-  var intv = setInterval(function() {
-    if (!isReady(addr)) {
-      clearInterval(intv);
-      emit(event, {'name':addr, 'error':-2});
-      log('connection is lost, addr=' + addr);
-    } else {
-      var size = connections[addr].peer.bufferSize;
-      
-      t += waitTime;
-      if ((t + waitTime >= sendTimeout) || (size < lowWaterMark)) {
-        clearInterval(intv);
-        if (size < waterMark)
-          callback(addr, pkt);
-        else
-          emit(event, {'name':addr, 'error':-101});
-      }
-    }
-  }, waitTime);
-}
-
 function sendPkt(addr, pkt)
 {
   if (chunkify(addr, pkt)) {
     emit('send', {'name':addr});
     log('send packet, addr=' + addr);
   } else {
-    emit('send', {'name':addr, 'error':-2});
+    emit('send', {'name':addr, 'error':-1});
     error('failed to send packet, addr=' + addr);
+  }
+}
+
+function doSend(addr, pkt)
+{
+  if (!sendTimeout || (connections[addr].peer.bufferSize < lowWaterMark))
+  	sendPkt(addr, pkt);
+  else {
+    var t = 0;
+    var index = pkt.index;
+    var intv = setInterval(function() {
+      if (!isReady(addr)) {
+        clearInterval(intv);
+        emit('send', {'name':addr, 'error':-2});
+        log('failed to send, no connection, addr=' + addr);
+      } else {
+        var size = connections[addr].peer.bufferSize;
+        
+        t += waitTime;
+        if ((t + waitTime >= sendTimeout) || (size < lowWaterMark)) {
+          clearInterval(intv);
+          if (size < lowWaterMark)
+            sendPkt(addr, pkt);
+          else {
+            emit('send', {'name':addr, 'error':-101});
+            log('failed to send, timeout, addr=' + addr);
+          }
+        }
+      }
+    }, waitTime);
   }
 }
 
@@ -544,48 +568,77 @@ function send(addr, data)
     if (data) {
       var pkt = newPkt(data);
       
-      if (!pkt)
+      if (!pkt) {
+        error('failed to send, no packet, addr=' + addr);
         return;
+      }
       
-      if (!sendTimeout || (connections[addr].peer.bufferSize < lowWaterMark))
-        sendPkt(addr, pkt);
-      else
-        addCallback(addr, pkt, sendPkt, 'send');
+      doSend(addr, pkt);
     }
   } else
     emit('send', {'name':addr, 'error':-2});
 }
 
-function waitAck(addr, pkt)
-{
-  var t = 0;
-  var index = pkt.index;
-  var timeout = sendTimeout;
-  var intv = setInterval(function () {
-    if (!isReady(addr)) {
-      clearInterval(intv);
-      emit('put', {'name':addr, 'error':-2});
-      log('failed to get ACK, connection is lost, addr=' + addr);
-    } else {
-      t += waitTime;
-      if ((connections[addr].ack >= index) || (t >= timeout)) {
-        clearInterval(intv);
-        if (connections[addr].ack < index)
-          emit('put', {'name':addr, 'error':-101});
-      }
-    }
-  }, waitTime);
-}
-
 function putPkt(addr, pkt)
 {
   if (chunkify(addr, pkt.data)) {
-    waitAck(addr, pkt);
     log('put packet, addr=' + addr);
   } else {
-    emit('put', {'name':addr, 'error':-2});
+    emit('put', {'name':addr, 'error':-1});
     error('failed to put packet, addr=' + addr);
   }
+}
+
+function doPut(addr, pkt)
+{
+  var t = 0;
+  var retryTimes = 0;
+  var waitAck = false;
+  var index = pkt.index;
+  var timeout = putTimeout / 2;
+  var retryNext = putTimeout * 3 / 5;
+  var deadline = putTimeout - retryInterval;
+  
+  if (!putTimeout || (connections[addr].peer.bufferSize < lowWaterMark)) {
+  	putPkt(addr, pkt);
+  	waitAck = true;
+  }
+   
+  var intv = setInterval(function() {
+    if (!isReady(addr)) {
+      clearInterval(intv);
+      emit('put', {'name':addr, 'error':-2});
+      log('failed to put, no connection, addr=' + addr);
+    } else {
+      t += waitTime;
+      if (waitAck) {
+        if ((connections[addr].ack >= index) || ((t + waitTime) >= putTimeout)) {
+          clearInterval(intv);
+          if (connections[addr].ack < index) {
+            emit('put', {'name':addr, 'error':-101});
+            log('failed to put, no ACK, addr=' + addr);
+          }
+        } else if (retry && (t >= retryNext) && (t <= deadline) && (retryTimes < retryMax)) {
+          putPkt(addr, pkt);
+          retryNext += retryInterval;
+          retryTimes += 1;
+        }
+      } else {
+        var size = connections[addr].peer.bufferSize;
+        
+        if ((t + waitTime >= putTimeout) || (size < lowWaterMark)) {
+          if ((size < lowWaterMark) && (t <= timeout)) {
+            putPkt(addr, pkt);
+            waitAck = true;
+          } else {
+            clearInterval(intv);
+            emit('put', {'name':addr, 'error':-101});
+            log('failed to put, no time, addr=' + addr);
+          }
+        }
+      }
+    }
+  }, waitTime);
 }
 
 function put(addr, data)
@@ -595,14 +648,11 @@ function put(addr, data)
       var pkt = newIndexedPkt(addr, data);
       
       if (!pkt) {
-        error('failed to put, addr=' + addr);
+        error('failed to put, no packet, addr=' + addr);
         return;
       }
       
-      if (!sendTimeout || (connections[addr].peer.bufferSize < lowWaterMark))
-        putPkt(addr, pkt);
-      else
-        addCallback(addr, pkt, putPkt, 'put');
+      doPut(addr, pkt);
     }
   } else
     emit('put', {'name':addr, 'error':-2});

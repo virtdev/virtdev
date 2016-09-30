@@ -14,15 +14,14 @@ from lib.lock import NamedLock
 from conf.defaults import DEBUG
 from threading import Lock, Thread
 from conf.log import LOG_DISPATCHER
-from multiprocessing import cpu_count
 from lib.attributes import ATTR_DISPATCHER
 from lib.log import log_debug, log_err, log_get
 from conf.defaults import PROC_ADDR, DISPATCHER_PORT
 from lib.util import lock, named_lock, edge_lock, is_local
 
 ASYNC = True
-QUEUE_LEN = 0
-POOL_SIZE = cpu_count() * 2
+QUEUE_LEN = 16
+POOL_SIZE = 2
 
 class DispatcherQueue(Queue):
     def __init__(self, scheduler):
@@ -156,7 +155,7 @@ class Dispatcher(object):
                             self._scheduler.wait()
                         else:
                             if not ret:
-                                self._scheduler.put(dest, src, buf, flags)
+                                Thread(target=self._scheduler.put, args=(dest, src, buf, flags)).start()
                             break
                 else:
                     Thread(target=self._core.put, args=(dest, src, buf, flags)).start()

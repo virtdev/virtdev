@@ -5,44 +5,62 @@
 # Distributed under the terms of the MIT license.
 #
 
+import sys
 import select
+import signal
 import inotify
 from errno import EINTR
-from threading import Thread, Event
 from inotify.watcher import AutoWatcher
+from threading import Thread, Event, Lock
 
-class Watcher(Thread):
+_results = {}
+_thread = None
+_lock = Lock()
+_event = Event()
+_watcher = AutoWatcher()
+
+def _watch():
+    while True:
+        try:
+            if 0 == _watcher.num_watches():
+                _event.wait()
+                _event.clear()
+            for e in _watcher.read():
+                path = e.fullpath
+                if _watcher.path(path):
+                    _results[path] = True
+                    _watcher.remove_path(path)
+        except(OSError, select.error) as EINTR:
+            continue
+
+def _term(signal, frame):
+    _watcher.close()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, _term)
+
+class Watcher(object):
     def __init__(self):
-        Thread.__init__(self)
-        self._event = Event()
-        self._watcher = AutoWatcher()
-        self._results = {}
+        _lock.acquire()
+        try:
+            global _thread
+            if not _thread:
+                _thread = Thread(target=_watch)
+                _thread.start()
+        finally:
+            _lock.release()
     
     def register(self, path):
-        n = self._watcher.num_watches()
-        self._watcher.add(path, inotify.IN_MODIFY)
+        n = _watcher.num_watches()
+        _watcher.add(path, inotify.IN_MODIFY)
         if n == 0:
-            self._event.set()
+            _event.set()
     
     def push(self, path):
-        self._results[path] = True
+        _results[path] = True
     
     def pop(self, path):
         try:
-            return self._results.pop(path)
+            return _results.pop(path)
         except:
             pass
-    
-    def run(self):
-        while True:
-            try:
-                if 0 == self._watcher.num_watches():
-                    self._event.wait()
-                    self._event.clear()
-                for e in self._watcher.read():
-                    path = e.fullpath
-                    if self._watcher.path(path):
-                        self._results[path] = True
-                        self._watcher.remove_path(path)
-            except(OSError, select.error) as EINTR:
-                continue

@@ -145,7 +145,7 @@ def _initialize(query, router, edgenode, supernode):
     mkdir(conf)
     
     if LOG_MOUNT:
-        log('starting vdfs ...')
+        log('starting vdfs, mnt=%s' % str(mnt))
     
     FUSE(VDFS(query, router), mnt, foreground=True)
 
