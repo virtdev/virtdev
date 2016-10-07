@@ -25,7 +25,7 @@ CHANNEL_MAX = 256
 ADAPTER_NAME = 'wrtc'
 KEEP_CONNECTION = True
 
-TIMEOUT_PUT = 150 # seconds
+TIMEOUT_PUT = 300 # seconds
 TIMEOUT_SEND = 30 # seconds
 TIMEOUT_EXIST = 3 # seconds
 TIMEOUT_CONNECT = 30 # seconds

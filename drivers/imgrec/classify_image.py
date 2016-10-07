@@ -142,7 +142,7 @@ def create_graph():
     _ = tf.import_graph_def(graph_def, name='')
 
 
-def recognize(imaage_data):
+def recognize(image_data):
   # Creates graph from saved GraphDef.
   create_graph()
 
@@ -191,9 +191,8 @@ def maybe_download_and_extract():
   dest_directory = FLAGS.model_dir
   if not os.path.exists(dest_directory):
     os.makedirs(dest_directory)
-  filename = DATA_URL.split('/')[-1]
-  filepath = os.path.join(dest_directory, filename)
-  if not os.path.exists(filepath):
+    filename = DATA_URL.split('/')[-1]
+    filepath = os.path.join(dest_directory, filename)
     def _progress(count, block_size, total_size):
       sys.stdout.write('\r>> Downloading %s %.1f%%' % (
           filename, float(count * block_size) / float(total_size) * 100.0))
@@ -202,15 +201,13 @@ def maybe_download_and_extract():
     print()
     statinfo = os.stat(filepath)
     print('Succesfully downloaded', filename, statinfo.st_size, 'bytes.')
-  tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+    tarfile.open(filepath, 'r:gz').extractall(dest_directory)
 
-
-def main(_):
+def main():
   maybe_download_and_extract()
   image = (FLAGS.image_file if FLAGS.image_file else
            os.path.join(FLAGS.model_dir, 'cropped_panda.jpg'))
   run_inference_on_image(image)
-
 
 if __name__ == '__main__':
   tf.app.run()

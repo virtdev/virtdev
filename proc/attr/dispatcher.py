@@ -20,8 +20,8 @@ from conf.defaults import PROC_ADDR, DISPATCHER_PORT
 from lib.util import lock, named_lock, edge_lock, is_local
 
 ASYNC = True
-QUEUE_LEN = 16
-POOL_SIZE = 2
+QUEUE_LEN = 2
+POOL_SIZE = 16
 
 class DispatcherQueue(Queue):
     def __init__(self, scheduler):

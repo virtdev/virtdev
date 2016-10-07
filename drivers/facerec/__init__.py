@@ -1,4 +1,3 @@
-# facerec.py
 #
 # Copyright (C) 2016 Yi-Wei Ci
 #

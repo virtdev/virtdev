@@ -17,6 +17,7 @@ function install_edgenode()
 	apt-get install -y libfuse-dev
 	apt-get install -y libzbar-dev
 	apt-get install -y libzmq-dev
+	apt-get install -y libxss1
 	apt-get install -y lsof
 	apt-get install -y n2n
 	apt-get install -y python-all-dev
@@ -92,6 +93,7 @@ function install_supernode()
 	apt-get install -y libsasl2-dev
 	apt-get install -y libfuse-dev
 	apt-get install -y libzmq-dev
+	apt-get install -y libxss1
 	apt-get install -y lsof
 	apt-get install -y memcached
 	apt-get install -y mosquitto

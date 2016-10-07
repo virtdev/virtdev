@@ -29,21 +29,27 @@ var debug = true;
 var retry = true;
 var reliable = false;
 
-var pktMark = '|';
-var pktSize = 1 << 23;
-var chunkSize = 1 << 16;
-
 var retryMax = 2;
 var waitTime = 50; // msec
+var pktTimeout = 30000; // msec
 var retryInterval = 15000; // msec
+var deliverTimeout = 5000; // msec
 var localhost = '127.0.0.1';
 var highWaterMark = 1 << 26;
 var lowWaterMark = highWaterMark * 3 / 4;
 
+var pktSize = 1 << 23;
+var chunkSize = 1 << 16;
+
+var pktCmd = '#';
+var pktMark = '|';
+var pktAckCmd = pktCmd + '1';
+var pktWaitCmd = pktCmd + '2';
+
+var dataChannelConfig = {};
 var listeners = new Object();
 var connections = new Object();
 var peerConnections = new Object();
-var dataChannelConfig = {};
 
 if (!reliable) {
   dataChannelConfig = {
@@ -142,10 +148,15 @@ function int2hex(val)
 
 function newAckPkt(index)
 {
-  return pktMark + int2hex(index) + pktMark;
+  return pktMark + int2hex(index) + pktAckCmd + pktMark;
 }
 
-function newIndexedPkt(addr, data)
+function newWaitPkt(index)
+{
+  return pktMark + int2hex(index) + pktWaitCmd + pktMark;
+}
+
+function indexPkt(addr, data)
 {
   var buf = String(data);
   
@@ -203,7 +214,6 @@ function checkPkt(addr, index, id)
     peerConnections[addr].id = id;
     return true;
   } else {
-    peerConnections[addr].peer.send(newAckPkt(index));
     return false;
   }
 }
@@ -234,6 +244,7 @@ function updatePkt(data, addr, id)
 function deliver(data, addr, id)
 { 
   if (hasPeer(addr, id)) {
+    var ack = false;
     var buf = String(data);
     var client = new WebSocketClient();
     var index = peerConnections[addr].index;
@@ -256,58 +267,81 @@ function deliver(data, addr, id)
     }
     
     client.on('connect', function(connection) {
-      connection.on('close', function() {
-        if (index) {
-          if (hasPeer(addr, id))
-            peerConnections[addr].peer.send(newAckPkt(index));
-          else
-            error('failed to deliver, no ACK, addr=' + addr);
-        }
-      });
+      if (index) {
+        connection.on('close', function() {
+          if (!ack) {
+            if (hasPeer(addr, id)) {
+              peerConnections[addr].peer.send(newAckPkt(index));
+              ack = true;
+            } else
+              error('failed to deliver, no ACK, addr=' + addr);
+          }
+        });
+      }
       
       if (connection.connected)
         connection.sendUTF(buf);
     });
     
     client.connect('ws://' + localhost + ':' + conductorPort);
+    
+    if (index) {
+      setTimeout(function() {
+        if (!ack && hasPeer(addr, id))
+          peerConnections[addr].peer.send(newWaitPkt(index));
+      }, deliverTimeout);
+    }
   }
 }
 
-function checkIndex(addr, index)
+function checkCmd(addr, index, cmd)
 {
-  if (!connections[addr].ack || (index > connections[addr].ack)) {
-    connections[addr].ack = index;
-    return true;
-  } else {
-    return false;
+  if (isReady(addr)) {
+    if (cmd == pktAckCmd) {
+      if (!connections[addr].ack || (index > connections[addr].ack)) {
+        connections[addr].ack = index;
+        emit('put', {'name': addr});
+        log('receive an ACK, addr=' + addr + ', index=' + index.toString());
+      }
+    } else if (cmd == pktWaitCmd) {
+      if (!connections[addr].wait || (index > connections[addr].wait)) {
+        connections[addr].wait = index;
+        log('need to wait, addr=' + addr + ', index=' + index.toString());
+      }
+    } else {
+      error('failed to check command, addr=' + addr + ', cmd=' + cmd);
+    }
   }
 }
 
 function deliverPkt(data, addr, id)
 {
-  var minLen = 10;
+  var cmd;
+  var index;
+  var indexLen = 8;
   var buf = String(data);
+  var pktLen = indexLen + 3; // 1 + indexLen + 1 + 1
+  var cmdLen = indexLen + 4; // 1 + indexLen + 2 + 1
+  var headLen = indexLen + 1;
   
   if (buf.startsWith(pktMark)) {
-    if (buf.length < minLen) {
-      error("failed to deliver packet, invalid length");
+    if (buf.length < pktLen) {
+      error("failed to deliver packet, invalid length, addr=" + addr);
       return;
     }
     
-    var index = Number('0x' + buf.substring(1, minLen - 1));
+    index = Number('0x' + buf.substring(1, headLen));
+    if (pktCmd == buf[headLen])
+      if ((buf.length == cmdLen) && buf.endsWith(pktMark))
+        cmd = buf.substring(headLen, cmdLen - 1);
     
-    if ((buf.length == minLen) && buf.endsWith(pktMark)) {
-      if (isReady(addr)) {
-        if (checkIndex(addr, index)) {
-          emit('put', {'name': addr});
-          log('receive an ACK, addr=' + addr + ', index=' + index.toString());
-        }
-      }
+    if (cmd) {
+      checkCmd(addr, index, cmd);
     } else if (checkPkt(addr, index, id)) {
       if (buf.endsWith(pktMark)) {
-        deliver(buf.substring(minLen - 1, buf.length - 1), addr, id);
+        deliver(buf.substring(headLen, buf.length - 1), addr, id);
       } else {
-        updatePkt(buf.substring(minLen - 1, buf.length), addr, id);
+        updatePkt(buf.substring(headLen, buf.length), addr, id);
       }
     }
   } else if (buf.endsWith(pktMark)) {
@@ -592,18 +626,23 @@ function putPkt(addr, pkt)
 function doPut(addr, pkt)
 {
   var t = 0;
+  var retryNext;
   var retryTimes = 0;
   var waitAck = false;
   var index = pkt.index;
   var timeout = putTimeout / 2;
-  var retryNext = putTimeout * 3 / 5;
   var deadline = putTimeout - retryInterval;
+  
+  if (timeout > pktTimeout)
+    timeout = pktTimeout;
+  
+  retryNext = timeout + retryInterval;
   
   if (!putTimeout || (connections[addr].peer.bufferSize < lowWaterMark)) {
   	putPkt(addr, pkt);
   	waitAck = true;
   }
-   
+  
   var intv = setInterval(function() {
     if (!isReady(addr)) {
       clearInterval(intv);
@@ -614,27 +653,26 @@ function doPut(addr, pkt)
       if (waitAck) {
         if ((connections[addr].ack >= index) || ((t + waitTime) >= putTimeout)) {
           clearInterval(intv);
-          if (connections[addr].ack < index) {
+          if ((!connections[addr].ack && !connections[addr].wait) ||
+              (connections[addr].ack < index) && (connections[addr].wait < index)) {
             emit('put', {'name':addr, 'error':-101});
             log('failed to put, no ACK, addr=' + addr);
           }
         } else if (retry && (t >= retryNext) && (t <= deadline) && (retryTimes < retryMax)) {
-          putPkt(addr, pkt);
-          retryNext += retryInterval;
-          retryTimes += 1;
+          if (!connections[addr].wait || (connections[addr].wait < index)) {
+            putPkt(addr, pkt);
+            retryNext += retryInterval;
+            retryTimes += 1;
+          }
         }
       } else {
-        var size = connections[addr].peer.bufferSize;
-        
-        if ((t + waitTime >= putTimeout) || (size < lowWaterMark)) {
-          if ((size < lowWaterMark) && (t <= timeout)) {
-            putPkt(addr, pkt);
-            waitAck = true;
-          } else {
-            clearInterval(intv);
-            emit('put', {'name':addr, 'error':-101});
-            log('failed to put, no time, addr=' + addr);
-          }
+        if (t > timeout) {
+          clearInterval(intv);
+          emit('put', {'name':addr, 'error':-101});
+          log('failed to put, timeout, addr=' + addr);
+        } else if (connections[addr].peer.bufferSize < lowWaterMark) {
+          putPkt(addr, pkt);
+          waitAck = true;
         }
       }
     }
@@ -645,7 +683,7 @@ function put(addr, data)
 {
   if (isReady(addr)) {
     if (data) {
-      var pkt = newIndexedPkt(addr, data);
+      var pkt = indexPkt(addr, data);
       
       if (!pkt) {
         error('failed to put, no packet, addr=' + addr);
@@ -739,7 +777,7 @@ if (adapterPort) {
       } else if ('put' == op) {
         put(args.addr, args.buf);
       }else
-        error("invalid command");
+        error("invalid op");
       reply();
     }
   });

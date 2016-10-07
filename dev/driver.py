@@ -31,9 +31,8 @@ def wrapper(func):
 
 def load_driver(typ, name=None):
     try:
-        driver_name = typ.lower()
-        dir_name = os.path.join(get_dir(), 'drivers')
-        path = os.path.join(dir_name, driver_name, '%s.py' % driver_name)
+        driver_dir = os.path.join(get_dir(), 'drivers', typ.lower())
+        path = os.path.join(driver_dir, '__init__.py')
         module = imp.load_source(typ, path)
         if module and hasattr(module, typ):
             driver = getattr(module, typ)
