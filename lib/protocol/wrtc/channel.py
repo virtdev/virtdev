@@ -20,16 +20,15 @@ from lib.log import log_debug, log_err, log_get
 from lib.util import popen, get_dir, gen_key, pkill, close_port, named_lock, zmqaddr
 
 RELIABLE = True
-RETRY_MAX = 2
+RETRY_MAX = 20
 CHANNEL_MAX = 256
 ADAPTER_NAME = 'wrtc'
 KEEP_CONNECTION = True
 
-TIMEOUT_PUT = 300 # seconds
+TIMEOUT_PUT = 600 # seconds
 TIMEOUT_SEND = 30 # seconds
 TIMEOUT_EXIST = 3 # seconds
-TIMEOUT_CONNECT = 30 # seconds
-WAIT_INTERVAL = 1 # seconds
+TIMEOUT_CONNECT = 3 # seconds
 
 EV_PUT = 'put'
 EV_SEND = 'send'
@@ -276,7 +275,7 @@ class Channel(object):
                 self._try_release(addr)
                 if len(self._channels) < CHANNEL_MAX:
                     return
-            time.sleep(WAIT_INTERVAL)
+            time.sleep(1)
     
     @named_lock
     def _check_channel(self, addr, key, bridge, gateway):

@@ -31,8 +31,8 @@ var reliable = false;
 
 var retryMax = 2;
 var waitTime = 50; // msec
-var pktTimeout = 30000; // msec
-var retryInterval = 15000; // msec
+var pktTimeout = 20000; // msec
+var retryInterval = 20000; // msec
 var deliverTimeout = 5000; // msec
 var localhost = '127.0.0.1';
 var highWaterMark = 1 << 26;
@@ -42,9 +42,12 @@ var pktSize = 1 << 23;
 var chunkSize = 1 << 16;
 
 var pktCmd = '#';
-var pktMark = '|';
 var pktAckCmd = pktCmd + '1';
 var pktWaitCmd = pktCmd + '2';
+
+var pktMarkIndex = '@';
+var pktMarkBegin = '^';
+var pktMarkEnd = "$";
 
 var dataChannelConfig = {};
 var listeners = new Object();
@@ -128,15 +131,8 @@ function notify(addr, key, bridge, args)
 }
 
 function newPkt(data)
-{
-  var buf = String(data);
-  
-  if (buf.indexOf(pktMark) != -1) {
-    error('invalid data');
-    return;
-  }
-  
-  return buf + pktMark;
+{  
+  return pktMarkBegin + String(data) + pktMarkEnd;
 }
 
 function int2hex(val)
@@ -148,22 +144,17 @@ function int2hex(val)
 
 function newAckPkt(index)
 {
-  return pktMark + int2hex(index) + pktAckCmd + pktMark;
+  return pktMarkIndex + int2hex(index) + pktAckCmd + pktMarkEnd;
 }
 
 function newWaitPkt(index)
 {
-  return pktMark + int2hex(index) + pktWaitCmd + pktMark;
+  return pktMarkIndex + int2hex(index) + pktWaitCmd + pktMarkEnd;
 }
 
 function indexPkt(addr, data)
 {
   var buf = String(data);
-  
-  if (buf.indexOf(pktMark) != -1) {
-    error('failed to create an indexed packet, addr=' + addr);
-    return;
-  }
   
   if (!connections[addr].index)
     connections[addr].index = 1;
@@ -171,7 +162,7 @@ function indexPkt(addr, data)
     connections[addr].index += 1;
   
   var index = connections[addr].index;
-  var content = pktMark + int2hex(index) + buf + pktMark;
+  var content = pktMarkIndex + int2hex(index) + buf + pktMarkEnd;
   
   return {'index':index, 'data':content};
 }
@@ -218,7 +209,26 @@ function checkPkt(addr, index, id)
   }
 }
 
-function updatePkt(data, addr, id)
+function hasPktBuf(addr)
+{
+  if (peerConnections[addr].buf)
+    return true;
+  else
+    return false;
+}
+
+function getPktBuf(addr, data)
+{
+  if (peerConnections[addr].buf) {
+    var buf = String(data);
+    
+    buf = peerConnections[addr].buf + buf;
+    delete peerConnections[addr].buf;
+    return buf;
+  }
+}
+
+function updatePktBuf(addr, id, data)
 { 
   if (hasPeer(addr, id)) {
     var buf = String(data);
@@ -241,7 +251,7 @@ function updatePkt(data, addr, id)
   }
 }
 
-function deliver(data, addr, id)
+function deliver(addr, id, data)
 { 
   if (hasPeer(addr, id)) {
     var ack = false;
@@ -249,21 +259,10 @@ function deliver(data, addr, id)
     var client = new WebSocketClient();
     var index = peerConnections[addr].index;
     
-    if (peerConnections[addr].buf) {
-      if (peerConnections[addr].buf.length + buf.length >= pktSize) {
-        error('failed to deliver, invalid size, addr=' + addr);
-        releasePeer(addr);
-        return;
-      }
-      
-      buf = peerConnections[addr].buf + buf;
-      delete peerConnections[addr].buf;
-    } else {
-      if (buf.length >= pktSize) {
-        error('failed to deliver, invalid size, addr=' + addr);
-        releasePeer(addr);
-        return;
-      }
+    if (buf.length >= pktSize) {
+      error('failed to deliver, invalid size, addr=' + addr);
+      releasePeer(addr);
+      return;
     }
     
     client.on('connect', function(connection) {
@@ -314,40 +313,54 @@ function checkCmd(addr, index, cmd)
   }
 }
 
-function deliverPkt(data, addr, id)
+function deliverPkt(addr, id, data)
 {
-  var cmd;
-  var index;
-  var indexLen = 8;
   var buf = String(data);
-  var pktLen = indexLen + 3; // 1 + indexLen + 1 + 1
-  var cmdLen = indexLen + 4; // 1 + indexLen + 2 + 1
-  var headLen = indexLen + 1;
   
-  if (buf.startsWith(pktMark)) {
+  if (buf.length >= pktSize) {
+    error("failed to deliver packet, invalid length, addr=" + addr);
+    return;
+  }
+  
+  if (buf.startsWith(pktMarkIndex)) {
+    var cmd;
+    var index;
+    var indexLen = 8;
+    var pktLen = indexLen + 3; // 1 + indexLen + 1 + 1
+    var cmdLen = indexLen + 4; // 1 + indexLen + 2 + 1
+    var headLen = indexLen + 1;
+    
     if (buf.length < pktLen) {
-      error("failed to deliver packet, invalid length, addr=" + addr);
+      error("failed to deliver packet, invalid head, addr=" + addr);
       return;
     }
     
     index = Number('0x' + buf.substring(1, headLen));
     if (pktCmd == buf[headLen])
-      if ((buf.length == cmdLen) && buf.endsWith(pktMark))
+      if ((buf.length == cmdLen) && buf.endsWith(pktMarkEnd))
         cmd = buf.substring(headLen, cmdLen - 1);
     
     if (cmd) {
       checkCmd(addr, index, cmd);
     } else if (checkPkt(addr, index, id)) {
-      if (buf.endsWith(pktMark)) {
-        deliver(buf.substring(headLen, buf.length - 1), addr, id);
-      } else {
-        updatePkt(buf.substring(headLen, buf.length), addr, id);
-      }
+      if (buf.endsWith(pktMarkEnd))
+        deliver(addr, id, buf.substring(headLen, buf.length - 1));
+      else
+        updatePktBuf(addr, id, buf.substring(headLen, buf.length));
     }
-  } else if (buf.endsWith(pktMark)) {
-    deliver(buf.substring(0, buf.length - 1), addr, id);
+  } else if (buf.startsWith(pktMarkBegin)) {
+    if (buf.endsWith(pktMarkEnd))
+      deliver(addr, id, buf.substring(1, buf.length - 1));
+    else
+      updatePktBuf(addr, id, buf.substring(1, buf.length));
+  } else if (buf.endsWith(pktMarkEnd)) {
+    var pktBuf = getPktBuf(addr, buf.substring(0, buf.length - 1));
+    
+    if (pktBuf)
+      deliver(addr, id, pktBuf);
   } else {
-    updatePkt(buf, addr, id);
+    if (hasPktBuf(addr))
+      updatePktBuf(addr, id, buf);
   }
 }
 
@@ -401,7 +414,7 @@ function join(dest, src)
   
   peer.on('data', function (data) {
     if (data)
-      deliverPkt(data, addr, id);
+      deliverPkt(addr, id, data);
   });
   
   peer.on('close', function() {
@@ -505,7 +518,7 @@ function connect(addr, key, bridge, source)
   if (source.listen) {
     peer.on('data', function (data) {
       if (data)
-        deliverPkt(data, addr, id);
+        deliverPkt(addr, id, data);
     });
   }
   
