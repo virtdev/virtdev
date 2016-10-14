@@ -21,7 +21,7 @@ from lib.util import lock, named_lock, edge_lock, is_local
 
 ASYNC = True
 POOL_SIZE = 2
-QUEUE_LEN = 12
+QUEUE_LEN = 16
 
 class DispatcherQueue(Queue):
     def __init__(self, scheduler):

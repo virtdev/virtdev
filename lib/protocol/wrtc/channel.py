@@ -11,6 +11,7 @@ import zerorpc
 from errno import *
 from lib import resolv
 from conf.defaults import *
+from dev.udo import OUTPUT_MAX
 from lib.lock import NamedLock
 from conf.log import LOG_CHANNEL
 from lib.bridge import get_bridge
@@ -350,7 +351,8 @@ class Channel(object):
         return False
     
     def initialize(self):
-        popen(self._path, 
+        popen(self._path,
+              '-s', str(OUTPUT_MAX),
               '-p', str(BRIDGE_PORT),
               '-l', str(ADAPTER_PORT),
               '-e', str(CHANNEL_EVENT_PORT))
@@ -360,6 +362,7 @@ class Channel(object):
               '-a', addr,
               '-k', key,
               '-b', bridge,
+              '-s', str(OUTPUT_MAX),
               '-p', str(BRIDGE_PORT),
               '-w', str(TIMEOUT_PUT),
               '-t', str(TIMEOUT_SEND),

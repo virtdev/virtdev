@@ -21,7 +21,7 @@ var bridgeAddr = argv.b;
 var bridgePort = argv.p;
 var adapterPort = argv.l;
 var conductorPort = argv.c;
-
+var pktSize = parseInt(argv.s) + 256;
 var putTimeout = parseInt(argv.w) * 1000; // msec
 var sendTimeout = parseInt(argv.t) * 1000; // msec
 
@@ -31,15 +31,13 @@ var reliable = false;
 
 var retryMax = 2;
 var waitTime = 50; // msec
-var pktTimeout = 20000; // msec
-var retryInterval = 20000; // msec
+var pktTimeout = 30000; // msec
+var retryInterval = 30000; // msec
 var deliverTimeout = 5000; // msec
-var localhost = '127.0.0.1';
+
+var chunkSize = 1 << 16;
 var highWaterMark = 1 << 26;
 var lowWaterMark = highWaterMark * 3 / 4;
-
-var pktSize = 1 << 23;
-var chunkSize = 1 << 16;
 
 var pktCmd = '#';
 var pktAckCmd = pktCmd + '1';
@@ -48,6 +46,8 @@ var pktWaitCmd = pktCmd + '2';
 var pktMarkIndex = '@';
 var pktMarkBegin = '^';
 var pktMarkEnd = "$";
+
+var localhost = '127.0.0.1';
 
 var dataChannelConfig = {};
 var listeners = new Object();
@@ -65,6 +65,20 @@ if (!reliable) {
     reliable: true
   }
 }
+
+if (!pktSize)
+  pktSize = 1 << 23;
+
+if (pktSize >= lowWaterMark) {
+  lowWaterMark = 3 * pktSize;
+  highWaterMark = 4 * pktSize;
+}
+
+if (!putTimeout)
+  putTimeout = 150000; // msec
+  
+if (!sendTimeout)
+  sendTimeout = 30000; // msec
 
 var peerConnectionConfig = {
   iceServers: [
@@ -331,7 +345,7 @@ function deliverPkt(addr, id, data)
     var headLen = indexLen + 1;
     
     if (buf.length < pktLen) {
-      error("failed to deliver packet, invalid head, addr=" + addr);
+      error("failed to deliver packet, invalid packet, addr=" + addr);
       return;
     }
     
@@ -643,13 +657,14 @@ function doPut(addr, pkt)
   var retryTimes = 0;
   var waitAck = false;
   var index = pkt.index;
+  var length = pkt.data.length;
   var timeout = putTimeout / 2;
-  var deadline = putTimeout - retryInterval;
+  var interval = length >> 20 > 0 ? (length >> 20) * retryInterval : retryInterval;
+  var deadline = putTimeout - interval;
   
-  if (timeout > pktTimeout)
-    timeout = pktTimeout;
-  
-  retryNext = timeout + retryInterval;
+  if ((timeout < interval) && (interval < putTimeout))
+    timeout = interval;
+  retryNext = timeout + interval;
   
   if (!putTimeout || (connections[addr].peer.bufferSize < lowWaterMark)) {
   	putPkt(addr, pkt);
@@ -674,7 +689,7 @@ function doPut(addr, pkt)
         } else if (retry && (t >= retryNext) && (t <= deadline) && (retryTimes < retryMax)) {
           if (!connections[addr].wait || (connections[addr].wait < index)) {
             putPkt(addr, pkt);
-            retryNext += retryInterval;
+            retryNext += interval;
             retryTimes += 1;
           }
         }
@@ -789,7 +804,7 @@ if (adapterPort) {
         send(args.addr, args.buf);
       } else if ('put' == op) {
         put(args.addr, args.buf);
-      }else
+      } else
         error("invalid op");
       reply();
     }
