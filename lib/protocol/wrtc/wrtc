@@ -25,7 +25,7 @@ var pktSize = parseInt(argv.s) + 256;
 var putTimeout = parseInt(argv.w) * 1000; // msec
 var sendTimeout = parseInt(argv.t) * 1000; // msec
 
-var debug = true;
+var debug = false;
 var retry = true;
 var reliable = false;
 
@@ -67,7 +67,7 @@ if (!reliable) {
 }
 
 if (!pktSize)
-  pktSize = 1 << 23;
+  pktSize = 1 << 22;
 
 if (pktSize >= lowWaterMark) {
   lowWaterMark = 3 * pktSize;

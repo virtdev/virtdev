@@ -5,16 +5,23 @@
 # Distributed under the terms of the MIT license.
 #
 
+from lib.pool import Pool
 from threading import Event
+from lib.queue import Queue
 from lib import channel, codec
 from lib.request import Request
 from operation import Operation
 from conf.defaults import DEBUG
 from conf.log import LOG_CONDUCTOR
+from multiprocessing import cpu_count
 from lib.ws import WSHandler, ws_start
 from lib.util import UID_SIZE, get_name
 from conf.defaults import CONDUCTOR_PORT
 from lib.log import log_debug, log_err, log_get
+
+ASYNC = True
+QUEUE_LEN = 2
+POOL_SIZE = cpu_count()
 
 def chkstat(func):
     def _chkstat(*args, **kwargs):
@@ -22,6 +29,14 @@ def chkstat(func):
         if self._ready:
             return func(*args, **kwargs)
     return _chkstat
+
+class ConductorQueue(Queue):
+    def __init__(self, srv):
+        Queue.__init__(self, QUEUE_LEN)
+        self._srv = srv
+    
+    def proc(self, buf):
+        self._srv.proc(buf)
 
 class ConductorServer(object):
     def __init__(self):
@@ -38,10 +53,16 @@ class ConductorServer(object):
             raise Exception(log_get(self, 'failed to initialize'))
         
         self._keys = {}
+        self._pool = None
         self._tokens = {}
         self._devices = {}
         self._event = Event()
         self._op = Operation(manager)
+        
+        if ASYNC:
+            self._pool = Pool()
+            for _ in range(POOL_SIZE):
+                self._pool.add(ConductorQueue(self))
         
         self.uid = uid
         self.addr = addr
@@ -57,6 +78,7 @@ class ConductorServer(object):
         if LOG_CONDUCTOR:
             log_debug(self, text)
     
+    @chkstat
     def get_token(self, head, update=False):
         if head == self.uid:
             return self.token
@@ -111,13 +133,10 @@ class ConductorServer(object):
         name = uid + node
         if self._keys.get(name):
             del self._keys[name]
-    
+            
     def _proc(self, req):
         op = req.get('op')
         args = req.get('args')
-        if not op or op[0] == '_' or type(args) != dict:
-            log_err(self, 'failed to process, invalid request, op=%s' % str(op))
-            return
         func = getattr(self._op, op)
         if func:
             if args:
@@ -139,6 +158,12 @@ class ConductorServer(object):
             self._proc(req)
         else:
             self._proc_safe(req)
+    
+    def put(self, req):
+        if not ASYNC:
+            self.proc(req)
+        else:
+            self._pool.push(req)
 
 conductor = ConductorServer()
 
@@ -146,31 +171,33 @@ class ConductorHandler(WSHandler):
     def _get_head(self, buf):
         return buf[0:UID_SIZE]
     
-    def on_message(self, buf):
+    def _handle(self, buf):
+        if len(buf) <= UID_SIZE:
+            return
+        head = self._get_head(buf)
+        token = conductor.get_token(head)
+        if not token:
+            log_err(self, 'failed, no token')
+            return
         try:
-            if len(buf) <= UID_SIZE:
-                return
-            head = self._get_head(buf)
-            token = conductor.get_token(head)
+            req = codec.decode(buf, token)
+        except:
+            token = conductor.get_token(head, update=True)
             if not token:
                 log_err(self, 'failed, no token')
                 return
-            try:
-                req = codec.decode(buf, token)
-            except:
-                token = conductor.get_token(head, update=True)
-                if not token:
-                    log_err(self, 'failed, no token')
-                    return
-                req = codec.decode(buf, token)
+            req = codec.decode(buf, token)
             
-            if req:
-                op = req.get('op')
-                args = req.get('args')
-                if not op or op[0] == '_' or type(args) != dict:
-                    log_err(self, 'failed, op=%s' % str(op))
-                    return
-                conductor.proc(req)
+        if req:
+            op = req.get('op')
+            if not op or op[0] == '_' or type(req.get('args')) != dict:
+                log_err(self, 'failed to handle, invalid request')
+                return
+            conductor.put(req)
+    
+    def on_message(self, buf):
+        try:
+            self._handle(buf)
         finally:
             self.close()
 

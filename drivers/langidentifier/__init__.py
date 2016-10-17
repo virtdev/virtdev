@@ -10,7 +10,7 @@ from dev.driver import Driver, wrapper
 
 PRINT = False
 
-class LangIdentifiyer(Driver):
+class LangIdentifier(Driver):
     def _get_lang(self, text):
         buf = b64decode(text)
         if buf:
