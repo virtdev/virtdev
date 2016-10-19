@@ -256,7 +256,6 @@ class UDO(object):
             buf = device.check_output(output)
             return (device, buf)
         except:
-            log_err(self, 'failed to read device, type=%s, name=%s' % (self.d_type, self.d_name))
             return empty
     
     def _write_device(self, buf):
@@ -282,6 +281,13 @@ class UDO(object):
             if not self._write_device(cmd_get(index)):
                 device.set_idle()
     
+    def _release(self):
+        try:
+            io.close(self._socket)
+            self._socket = None
+        except:
+            pass
+    
     def can_poll(self):
         return need_freq(self.d_mode)
     
@@ -298,6 +304,7 @@ class UDO(object):
                     self._check_device()
         except:
             log_err(self, 'failed to poll, type=%s, name=%s' % (self.d_type, self.d_name))
+            self._release()
     
     def _handle(self, device, buf):
         if not self._put(device, buf) and buf:
@@ -338,7 +345,7 @@ class UDO(object):
                         device.set_idle()
         except:
             log_err(self, 'failed to listen, type=%s, name=%s' % (self.d_type, self.d_name))
-            io.close(self._socket)
+            self._release()
     
     def _start(self):
         if self._socket:
@@ -377,7 +384,7 @@ class UDO(object):
                         freq = loader.get_attr(self._name, ATTR_FREQ, float)
         
         if not self._children:
-            api_mount(self._uid, name=self.d_name, mode=mode, freq=freq, prof=prof)
+            api_mount(self._uid, name=self.d_name, mode=mode, freq=freq, prof=prof, type=self.d_type)
             self._log('mount %s [%s*]' % (self.d_type, self.d_name[:8]))
     
     def mount(self, uid, name, core, sock=None, init=True):
@@ -449,5 +456,4 @@ class UDO(object):
                 log_err(self, 'failed to process, invalid operation, type=%s, name=%s' % (device.d_type, device.d_name))
         except:
             log_err(self, 'failed to process, type=%s, name=%s' % (device.d_type, device.d_name))
-            io.close(self._socket)
-            self._socket = None
+            self._release()

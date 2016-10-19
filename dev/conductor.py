@@ -133,7 +133,7 @@ class ConductorServer(object):
         name = uid + node
         if self._keys.get(name):
             del self._keys[name]
-            
+    
     def _proc(self, req):
         op = req.get('op')
         args = req.get('args')
