@@ -384,7 +384,7 @@ class UDO(object):
                         freq = loader.get_attr(self._name, ATTR_FREQ, float)
         
         if not self._children:
-            api_mount(self._uid, name=self.d_name, mode=mode, freq=freq, prof=prof, type=self.d_type)
+            api_mount(self._uid, name=self.d_name, mode=mode, freq=freq, prof=prof)
             self._log('mount %s [%s*]' % (self.d_type, self.d_name[:8]))
     
     def mount(self, uid, name, core, sock=None, init=True):

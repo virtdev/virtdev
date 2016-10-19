@@ -220,6 +220,13 @@ class VDFS(Operations):
         obj.invalidate(uid, name)
     
     def _init(self, uid, name, mode, vrtx, parent, freq, prof, hndl, filt, disp, typ, timeout):
+        if prof:
+            if not typ:
+                typ = prof.get('type')
+            elif typ != prof.get('type'):
+                log_err(self, 'failed to initialize, invalid type, type=%' % str(typ))
+                raise FuseOSError(EINVAL)
+        
         if not typ:
             log_err(self, 'failed to initialize, no type, name=%s' % str(name))
             raise FuseOSError(EINVAL)
