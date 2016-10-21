@@ -62,6 +62,7 @@ function install_edgenode()
 	pip install wget
 	pip install xattr
 	pip install zerorpc
+	pip install paho-mqtt
 
 	ARCH=`arch`
 	if [  $ARCH = "i386" ]; then
@@ -132,6 +133,7 @@ function install_supernode()
 	pip install xattr
 	pip install zerorpc
 	pip install leveldb
+	pip install paho-mqtt
 }
 
 function install_nodejs()

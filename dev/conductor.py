@@ -13,8 +13,10 @@ from lib.request import Request
 from operation import Operation
 from conf.defaults import DEBUG
 from conf.log import LOG_CONDUCTOR
+from lib.operations import OP_EXIST
 from multiprocessing import cpu_count
 from lib.ws import WSHandler, ws_start
+from lib.sig import SignalClient, reply
 from lib.util import UID_SIZE, get_name
 from conf.defaults import CONDUCTOR_PORT
 from lib.log import log_debug, log_err, log_get
@@ -73,7 +75,7 @@ class ConductorServer(object):
         
         channel.create(uid, addr, key)
         self._ready = True
-        
+    
     def _log(self, text):
         if LOG_CONDUCTOR:
             log_debug(self, text)
@@ -134,6 +136,31 @@ class ConductorServer(object):
         if self._keys.get(name):
             del self._keys[name]
     
+    def get_req(self, buf):
+        if len(buf) <= UID_SIZE:
+            return
+        head = buf[0:UID_SIZE]
+        token = self.get_token(head)
+        if not token:
+            log_err(self, 'failed to handle, no token')
+            return
+        try:
+            req = codec.decode(buf, token)
+        except:
+            token = self.get_token(head, update=True)
+            if not token:
+                log_err(self, 'failed to handle, no token')
+                return
+            req = codec.decode(buf, token)
+        
+        if req:
+            op = req.get('op')
+            if not op or op[0] == '_' or type(req.get('args')) != dict:
+                log_err(self, 'failed to handle, invalid request')
+                return
+            
+            return req
+    
     def _proc(self, req):
         op = req.get('op')
         args = req.get('args')
@@ -164,49 +191,43 @@ class ConductorServer(object):
             self.proc(req)
         else:
             self._pool.push(req)
+    
+    def _handle(self, req):
+        op = req.get('op')
+        if op == OP_EXIST:
+            args = req.get('args')
+            if args.get('dest') == self.addr:
+                addr = args.get('src')
+                broker = args.get('broker')
+                if addr and broker:
+                    reply(addr, broker)
+                    return True
+    
+    def handle(self, buf):
+        req = self.get_req(buf)
+        if req:
+            if not self._handle(req):
+                self.proc(req)
 
 conductor = ConductorServer()
 
 class ConductorHandler(WSHandler):
-    def _get_head(self, buf):
-        return buf[0:UID_SIZE]
-    
-    def _handle(self, buf):
-        if len(buf) <= UID_SIZE:
-            return
-        head = self._get_head(buf)
-        token = conductor.get_token(head)
-        if not token:
-            log_err(self, 'failed, no token')
-            return
-        try:
-            req = codec.decode(buf, token)
-        except:
-            token = conductor.get_token(head, update=True)
-            if not token:
-                log_err(self, 'failed, no token')
-                return
-            req = codec.decode(buf, token)
-            
-        if req:
-            op = req.get('op')
-            if not op or op[0] == '_' or type(req.get('args')) != dict:
-                log_err(self, 'failed to handle, invalid request')
-                return
-            conductor.put(req)
-    
     def on_message(self, buf):
         try:
-            self._handle(buf)
+            req = conductor.get_req(buf)
+            if req:
+                conductor.put(req)
         finally:
             self.close()
 
 class Conductor(object):
     def __init__(self):
+        self._signal = None
         self._create = False
     
     def create(self, manager):
         if not self._create:
             self._create = True
             conductor.initialize(manager)
+            self._signal = SignalClient(manager.addr, conductor.handle)
             ws_start(ConductorHandler, CONDUCTOR_PORT)

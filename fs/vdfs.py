@@ -84,6 +84,10 @@ class VDFS(Operations):
         if manager:
             manager.start()
     
+    def _log(self, text):
+        if LOG_VDFS:
+            log_debug(self, text)
+    
     def _check_name(self, name):
         try:
             return uuid.UUID(name).hex
@@ -98,7 +102,7 @@ class VDFS(Operations):
     
     def _parse(self, path):
         if len(path) > PATH_MAX:
-            log_err(self, 'failed to parse')
+            self._log('failed to parse')
             raise FuseOSError(EINVAL)
         
         if path == '/' or path[:2] == '/.':
@@ -107,7 +111,7 @@ class VDFS(Operations):
         field = path[1:].split('/')
         uid = self._check_uid(field[0])
         if not uid:
-            log_err(self, 'failed to parse, invalid uid, path=%s' % str(path))
+            self._log('failed to parse, invalid uid, path=%s' % str(path))
             raise FuseOSError(EINVAL)
         
         name = ''
@@ -123,12 +127,12 @@ class VDFS(Operations):
                 obj = self._attr
             else:
                 if total != 2:
-                    log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
+                    self._log('failed to parse, invalid path, path=%s' % str(path))
                     raise FuseOSError(EINVAL)
                 
                 name = self._check_name(field[1])
                 if not name:
-                    log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
+                    self._log('failed to parse, invalid path, path=%s' % str(path))
                     raise FuseOSError(EINVAL)
                 
                 obj = self._data
@@ -136,12 +140,12 @@ class VDFS(Operations):
             if total > 2:
                 if obj == self._attr:
                     if total > 4:
-                        log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
+                        self._log('failed to parse, invalid path, path=%s' % str(path))
                         raise FuseOSError(EINVAL)
                     
                     name = self._check_name(field[2])
                     if not name:
-                        log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
+                        self._log('failed to parse, invalid path, path=%s' % str(path))
                         raise FuseOSError(EINVAL)
                     
                     if total == 4:
@@ -149,7 +153,7 @@ class VDFS(Operations):
                 else:      
                     name = self._check_name(field[-1])
                     if not name:
-                        log_err(self, 'failed to parse, invalid path, path=%s' % str(path))
+                        self._log('failed to parse, invalid path, path=%s' % str(path))
                         raise FuseOSError(EINVAL)
                     
                     if total >= 4:

@@ -21,7 +21,10 @@ ADAPTER_ADDR = '127.0.0.1'
 NOTIFIER_ADDR = '127.0.0.1'
 CHANNEL_EVENT_ADDR = '127.0.0.1'
 
+# Edge node settings
 MNT_EDGENODE = '~/vdev/mnt/edge'
 VAR_EDGENODE = '~/vdev/var/edge'
+
+# Super node settings
 MNT_SUPERNODE = '~/vdev/mnt/super'
 VAR_SUPERNODE = '~/vdev/var/super'

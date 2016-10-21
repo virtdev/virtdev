@@ -48,7 +48,7 @@ class LocalFS(object):
     def lsdir(self, uid, path):
         return os.listdir(path)
     
-    def exists(self, uid, path):
+    def exist(self, uid, path):
         return os.path.exists(path)
     
     def touch(self, uid, path):

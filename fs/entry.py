@@ -121,9 +121,9 @@ class Entry(object):
     def check_path(self, uid, name='', parent=''):
         path = self.get_path(uid, name, parent)
         parent = os.path.dirname(path)
-        if not self._fs.exists(uid, parent):
+        if not self._fs.exist(uid, parent):
             self._fs.mkdir(uid, parent)
-        if not self._fs.exists(uid, path):
+        if not self._fs.exist(uid, path):
             self._fs.touch(uid, path)
     
     def symlink(self, uid, name):
@@ -156,7 +156,7 @@ class Entry(object):
         st = None
         path = self.get_path(uid, name)
         
-        if self._fs.exists(uid, path):
+        if self._fs.exist(uid, path):
             st = self._fs.stat(uid, path)
         elif self.can_invalidate():
             path = get_temp(path)

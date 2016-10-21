@@ -77,7 +77,7 @@ class Hadoop(object):
             ret.append(os.path.basename(name['path']))
         return ret
     
-    def exists(self, uid, path):
+    def exist(self, uid, path):
         cli = self._get_client(uid)
         return cli.test(path, exists=True)
     

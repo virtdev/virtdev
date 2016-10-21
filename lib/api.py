@@ -82,9 +82,9 @@ def api_scan(uid):
     return ret
 
 @check_uid
-def api_exists(uid):
+def api_exist(uid):
     os.path.exists(uid)
-    _log('api_exists: %s' % uid)
+    _log('api_exist: %s' % uid)
 
 @check_uid
 def api_touch(uid):

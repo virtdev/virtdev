@@ -6,7 +6,7 @@
 #
 
 import json
-from lib.api import api_invalidate, api_exists, api_mount, api_touch
+from lib.api import api_invalidate, api_exist, api_mount, api_touch
 
 class Operation(object):
     def __init__(self, manager):
@@ -18,7 +18,7 @@ class Operation(object):
         api_mount(self._uid, **attr)
     
     def invalidate(self, path):
-        if not api_exists(self._uid, path):
+        if not api_exist(self._uid, path):
             api_touch(self._uid, path)
         api_invalidate(self._uid, path)
     

@@ -40,7 +40,7 @@ class Attr(Entry):
     
     def is_expired(self, uid, name):
         temp = get_temp(self.get_path(uid, name))
-        return self._fs.exists(uid, temp)
+        return self._fs.exist(uid, temp)
     
     def getattr(self, uid, name):
         return self.lsattr(uid, name)
@@ -84,7 +84,7 @@ class Attr(Entry):
         self._log('invalidate, name=%s' % str(name))
         path = self.get_path(uid, name)
         temp = get_temp(path)
-        if self._fs.exists(uid, path):
+        if self._fs.exist(uid, path):
             self._fs.rename(uid, path, temp)
             self._unlink(uid, name)
         else:
