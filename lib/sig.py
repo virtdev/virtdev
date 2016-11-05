@@ -5,13 +5,11 @@
 # Distributed under the terms of the MIT license.
 #
 
-import os
 import uuid
 import codec
 from lib.util import call
 from hash_ring import HashRing
 import paho.mqtt.client as mqtt
-from conf.conf import CONF_MQTT
 from operations import OP_EXIST
 import paho.mqtt.publish as publish
 from threading import Thread, Event
@@ -26,12 +24,7 @@ def get_broker(addr):
 
 class Signal(Thread):
     def run(self):
-        if CONF_MQTT:
-            if not os.path.exists(CONF_MQTT):
-                raise Exception('Error: failed to create signal, cannot find configuration %s' % CONF_MQTT)
-            call('mosquitto', '-p', str(SIGNAL_PORT), '-c', CONF_MQTT)
-        else:
-            call('mosquitto', '-p', str(SIGNAL_PORT))
+        call('mosquitto', '-p', str(SIGNAL_PORT))
 
 class SignalClient(object):
     def __init__(self, addr, handle):

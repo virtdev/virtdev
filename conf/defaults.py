@@ -28,3 +28,6 @@ VAR_EDGENODE = '~/vdev/var/edge'
 # Super node settings
 MNT_SUPERNODE = '~/vdev/mnt/super'
 VAR_SUPERNODE = '~/vdev/var/super'
+
+# For n2n
+CONF_DHCP = '/etc/dhcp/dhcpd.conf'

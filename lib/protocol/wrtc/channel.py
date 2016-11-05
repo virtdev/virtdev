@@ -21,14 +21,14 @@ from lib.log import log_debug, log_err, log_get
 from lib.util import popen, get_dir, gen_key, pkill, close_port, named_lock, zmqaddr
 
 RELIABLE = True
-RETRY_MAX = 20
+RETRY_MAX = 60
 CHANNEL_MAX = 256
 ADAPTER_NAME = 'wrtc'
 KEEP_CONNECTION = True
 
-TIMEOUT_PUT = 600 # seconds
-TIMEOUT_SEND = 30 # seconds
-TIMEOUT_EXIST = 3 # seconds
+TIMEOUT_PUT = 3600  # seconds
+TIMEOUT_SEND = 30   # seconds
+TIMEOUT_EXIST = 3   # seconds
 TIMEOUT_CONNECT = 3 # seconds
 
 EV_PUT = 'put'
@@ -141,7 +141,14 @@ class Channel(object):
     def _get_adapter_path(self):
         return os.path.join(get_dir(), 'lib', 'protocol', 'wrtc', ADAPTER_NAME)
     
-    def _request(self, op, args, event=None):
+    def _get_connect_timeout(self, retry):
+        timeout = TIMEOUT_CONNECT + retry / 4
+        if timeout > TIMEOUT_CONNECT * 5:
+            return TIMEOUT_CONNECT * 5
+        else:
+            return timeout
+    
+    def _request(self, op, args, event=None, timeout=None):
         if not args:
             log_debug(self, 'failed to request, no arguments')
             return
@@ -162,7 +169,9 @@ class Channel(object):
             finally:
                 cli.close()
             if event:
-                ret = self._channel_event.wait(ev, EV_TIMEOUT[event['ev_type']])
+                if not timeout:
+                    timeout = EV_TIMEOUT[event['ev_type']]
+                ret = self._channel_event.wait(ev, timeout)
         finally:
             if event:
                 err = self._channel_event.put(event['ev_type'], event['ev_name'])
@@ -178,12 +187,12 @@ class Channel(object):
         elif ret == -ENOENT:
             return False
     
-    def _connect(self, addr, key, bridge, source=None):
+    def _connect(self, addr, key, bridge, source=None, timeout=None):
         args = {'addr':addr, 'key':key, 'bridge':bridge}
         if source:
             args.update({'source':source})
         event = {'ev_name':addr, 'ev_type':EV_CONNECT}
-        ret = self._request('connect', args, event)
+        ret = self._request('connect', args, event, timeout)
         if ret != True:
             self._release(addr)
             log_err(self, 'failed to connect, addr=%s' % str(addr))
@@ -214,38 +223,48 @@ class Channel(object):
         event = {'ev_name':addr, 'ev_type':EV_SEND}
         return self._request('send', {'addr':addr, 'buf':buf}, event)
     
+    def _try_connect(self, addr, timeout=None):
+        if not self._alloc.has_key(addr):
+            log_err(self, 'failed to connect, no allocation, addr=%s' % str(addr))
+            raise Exception(log_get(self, 'failed to connect'))
+        key = self._alloc[addr]['key']
+        bridge = self._alloc[addr]['bridge']
+        self._connect(addr, key, bridge, timeout=timeout)
+    
     def _try_put(self, addr, buf):
         ret = self._put(addr, buf)
         if ret == True:
             return
-        for _ in range(RETRY_MAX):
+        for i in range(RETRY_MAX):
             if ret == -ENOENT:
                 self._log('put, retry, addr=%s' % str(addr))
                 try:
-                    self._try_connect(addr)
+                    timeout = self._get_connect_timeout(i)
+                    self._try_connect(addr, timeout=timeout)
                 except:
                     continue
                 ret = self._put(addr, buf)
                 if ret == True:
                     return
-        log_err(self, 'failed to put, addr=%s' % str(addr))
+        log_err(self, 'failed to put, addr=%s, ret=%s' % (str(addr), str(ret)))
         raise Exception(log_get(self, 'failed to put'))
     
     def _try_send(self, addr, buf):
         ret = self._send(addr, buf)
         if ret == True:
             return
-        for _ in range(RETRY_MAX):
+        for i in range(RETRY_MAX):
             if ret == -ENOENT:
                 self._log('send, retry, addr=%s' % str(addr))
                 try:
-                    self._try_connect(addr)
+                    timeout = self._get_connect_timeout(i)
+                    self._try_connect(addr, timeout=timeout)
                 except:
                     continue
                 ret = self._send(addr, buf)
                 if ret == True:
                     return
-        log_err(self, 'failed to send, addr=%s' % str(addr))
+        log_err(self, 'failed to send, addr=%s, ret=%s' % (str(addr), str(ret)))
         raise Exception(log_get(self, 'failed to send'))
     
     def _release(self, addr):
@@ -315,14 +334,6 @@ class Channel(object):
     def free(self, addr):
         if self._alloc.has_key(addr):
             self._free(addr)
-    
-    def _try_connect(self, addr):
-        if not self._alloc.has_key(addr):
-            log_err(self, 'failed to connect, no allocation, addr=%s' % str(addr))
-            raise Exception(log_get(self, 'failed to connect'))
-        key = self._alloc[addr]['key']
-        bridge = self._alloc[addr]['bridge']
-        self._connect(addr, key, bridge)
     
     @named_lock
     def put(self, addr, buf, reliable=RELIABLE, keep_connection=KEEP_CONNECTION):

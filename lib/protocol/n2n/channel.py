@@ -11,12 +11,11 @@ import socket
 from threading import Thread
 from datetime import datetime
 from lib.lock import NamedLock
-from conf.conf import CONF_DHCP
 from conf.log import LOG_CHANNEL
 from conf.virtdev import BRIDGE_PORT
 from lib.ws import ws_connect, ws_addr
-from conf.defaults import CONDUCTOR_PORT
 from lib.log import log_debug, log_err, log_get
+from conf.defaults import CONDUCTOR_PORT, CONF_DHCP
 from lib.util import call, popen, ifaddr, named_lock, get_networks, pkill, sigkill, status_zobie, ifdown
 
 NETSIZE = 30
