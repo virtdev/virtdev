@@ -1,6 +1,6 @@
 DEBUG = True
 UPLOAD = True
-SHOW_ERR = True
+SHOW_ERROR = True
 SHOW_DEBUG = True
 SHOW_WARNNING = True
 
@@ -21,13 +21,16 @@ ADAPTER_ADDR = '127.0.0.1'
 NOTIFIER_ADDR = '127.0.0.1'
 CHANNEL_EVENT_ADDR = '127.0.0.1'
 
-# Edge node settings
+# EDGE NODE #####################
 MNT_EDGENODE = '~/vdev/mnt/edge'
 VAR_EDGENODE = '~/vdev/var/edge'
+#################################
 
-# Super node settings
+# SUPER NODE #####################
 MNT_SUPERNODE = '~/vdev/mnt/super'
 VAR_SUPERNODE = '~/vdev/var/super'
+##################################
 
-# For n2n
+# N2N ############################
 CONF_DHCP = '/etc/dhcp/dhcpd.conf'
+##################################

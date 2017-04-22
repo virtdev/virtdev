@@ -11,22 +11,22 @@ from dev.driver import Driver, wrapper
 PRINT = False
 
 class Blob(Driver):
-    def _get_sentiment(self, text):
-        buf = b64decode(text)
-        if buf:
-            blob = TextBlob(buf.decode('utf8'))
-            polarity = blob.sentiment.polarity
-            subjectivity = blob.sentiment.subjectivity
-            if PRINT:
-                print('Blob: polarity=%f, subjectivity=%f' % (polarity, subjectivity))
-            return (polarity,  subjectivity)
-        else:
-            return (None, None)
-    
-    @wrapper
-    def put(self, *args, **kwargs):
-        text = kwargs.get('content')
-        if text:
-            polarity, subjectivity = self._get_sentiment(text)
-            if polarity != None and subjectivity != None:
-                return {'polarity':polarity, 'subjectivity':subjectivity}
+	def _get_sentiment(self, text):
+		buf = b64decode(text)
+		if buf:
+			blob = TextBlob(buf.decode('utf8'))
+			polarity = blob.sentiment.polarity
+			subjectivity = blob.sentiment.subjectivity
+			if PRINT:
+				print('Blob: polarity=%f, subjectivity=%f' % (polarity, subjectivity))
+			return (polarity,  subjectivity)
+		else:
+			return (None, None)
+
+	@wrapper
+	def put(self, *args, **kwargs):
+		text = kwargs.get('content')
+		if text:
+			polarity, subjectivity = self._get_sentiment(text)
+			if polarity != None and subjectivity != None:
+				return {'polarity':polarity, 'subjectivity':subjectivity}

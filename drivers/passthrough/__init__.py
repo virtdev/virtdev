@@ -9,8 +9,8 @@ from dev.driver import Driver, wrapper
 PRINT = False
 
 class Passthrough(Driver):
-    @wrapper
-    def put(self, *args, **kwargs):
-        if PRINT:
-            print('Passthrough: input=%s' % str(kwargs))
-        return kwargs
+	@wrapper
+	def put(self, *args, **kwargs):
+		if PRINT:
+			print('Passthrough: input=%s' % str(kwargs))
+		return kwargs

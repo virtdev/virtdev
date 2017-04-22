@@ -1,3 +1,5 @@
+AREA = 0
+
 ROUTE = False
 USR_FINDER = False
 USR_MAPPER = False
@@ -17,5 +19,3 @@ DEV_SERVERS = ['127.0.0.1']
 DATA_SERVERS = ['127.0.0.1']
 MAPPER_SERVERS = ['127.0.0.1']
 FINDER_SERVERS = ['127.0.0.1']
-
-AREA = 0
