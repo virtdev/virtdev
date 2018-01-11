@@ -4,14 +4,13 @@ Virtdev is an environment used for creating virtual devices
 
 # Quick Start
 ### 1. Install
-* Run->path/to/virtdev/install
+* Run->scripts/install.sh
 
 ### 2. Start
-* Run->path/to/virtdev/bin/virtdev
+* Run->bin/virtdev
 
 ### 3. Configure
-The configuration files are contained in the following path:
-* path/to/virtdev/conf
+The default settings can be found in conf/defaults.py
 
 # License
 Virtdev is released under the terms of the MIT License.
