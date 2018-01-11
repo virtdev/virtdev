@@ -5,4 +5,11 @@
 # Distributed under the terms of the MIT license.
 #
 
+# DEVICES ###########
 VDEV = 'VDev'
+#####################
+
+# DOMAINS ###########
+DOMAIN_USR = 'U'
+DOMAIN_DEV = 'D'
+#####################

@@ -1,5 +1,0 @@
-PROT_NETWORK = 'n2n'
-PROT_LOCALDB = 'leveldb'
-PROT_REMOTEFS = 'hadoop'
-PROT_COMMONDB = 'mongo'
-PROT_COUNTERDB = 'hbase'

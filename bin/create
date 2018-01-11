@@ -13,27 +13,22 @@ sys.path.append(_dir)
 from lib.api import api_create
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument('-u', dest='uid', default=None)
-	parser.add_argument('-p', dest='parent', default=None)
-	parser.add_argument('-t', dest='device_type', default=None)
-	parser.add_argument('-s', '--supernode', action='store_true')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', dest='uid', default=None)
+    parser.add_argument('-p', dest='parent', default=None)
+    parser.add_argument('-t', dest='device_type', default=None)
 
-	args = parser.parse_args(sys.argv[1:])
-	uid = args.uid
-	parent = args.parent
-	device_type = args.device_type
-	if not uid or not device_type:
-		parser.print_help()
-		sys.exit()
+    args = parser.parse_args(sys.argv[1:])
+    uid = args.uid
+    parent = args.parent
+    device_type = args.device_type
+    if not uid or not device_type:
+        parser.print_help()
+        sys.exit()
 
-	if args.supernode:
-		from lib.util import set_supernode
-		set_supernode()
+    if parent:
+        ret = api_create(uid, type=device_type, parent=parent)
+    else:
+        ret = api_create(uid, type=device_type)
 
-	if parent:
-		ret = api_create(uid, type=device_type, parent=parent)
-	else:
-		ret = api_create(uid, type=device_type)
-
-	print str(ret)
+    print str(ret)

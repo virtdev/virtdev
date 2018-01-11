@@ -8,5 +8,5 @@
 import uuid
 
 class Resolv(object):
-	def get_addr(self, uid, node):
-		return uuid.uuid4().hex
+    def get_addr(self, uid, node):
+        return uuid.uuid4().hex

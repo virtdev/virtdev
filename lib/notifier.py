@@ -10,9 +10,9 @@ from lib.util import zmqaddr
 from conf.defaults import NOTIFIER_ADDR, NOTIFIER_PORT
 
 def notify(op, buf):
-	cli = zerorpc.Client()
-	cli.connect(zmqaddr(NOTIFIER_ADDR, NOTIFIER_PORT))
-	try:
-		cli.push(op, buf)
-	finally:
-		cli.close()
+    cli = zerorpc.Client()
+    cli.connect(zmqaddr(NOTIFIER_ADDR, NOTIFIER_PORT))
+    try:
+        cli.push(op, buf)
+    finally:
+        cli.close()

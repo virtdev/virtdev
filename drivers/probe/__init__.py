@@ -7,7 +7,7 @@
 from dev.driver import Driver, wrapper
 
 class Probe(Driver):
-	@wrapper
-	def put(self, *args, **kwargs):
-		print('Probe: input=%s' % str(kwargs))
-		return kwargs
+    @wrapper
+    def put(self, *args, **kwargs):
+        print('Probe: input=%s' % str(kwargs))
+        return kwargs

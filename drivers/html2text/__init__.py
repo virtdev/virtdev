@@ -13,27 +13,27 @@ IGNORE_LINKS = True
 IGNORE_IMAGES = True
 
 class HTML2Text(Driver):
-	def _convert(self, html):
-		buf = b64decode(html)
-		if buf:
-			try:
-				temp = buf.decode(errors='ignore')
-				h = html2text.HTML2Text()
-				if IGNORE_LINKS:
-					h.ignore_links = True
-				if IGNORE_IMAGES:
-					h.ignore_images = True
-				res = h.handle(temp)
-				if res:
-					return res.encode('utf-8')
-			except:
-				if PRINT:
-					print('HTML2Text: failed to convert')
+    def _convert(self, html):
+        buf = b64decode(html)
+        if buf:
+            try:
+                temp = buf.decode(errors='ignore')
+                h = html2text.HTML2Text()
+                if IGNORE_LINKS:
+                    h.ignore_links = True
+                if IGNORE_IMAGES:
+                    h.ignore_images = True
+                res = h.handle(temp)
+                if res:
+                    return res.encode('utf-8')
+            except:
+                if PRINT:
+                    print('HTML2Text: failed to convert')
 
-	@wrapper
-	def put(self, *args, **kwargs):
-		html = kwargs.get('content')
-		if html:
-			text = self._convert(html)
-			if text:
-				return {'content':b64encode(text)}
+    @wrapper
+    def put(self, *args, **kwargs):
+        html = kwargs.get('content')
+        if html:
+            text = self._convert(html)
+            if text:
+                return {'content':b64encode(text)}

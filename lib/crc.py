@@ -42,11 +42,11 @@ crc_table = [
   0x7bc7, 0x6a4e, 0x58d5, 0x495c, 0x3de3, 0x2c6a, 0x1ef1, 0x0f78]
 
 def _update(crc, ch):
-	return (crc >> 8) ^ crc_table[(crc ^ ord(ch)) & 0xff]
+    return (crc >> 8) ^ crc_table[(crc ^ ord(ch)) & 0xff]
 
 def encode(buf):
-	ret = 0
-	length = len(buf)
-	for i in range(length):
-		ret = _update(ret, buf[i])
-	return ret
+    ret = 0
+    length = len(buf)
+    for i in range(length):
+        ret = _update(ret, buf[i])
+    return ret

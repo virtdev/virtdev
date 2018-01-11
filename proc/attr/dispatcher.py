@@ -19,300 +19,293 @@ from lib.log import log_debug, log_err, log_get
 from conf.defaults import PROC_ADDR, DISPATCHER_PORT
 from lib.util import lock, named_lock, edge_lock, is_local
 
-ASYNC = True
-POOL_SIZE = 2
-QUEUE_LEN = 16
+SAFE = True
+TIMEOUT = 3600
+POOL_SIZE = 16
+QUEUE_LEN = 1
 
 class DispatcherQueue(Queue):
-	def __init__(self, scheduler):
-		Queue.__init__(self, QUEUE_LEN)
-		self._scheduler = scheduler
+    def __init__(self, parent):
+        Queue.__init__(self, parent, QUEUE_LEN, TIMEOUT)
+        self._parent = parent
 
-	def proc(self, buf):
-		self._scheduler.proc(self.index, *buf)
+    def proc(self, buf):
+        self._parent.proc(*buf)
 
-class DispatcherScheduler(object):
-	def __init__(self, core):
-		self._dest = {}
-		self._busy = {}
-		self._core = core
-		self._lock = Lock()
-		self._pool = Pool()
-		for _ in range(POOL_SIZE):
-			self._pool.add(DispatcherQueue(self))
+class DispatcherPool(Pool):
+    def __init__(self, core):
+        Pool.__init__(self)
+        self._core = core
+        self._busy = set()
+        self._ready = set()
+        self._lock = Lock()
+        for _ in range(POOL_SIZE):
+            self.add(DispatcherQueue(self))
 
-	@lock
-	def select(self, dest, src, buf, flags):
-		if self._busy.has_key(src):
-			return False
+    def _log(self, text):
+        if LOG_DISPATCHER:
+            log_debug(self, text)
 
-		pos = None
-		length = None
-		for i in range(POOL_SIZE):
-			if src != self._dest.get(i):
-				queue = self._pool.get(i)
-				l = queue.length
-				if l < QUEUE_LEN:
-					if pos == None or length > l:
-						length = l
-						pos = i
-			else:
-				return False
+    def _is_busy(self, name):
+        return name in self._busy
 
-		if pos != None:
-			queue = self._pool.get(pos)
-			if not queue.push((dest, src, buf, flags)):
-				log_err(self, 'failed to select')
-				raise Exception(log_get(self, 'failed to select'))
-			return True
+    def _set_busy(self, name):
+        self._busy.add(name)
 
-	@lock
-	def _acquire_queue(self, index, dest):
-		self._dest.update({index:dest})
+    def _clear_busy(self, name):
+        if name in self._busy:
+            self._busy.remove(name)
 
-	@lock
-	def _release_queue(self, index):
-		del self._dest[index]
+    def _is_ready(self, name):
+        return name in self._ready
 
-	def _proc(self, index, dest, src, buf, flags):
-		self._acquire_queue(index, dest)
-		try:
-			self._core.put(dest, src, buf, flags)
-		finally:
-			self._release_queue(index)
+    def _set_ready(self, name):
+        self._ready.add(name)
 
-	def _proc_safe(self, index, dest, src, buf, flags):
-		try:
-			self._proc(index, dest, src, buf, flags)
-		except:
-			log_err(self, 'failed to process')
+    def _clear_ready(self, name):
+        if name in self._ready:
+            self._ready.remove(name)
 
-	def proc(self, index, dest, src, buf, flags):
-		if DEBUG:
-			self._proc(index, dest, src, buf, flags)
-		else:
-			self._proc_safe(index, dest, src, buf, flags)
+    @lock
+    def _acquire(self, name):
+        self._log('>>acquire<<, name=%s' % name)
+        self._set_busy(name)
 
-	@lock
-	def _acquire(self, dest):
-		if self._busy.has_key(dest):
-			self._busy[dest] += 1
-		else:
-			self._busy[dest] = 1
+    @lock
+    def _release(self, name):
+        self._clear_busy(name)
+        self._clear_ready(name)
+        self._log('>>release<<, name=%s' % name)
 
-	@lock
-	def _release(self, dest):
-		if self._busy.has_key(dest):
-			self._busy[dest] -= 1
-			if self._busy[dest] <= 0:
-				del self._busy[dest]
+    @lock
+    def put(self, dest, src, buf, flags):
+        if not self._is_ready(dest):
+            if self.push((dest, src, buf, flags), async=True):
+                self._log('put, dest=%s, src=%s' % (dest, src))
+                self._set_ready(dest)
+                return True
+        if self._is_busy(src):
+            self._log('put, no wait, dest=%s, src=%s' % (dest, src))
+            Thread(target=self._core.put, args=(dest, src, buf, flags)).start()
+            return True
 
-	def put(self, dest, src, buf, flags):
-		self._acquire(dest)
-		try:
-			self._core.put(dest, src, buf, flags)
-		finally:
-			self._release(dest)
+    def _do_proc(self, dest, src, buf, flags):
+        self._acquire(dest)
+        try:
+            self._log('proc, dest=%s, src=%s' % (dest, src))
+            self._core.put(dest, src, buf, flags)
+        finally:
+            self._release(dest)
 
-	def wait(self):
-		self._pool.wait()
+    def _proc_safe(self, dest, src, buf, flags):
+        try:
+            self._do_proc(dest, src, buf, flags)
+        except:
+            log_err(self, 'failed to process, dest=%s, src=%s' % (str(dest), str(src)))
+
+    def _proc_unsafe(self, dest, src, buf, flags):
+        self._do_proc(dest, src, buf, flags)
+
+    def proc(self, dest, src, buf, flags):
+        if DEBUG and not SAFE:
+            self._proc_unsafe(dest, src, buf, flags)
+        else:
+            self._proc_safe(dest, src, buf, flags)
 
 class Dispatcher(object):
-	def __init__(self, uid, channel, core, addr=PROC_ADDR):
-		self._uid = uid
-		self._queue = []
-		self._paths = {}
-		self._hidden = {}
-		self._core = core
-		self._addr = addr
-		self._visible = {}
-		self._scheduler = None
-		self._dispatchers = {}
-		self._channel = channel
-		self._lock = NamedLock()
-		self._loader = Loader(self._uid)
-		if ASYNC and QUEUE_LEN:
-			self._scheduler = DispatcherScheduler(core)
+    def __init__(self, uid, channel, core, addr=PROC_ADDR):
+        self._uid = uid
+        self._queue = []
+        self._paths = {}
+        self._hidden = {}
+        self._core = core
+        self._addr = addr
+        self._pool = None
+        self._visible = {}
+        self._dispatchers = {}
+        self._channel = channel
+        self._lock = NamedLock()
+        self._loader = Loader(self._uid)
+        self._pool = DispatcherPool(core)
 
-	def _log(self, text):
-		if LOG_DISPATCHER:
-			log_debug(self, text)
+    def _log(self, text):
+        if LOG_DISPATCHER:
+            log_debug(self, text)
 
-	def _get_code(self, name):
-		buf = self._dispatchers.get(name)
-		if not buf:
-			buf = self._loader.get_attr(name, ATTR_DISPATCHER, str)
-			self._dispatchers.update({name:buf})
-		return buf
+    def _get_code(self, name):
+        buf = self._dispatchers.get(name)
+        if not buf:
+            buf = self._loader.get_attr(name, ATTR_DISPATCHER, str)
+            self._dispatchers.update({name:buf})
+        return buf
 
-	def _deliver(self, dest, src, buf, flags):
-		try:
-			if ASYNC:
-				if QUEUE_LEN:
-					while True:
-						ret = self._scheduler.select(dest, src, buf, flags)
-						if ret == None:
-							self._scheduler.wait()
-						else:
-							if not ret:
-								Thread(target=self._scheduler.put, args=(dest, src, buf, flags)).start()
-							break
-				else:
-					Thread(target=self._core.put, args=(dest, src, buf, flags)).start()
-			else:
-				self._core.put(dest, src, buf, flags)
-		except:
-			log_err(self, 'failed to deliver, dest=%s, src=%s' % (dest, src))
+    def _send(self, dest, src, buf, flags):
+        self._log('send, dest=%s, src=%s' % (dest, src))
+        self._channel.put(dest, src, buf=buf, flags=flags)
 
-	def _send(self, dest, src, buf, flags):
-		self._channel.put(dest, src, buf=buf, flags=flags)
+    def _put(self, dest, src, buf, flags):
+        self._log('put, dest=%s, src=%s' % (dest, src))
+        while not self._pool.put(dest, src, buf, flags):
+            self._pool.wait()
 
-	@edge_lock
-	def add_edge(self, edge, hidden=False):
-		src = edge[0]
-		dest = edge[1]
+    def _do_deliver(self, dest, src, buf, flags, local):
+        if local:
+            self._put(dest, src, buf, flags)
+        else:
+            self._send(dest, src, buf, flags)
 
-		if hidden:
-			paths = self._hidden
-		else:
-			paths = self._visible
+    def _deliver_safe(self, dest, src, buf, flags, local):
+        try:
+            self._do_deliver(dest, src, buf, flags, local)
+        except:
+            log_err(self, 'failed to deliver, dest=%s, src=%s' % (str(dest), str(src)))
 
-		if paths.has_key(src) and paths[src].has_key(dest):
-			return
+    def _deliver_unsafe(self, dest, src, buf, flags, local):
+        self._do_deliver(dest, src, buf, flags, local)
 
-		if not paths.has_key(src):
-			paths[src] = {}
+    def _deliver(self, dest, src, buf, flags, local):
+        if DEBUG and not SAFE:
+            self._deliver_unsafe(dest, src, buf, flags, local)
+        else:
+            self._deliver_safe(dest, src, buf, flags, local)
 
-		if not self._paths.has_key(src):
-			self._paths[src] = {}
+    @edge_lock
+    def add_edge(self, edge, hidden=False):
+        src = edge[0]
+        dest = edge[1]
 
-		local = is_local(self._uid, dest)
-		paths[src].update({dest:local})
-		if not self._paths[src].has_key(dest):
-			if not local:
-				self._channel.allocate(dest)
-			self._paths[src].update({dest:1})
-		else:
-			self._paths[src][dest] += 1
-		self._log('add edge, dest=%s, src=%s, local=%s' % (dest, src, str(local)))
+        if hidden:
+            paths = self._hidden
+        else:
+            paths = self._visible
 
-	@edge_lock
-	def remove_edge(self, edge, hidden=False):
-		src = edge[0]
-		dest = edge[1]
-		if hidden:
-			paths = self._hidden
-		else:
-			paths = self._visible
-		if not paths.has_key(src) or not paths[src].has_key(dest):
-			return
-		local = paths[src][dest]
-		del paths[src][dest]
-		self._paths[src][dest] -= 1
-		if 0 == self._paths[src][dest]:
-			del self._paths[src][dest]
-			if not local:
-				self._channel.free(dest)
-		self._log('remove edge, dest=%s, src=%s, local=%s' % (dest, src, str(local)))
+        if paths.has_key(src) and paths[src].has_key(dest):
+            return
 
-	@named_lock
-	def has_edge(self, name):
-		return self._visible.has_key(name)
+        if not paths.has_key(src):
+            paths[src] = {}
 
-	def update_edges(self, name, edges):
-		if not edges:
-			return
-		for dest in edges:
-			if dest.startswith('.'):
-				dest = dest[1:]
-			if dest != name:
-				self.add_edge((name, dest))
+        if not self._paths.has_key(src):
+            self._paths[src] = {}
 
-	def remove_edges(self, name):
-		paths = self._visible.get(name)
-		for i in paths:
-			self.remove_edge((name, i))
-		paths = self._hidden.get(name)
-		for i in paths:
-			self.remove_edge((name, i), hidden=True)
-		if self._dispatchers.has_key(name):
-			del self._dispatchers[name]
+        local = is_local(self._uid, dest)
+        paths[src].update({dest:local})
+        if not self._paths[src].has_key(dest):
+            if not local:
+                self._channel.allocate(dest)
+            self._paths[src].update({dest:1})
+        else:
+            self._paths[src][dest] += 1
+        self._log('add edge, dest=%s, src=%s, local=%s' % (dest, src, str(local)))
 
-	def remove(self, name):
-		if self._dispatchers.has_key(name):
-			del self._dispatchers[name]
+    @edge_lock
+    def remove_edge(self, edge, hidden=False):
+        src = edge[0]
+        dest = edge[1]
+        if hidden:
+            paths = self._hidden
+        else:
+            paths = self._visible
+        if not paths.has_key(src) or not paths[src].has_key(dest):
+            return
+        local = paths[src][dest]
+        del paths[src][dest]
+        self._paths[src][dest] -= 1
+        if 0 == self._paths[src][dest]:
+            del self._paths[src][dest]
+            if not local:
+                self._channel.free(dest)
+        self._log('remove edge, dest=%s, src=%s, local=%s' % (dest, src, str(local)))
 
-	def sendto(self, dest, src, buf, hidden=False, flags=0):
-		if not buf:
-			return
-		self.add_edge((src, dest), hidden=hidden)
-		if self._hidden:
-			local = self._hidden[src][dest]
-		else:
-			local = self._visible[src][dest]
-		if not local:
-			self._send(dest, src, buf, flags)
-		else:
-			self._deliver(dest, src, buf, flags)
-		self._log('sendto, dest=%s, src=%s' % (dest, src))
+    @named_lock
+    def has_edge(self, name):
+        return self._visible.has_key(name)
 
-	def send(self, name, buf, flags=0):
-		if not buf:
-			return
-		dest = self._visible.get(name)
-		if not dest:
-			return
-		for i in dest:
-			if not dest[i]:
-				self._send(i, name, buf, flags)
-			else:
-				self._deliver(i, name, buf, flags)
-			self._log('send, dest=%s, src=%s' % (i, name))
+    def update_edges(self, name, edges):
+        if not edges:
+            return
+        for dest in edges:
+            if dest.startswith('.'):
+                dest = dest[1:]
+            if dest != name:
+                self.add_edge((name, dest))
 
-	def send_blocks(self, name, blocks):
-		if not blocks:
-			return
-		dest = self._visible.get(name)
-		if not dest:
-			return
-		cnt = 0
-		keys = dest.keys()
-		len_keys = len(keys)
-		len_blks = len(blocks)
-		window = (len_blks + len_keys - 1) / len_keys
-		start = randint(0, len_keys - 1)
-		for _ in range(len_keys):
-			i = keys[start]
-			for _ in range(window):
-				if blocks[cnt]:
-					if not dest[i]:
-						self._send(i, name, blocks[cnt], 0)
-					else:
-						self._deliver(i, name, blocks[cnt], 0)
-					self._log('send a block, dest=%s, src=%s' % (i, name))
-				cnt += 1
-				if cnt == len_blks:
-					return
-			start += 1
-			if start == len_keys:
-				start = 0
+    def remove_edges(self, name):
+        paths = self._visible.get(name)
+        for i in paths:
+            self.remove_edge((name, i))
+        paths = self._hidden.get(name)
+        for i in paths:
+            self.remove_edge((name, i), hidden=True)
+        if self._dispatchers.has_key(name):
+            del self._dispatchers[name]
 
-	def put(self, name, buf):
-		try:
-			code = self._get_code(name)
-			if code == None:
-				code = self._get_code(name)
-				if not code:
-					return
-			return proc.put(self._addr, DISPATCHER_PORT, code, buf)
-		except:
-			log_err(self, 'failed to put')
+    def remove(self, name):
+        if self._dispatchers.has_key(name):
+            del self._dispatchers[name]
 
-	def check(self, name):
-		if self._dispatchers.get(name):
-			return True
-		else:
-			buf = self._loader.get_attr(name, ATTR_DISPATCHER, str)
-			if buf:
-				self._dispatchers.update({name:buf})
-				return True
+    def sendto(self, dest, src, buf, hidden=False, flags=0):
+        if not buf:
+            return
+        self._log('sendto, dest=%s, src=%s' % (dest, src))
+        self.add_edge((src, dest), hidden=hidden)
+        if self._hidden:
+            local = self._hidden[src][dest]
+        else:
+            local = self._visible[src][dest]
+        self._deliver(dest, src, buf, flags, local=local)
+
+    def send(self, name, buf, flags=0):
+        if not buf:
+            return
+        dest = self._visible.get(name)
+        if not dest:
+            return
+        for i in dest:
+            self._log('send, dest=%s, src=%s' % (i, name))
+            self._deliver(i, name, buf, flags, local=dest[i])
+
+    def send_blocks(self, name, blocks):
+        if not blocks:
+            return
+        dest = self._visible.get(name)
+        if not dest:
+            return
+        cnt = 0
+        keys = dest.keys()
+        len_keys = len(keys)
+        len_blks = len(blocks)
+        window = (len_blks + len_keys - 1) / len_keys
+        start = randint(0, len_keys - 1)
+        for _ in range(len_keys):
+            i = keys[start]
+            for _ in range(window):
+                if blocks[cnt]:
+                    self._log('send a block, dest=%s, src=%s' % (i, name))
+                    self._deliver(i, name, blocks[cnt], 0, local=dest[i])
+                cnt += 1
+                if cnt == len_blks:
+                    return
+            start += 1
+            if start == len_keys:
+                start = 0
+
+    def put(self, name, buf):
+        try:
+            code = self._get_code(name)
+            if code == None:
+                code = self._get_code(name)
+                if not code:
+                    return
+            return proc.put(self._addr, DISPATCHER_PORT, code, buf)
+        except:
+            log_err(self, 'failed to put, name=%s' % (str(name)))
+
+    def check(self, name):
+        if self._dispatchers.get(name):
+            return True
+        else:
+            buf = self._loader.get_attr(name, ATTR_DISPATCHER, str)
+            if buf:
+                self._dispatchers.update({name:buf})
+                return True

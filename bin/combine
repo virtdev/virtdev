@@ -13,27 +13,22 @@ sys.path.append(_dir)
 from lib.api import api_combine
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument('-u', dest='uid', default=None)
-	parser.add_argument('-t', dest='timeout', default=None)
-	parser.add_argument('-s', '--supernode', action='store_true')
-	parser.add_argument('-d', nargs='+', dest='device', default=None)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', dest='uid', default=None)
+    parser.add_argument('-t', dest='timeout', default=None)
+    parser.add_argument('-d', nargs='+', dest='device', default=None)
 
-	args = parser.parse_args(sys.argv[1:])
-	uid = args.uid
-	device = args.device
-	timeout = args.timeout
-	if not uid or not device:
-		parser.print_help()
-		sys.exit()
+    args = parser.parse_args(sys.argv[1:])
+    uid = args.uid
+    device = args.device
+    timeout = args.timeout
+    if not uid or not device:
+        parser.print_help()
+        sys.exit()
 
-	if args.supernode:
-		from lib.util import set_supernode
-		set_supernode()
+    if timeout:
+        ret = api_combine(uid, timeout=timeout, vertex=device)
+    else:
+        ret = api_combine(uid, vertex=device)
 
-	if timeout:
-		ret = api_combine(uid, timeout=timeout, vertex=device)
-	else:
-		ret = api_combine(uid, vertex=device)
-
-	print(str(ret))
+    print(str(ret))

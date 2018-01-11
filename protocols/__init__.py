@@ -1,0 +1,2 @@
+PROTOCOL_N2N = 'n2n'
+PROTOCOL_WRTC = 'wrtc'

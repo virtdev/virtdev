@@ -1,0 +1,847 @@
+#!/usr/bin/node
+//
+// Copyright (C) 2016 Yi-Wei Ci
+//
+// Distributed under the terms of the MIT license.
+//
+
+var mqtt = require('mqtt');
+var crypto = require('crypto');
+var uuid = require('node-uuid');
+var zerorpc = require('zerorpc');
+var SimplePeer = require('simple-peer');
+var WebSocketClient = require('websocket').client;
+
+// var Xvfb = require('xvfb');
+// var xvfb = new Xvfb(99, true);
+// xvfb.startSync();
+
+var wrtc = require('electron-webrtc')({headless: true});
+wrtc.on('error', function (err) { showError(err) });
+
+var argv = require('minimist')(process.argv.slice(2));
+var eventPort = argv.e;
+var sourceKey = argv.k;
+var sourceAddr = argv.a;
+var bridgeAddr = argv.b;
+var bridgePort = argv.p;
+var adapterPort = argv.l;
+var conductorPort = argv.c;
+var pktSize = parseInt(argv.s) + 256;
+var putTimeout = parseInt(argv.w) * 1000; // msec
+var sendTimeout = parseInt(argv.t) * 1000; // msec
+
+var debug = false;
+var retry = true;
+var reliable = false;
+
+var retryMax = 3;
+var waitTime = 50; // msec
+var pktTimeout = 30000; // msec
+var retryInterval = 30000; // msec
+var deliverTimeout = 5000; // msec
+
+var chunkSize = 1 << 16;
+var highWaterMark = 1 << 26;
+var lowWaterMark = highWaterMark * 3 / 4;
+
+var pktCmd = '#';
+var pktAckCmd = pktCmd + '1';
+var pktWaitCmd = pktCmd + '2';
+
+var pktMarkIndex = '@';
+var pktMarkBegin = '^';
+var pktMarkEnd = "$";
+
+var localhost = '127.0.0.1';
+
+var dataChannelConfig = {};
+var listeners = new Object();
+var connections = new Object();
+var peerConnections = new Object();
+
+if (!reliable) {
+    dataChannelConfig = {
+        ordered: true,
+        reliable: false,
+        maxRetransmitTime: 5000
+    };
+} else {
+    dataChannelConfig = {
+        reliable: true
+    }
+}
+
+if (!pktSize)
+    pktSize = 1 << 22;
+
+if (pktSize >= lowWaterMark) {
+    lowWaterMark = 3 * pktSize;
+    highWaterMark = 4 * pktSize;
+}
+
+if (!putTimeout)
+    putTimeout = 150000; // msec
+
+if (!sendTimeout)
+    sendTimeout = 30000; // msec
+
+var peerConnectionConfig = {
+    iceServers: [
+        {url:'stun:stun.ekiga.net'}
+    ]
+};
+
+function log(str)
+{
+    if (debug)
+        console.log('WRTC: ' + str);
+}
+
+function showError(str)
+{
+    console.log('WRTC: ' + str);
+}
+
+function encrypt(args, key)
+{
+    var keystr = String(key);
+    var k = keystr.substring(0, 16);
+    var iv = keystr.substring(16, 32);
+    var data = JSON.stringify(args);
+    var encipher = crypto.createCipheriv('aes-128-cbc', k, iv);
+    var res = encipher.update(data, 'utf8', 'binary');
+
+    return res + encipher.final('binary');
+}
+
+function decrypt(data, k, iv)
+{
+    var decipher = crypto.createDecipheriv('aes-128-cbc', k, iv);
+    var res = decipher.update(data, 'binary', 'utf8');
+
+    return res + decipher.final('utf8');
+}
+
+function isReady(addr)
+{
+    if ((addr in connections) && connections[addr].ready)
+        return true;
+    else
+        return false;
+}
+
+function emit(event, args)
+{
+    var client = new zerorpc.Client();
+
+    client.connect('tcp://' + localhost + ':' + eventPort);
+    client.invoke('emit', event, args);
+    client.close();
+}
+
+function notify(addr, key, bridge, args)
+{
+    var client = mqtt.connect('mqtt://' + bridge + ':' + bridgePort);
+
+    client.on('connect', function () {
+        client.publish(addr, encrypt(args, key));
+        client.end();
+    });
+}
+
+function newPkt(data)
+{
+    return pktMarkBegin + String(data) + pktMarkEnd;
+}
+
+function int2hex(val)
+{
+    var hex = val.toString(16);
+
+    return "00000000".substr(0, 8 - hex.length) + hex;
+}
+
+function newAckPkt(index)
+{
+    return pktMarkIndex + int2hex(index) + pktAckCmd + pktMarkEnd;
+}
+
+function newWaitPkt(index)
+{
+    return pktMarkIndex + int2hex(index) + pktWaitCmd + pktMarkEnd;
+}
+
+function indexPkt(addr, data)
+{
+    var buf = String(data);
+
+    if (!connections[addr].index)
+        connections[addr].index = 1;
+    else
+        connections[addr].index += 1;
+
+    var index = connections[addr].index;
+    var content = pktMarkIndex + int2hex(index) + buf + pktMarkEnd;
+
+    return {'index':index, 'data':content};
+}
+
+function hasPeer(addr, id)
+{
+    if ((addr in peerConnections) && (id == peerConnections[addr].id))
+        return true;
+    else
+        return false;
+}
+
+function hasConnection(addr, id)
+{
+    if ((addr in connections) && (id == connections[addr].id))
+        return true;
+    else
+        return false;
+}
+
+function releasePeer(addr)
+{
+    if (addr in peerConnections) {
+        var peer = peerConnections[addr].peer;
+
+        delete peerConnections[addr];
+        peer.destroy();
+    }
+}
+
+function checkPkt(addr, index, id)
+{
+    if (peerConnections[addr].buf)
+        delete peerConnections[addr].buf;
+
+    if (!peerConnections[addr].index
+    || (id != peerConnections[addr].id)
+    || (index > peerConnections[addr].index)) {
+        peerConnections[addr].index = index;
+        peerConnections[addr].id = id;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+function hasPktBuf(addr)
+{
+    if (peerConnections[addr].buf)
+        return true;
+    else
+        return false;
+}
+
+function getPktBuf(addr, data)
+{
+    if (peerConnections[addr].buf) {
+        var buf = String(data);
+
+        buf = peerConnections[addr].buf + buf;
+        delete peerConnections[addr].buf;
+        return buf;
+    }
+}
+
+function updatePktBuf(addr, id, data)
+{
+    if (hasPeer(addr, id)) {
+        var buf = String(data);
+
+        if (peerConnections[addr].buf) {
+            if (peerConnections[addr].buf.length + buf.length >= pktSize) {
+                showError('failed to update packet, invalid size, addr=' + addr);
+                releasePeer(addr);
+                return;
+            }
+            peerConnections[addr].buf += buf;
+        } else {
+            if (buf.length >= pktSize) {
+                showError('failed to update packet, invalid size, addr=' + addr);
+                releasePeer(addr);
+                return;
+            }
+            peerConnections[addr].buf = buf;
+        }
+    }
+}
+
+function deliver(addr, id, data)
+{
+    if (hasPeer(addr, id)) {
+        var ack = false;
+        var buf = String(data);
+        var client = new WebSocketClient();
+        var index = peerConnections[addr].index;
+
+        if (buf.length >= pktSize) {
+            showError('failed to deliver, invalid size, addr=' + addr);
+            releasePeer(addr);
+            return;
+        }
+
+        client.on('connect', function(connection) {
+            if (index) {
+                connection.on('close', function() {
+                    if (!ack) {
+                        if (hasPeer(addr, id)) {
+                            peerConnections[addr].peer.send(newAckPkt(index));
+                            ack = true;
+                        } else
+                            showError('failed to deliver, no ack, addr=' + addr);
+                    }
+                });
+            }
+
+            if (connection.connected)
+                connection.sendUTF(buf);
+        });
+
+        client.connect('ws://' + localhost + ':' + conductorPort);
+
+        if (index) {
+            setTimeout(function() {
+                if (!ack && hasPeer(addr, id))
+                    peerConnections[addr].peer.send(newWaitPkt(index));
+            }, deliverTimeout);
+        }
+    }
+}
+
+function checkCmd(addr, index, cmd)
+{
+    if (isReady(addr)) {
+        if (cmd == pktAckCmd) {
+            if (!connections[addr].ack || (index > connections[addr].ack)) {
+                connections[addr].ack = index;
+                emit('put', {'name': addr});
+                log('receive an ack, addr=' + addr + ', index=' + index.toString());
+            }
+        } else if (cmd == pktWaitCmd) {
+            if (!connections[addr].wait || (index > connections[addr].wait)) {
+                connections[addr].wait = index;
+                log('need to wait, addr=' + addr + ', index=' + index.toString());
+            }
+        } else {
+            showError('failed to check command, addr=' + addr + ', cmd=' + cmd);
+        }
+    }
+}
+
+function deliverPkt(addr, id, data)
+{
+    var buf = String(data);
+
+    if (buf.length >= pktSize) {
+        showError('failed to deliver packet, invalid length, addr=' + addr);
+        return;
+    }
+
+    if (buf.startsWith(pktMarkIndex)) {
+        var cmd;
+        var index;
+        var indexLen = 8;
+        var pktLen = indexLen + 3; // 1 + indexLen + 1 + 1
+        var cmdLen = indexLen + 4; // 1 + indexLen + 2 + 1
+        var headLen = indexLen + 1;
+
+        if (buf.length < pktLen) {
+            showError('failed to deliver packet, invalid packet, addr=' + addr);
+            return;
+        }
+
+        index = Number('0x' + buf.substring(1, headLen));
+        if (pktCmd == buf[headLen])
+            if ((buf.length == cmdLen) && buf.endsWith(pktMarkEnd))
+                cmd = buf.substring(headLen, cmdLen - 1);
+
+        if (cmd) {
+            checkCmd(addr, index, cmd);
+        } else if (checkPkt(addr, index, id)) {
+            if (buf.endsWith(pktMarkEnd))
+                deliver(addr, id, buf.substring(headLen, buf.length - 1));
+            else
+                updatePktBuf(addr, id, buf.substring(headLen, buf.length));
+        }
+    } else if (buf.startsWith(pktMarkBegin)) {
+        if (buf.endsWith(pktMarkEnd))
+            deliver(addr, id, buf.substring(1, buf.length - 1));
+        else
+            updatePktBuf(addr, id, buf.substring(1, buf.length));
+    } else if (buf.endsWith(pktMarkEnd)) {
+        var pktBuf = getPktBuf(addr, buf.substring(0, buf.length - 1));
+
+        if (pktBuf)
+            deliver(addr, id, pktBuf);
+    } else {
+        if (hasPktBuf(addr))
+            updatePktBuf(addr, id, buf);
+    }
+}
+
+function join(dest, src)
+{
+    var id = src.id;
+    var key = src.key;
+    var addr = src.addr;
+    var desc = src.desc;
+    var bridge = src.bridge;
+
+    if (!id || !key || !addr || !desc || !bridge) {
+        showError('failed to join, invalid arguments');
+        return;
+    }
+
+    if (addr in peerConnections) {
+        if (peerConnections[addr].id != id) {
+            var peer = peerConnections[addr].peer;
+
+            delete peerConnections[addr];
+            peer.destroy();
+            log('join, clear connection, addr=' + addr);
+        } else {
+            peerConnections[addr].peer.signal(desc);
+            return;
+        }
+    }
+
+    var peer = new SimplePeer({
+        wrtc: wrtc,
+        highWaterMark: highWaterMark,
+        config: peerConnectionConfig,
+        channelConfig: dataChannelConfig
+    });
+
+    peerConnections[addr] = new Object();
+    peerConnections[addr].peer = peer;
+    peerConnections[addr].id = id;
+
+    peer.on('signal', function (data) {
+        var args = new Object();
+
+        args.id = id;
+        args.addr = dest;
+        args.desc = data;
+        args.cmd = 'response';
+
+        notify(addr, key, bridge, args);
+        log('join, on signal, addr=' + addr + ', bridge=' + bridge);
+    });
+
+    peer.on('data', function (data) {
+        if (data)
+            deliverPkt(addr, id, data);
+        log('join, on data, addr=' + addr);
+    });
+
+    peer.on('close', function() {
+        if (hasPeer(addr, id))
+            delete peerConnections[addr];
+        log('join, on close, addr=' + addr);
+    });
+
+    peer.on('error', function (err) {
+        if (hasPeer(addr, id)) {
+            delete peerConnections[addr];
+            peer.destroy();
+            showError('join, connection is lost, addr=' + addr);
+        }
+        log('join, on error, addr=' + addr);
+    });
+
+    peer.signal(desc);
+    log('join, addr=' + addr);
+}
+
+function response(dest)
+{
+    var id = dest.id;
+    var addr = dest.addr;
+    var desc = dest.desc;
+
+    if (!addr || !desc || !id) {
+        showError('failed to response, invalid arguments');
+        return;
+    }
+
+    if ((addr in connections) && (connections[addr].id == id))
+        connections[addr].peer.signal(desc);
+}
+
+function connect(addr, key, bridge, source)
+{
+    if (addr in connections) {
+        if ((connections[addr].src != source.addr) || !connections[addr].ready) {
+            var peer = connections[addr].peer;
+
+            delete connections[addr];
+            peer.destroy();
+        } else {
+            emit('connect', {'name':addr});
+            log('connect again, addr=' + addr);
+            return;
+        }
+    }
+
+    var id = uuid.v4();
+    var peer = new SimplePeer({
+        wrtc: wrtc,
+        initiator: true,
+        highWaterMark: highWaterMark,
+        config: peerConnectionConfig,
+        channelConfig: dataChannelConfig
+    });
+
+    connections[addr] = new Object();
+    connections[addr].src = source.addr;
+    connections[addr].ready = false;
+    connections[addr].peer = peer;
+    connections[addr].id = id;
+
+    peer.on('signal', function (data) {
+        var args = new Object();
+
+        args.id = id;
+        args.desc = data;
+        args.cmd = 'join';
+        args.key = source.key;
+        args.addr = source.addr;
+        args.bridge = source.bridge;
+
+        notify(addr, key, bridge, args);
+        log('connect, on signal, addr=' + addr + ', bridge=' + bridge);
+    });
+
+    peer.on('connect', function () {
+        if (hasConnection(addr, id)) {
+            connections[addr].ready = true;
+            emit('connect', {'name':addr});
+        }
+        log('connect, on connect, addr=' + addr);
+    });
+
+    peer.on('close', function() {
+        if (hasConnection(addr, id))
+            delete connections[addr];
+        log('connect, on close, addr=' + addr);
+    });
+
+    peer.on('error', function (err) {
+        if (hasConnection(addr, id)) {
+            delete connections[addr];
+            peer.destroy();
+            showError('failed to connect, addr=' + addr);
+        }
+        log('connect, on error, addr=' + addr);
+    });
+
+    if (source.listen) {
+        peer.on('data', function (data) {
+            if (data)
+                deliverPkt(addr, id, data);
+        });
+    }
+
+    log('connect, addr=' + addr);
+}
+
+function disconnect(addr)
+{
+    if (addr in connections) {
+        var peer = connections[addr].peer;
+
+        delete connections[addr];
+        peer.destroy();
+        log("disconnect, addr=" + addr);
+    }
+}
+
+function chunkify(addr, data)
+{
+    var buf = String(data);
+
+    if (chunkSize) {
+        var start = 0;
+        var length = buf.length;
+
+        while (start < length) {
+            var l = start + chunkSize <= length ? chunkSize : length - start;
+
+            if (isReady(addr)) {
+                connections[addr].peer.send(buf.substring(start, start + l));
+                start += l;
+            } else {
+                showError('failed to chunkify, addr=' + addr);
+                return false;
+            }
+        }
+    } else {
+        if (isReady(addr))
+            connections[addr].peer.send(buf);
+        else {
+            showError('failed to chunkify, addr=' + addr);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function sendPkt(addr, pkt)
+{
+    if (chunkify(addr, pkt)) {
+        emit('send', {'name':addr});
+        log('send packet, addr=' + addr);
+    } else {
+        emit('send', {'name':addr, 'error':-1});
+        showError('failed to send packet, addr=' + addr);
+    }
+}
+
+function doSend(addr, pkt)
+{
+    if (!sendTimeout || (connections[addr].peer.bufferSize < lowWaterMark))
+        sendPkt(addr, pkt);
+    else {
+        var t = 0;
+        var index = pkt.index;
+        var intv = setInterval(function() {
+            if (!isReady(addr)) {
+                clearInterval(intv);
+                emit('send', {'name':addr, 'error':-2});
+                showError('failed to send, no connection, addr=' + addr);
+            } else {
+                var size = connections[addr].peer.bufferSize;
+
+                t += waitTime;
+                if ((t + waitTime >= sendTimeout) || (size < lowWaterMark)) {
+                    clearInterval(intv);
+                    if (size < lowWaterMark)
+                        sendPkt(addr, pkt);
+                    else {
+                        emit('send', {'name':addr, 'error':-101});
+                        showError('failed to send, timeout, addr=' + addr);
+                    }
+                }
+            }
+        }, waitTime);
+    }
+}
+
+function send(addr, data)
+{
+    if (isReady(addr)) {
+        if (data) {
+            var pkt = newPkt(data);
+
+            if (!pkt) {
+                showError('failed to send, no packet, addr=' + addr);
+                return;
+            }
+
+            doSend(addr, pkt);
+        }
+    } else
+        emit('send', {'name':addr, 'error':-2});
+}
+
+function putPkt(addr, pkt)
+{
+    if (chunkify(addr, pkt.data)) {
+        log('put packet, addr=' + addr);
+    } else {
+        emit('put', {'name':addr, 'error':-1});
+        showError('failed to put packet, addr=' + addr);
+    }
+}
+
+function doPut(addr, pkt)
+{
+    var t = 0;
+    var retryNext;
+    var retryTimes = 0;
+    var waitAck = false;
+    var index = pkt.index;
+    var length = pkt.data.length;
+    var timeout = putTimeout / 2;
+    var interval = length >> 20 > 0 ? (length >> 20) * retryInterval : retryInterval;
+    var deadline = putTimeout - interval;
+
+    if ((timeout < interval) && (interval < putTimeout))
+        timeout = interval;
+    retryNext = timeout + interval;
+
+    if (!putTimeout || (connections[addr].peer.bufferSize < lowWaterMark)) {
+        putPkt(addr, pkt);
+        waitAck = true;
+    }
+
+    var intv = setInterval(function() {
+        if (!isReady(addr)) {
+            clearInterval(intv);
+            emit('put', {'name':addr, 'error':-2});
+            showError('failed to put, no connection, addr=' + addr);
+        } else {
+            t += waitTime;
+            if (waitAck) {
+                if ((connections[addr].ack >= index) || ((t + waitTime) >= putTimeout)) {
+                    clearInterval(intv);
+                    if ((!connections[addr].ack && !connections[addr].wait) ||
+                            (connections[addr].ack < index) && (connections[addr].wait < index)) {
+                        emit('put', {'name':addr, 'error':-101});
+                        showError('failed to put, no ack, addr=' + addr);
+                    }
+                } else if (retry && (t >= retryNext) && (t <= deadline) && (retryTimes < retryMax)) {
+                    if (!connections[addr].wait || (connections[addr].wait < index)) {
+                        putPkt(addr, pkt);
+                        retryNext += interval;
+                        retryTimes += 1;
+                    }
+                }
+            } else {
+                if (t > timeout) {
+                    clearInterval(intv);
+                    emit('put', {'name':addr, 'error':-101});
+                    showError('failed to put, timeout, addr=' + addr);
+                } else if (connections[addr].peer.bufferSize < lowWaterMark) {
+                    putPkt(addr, pkt);
+                    waitAck = true;
+                }
+            }
+        }
+    }, waitTime);
+}
+
+function put(addr, data)
+{
+    if (isReady(addr)) {
+        if (data) {
+            var pkt = indexPkt(addr, data);
+
+            if (!pkt) {
+                showError('failed to put, no packet, addr=' + addr);
+                return;
+            }
+
+            doPut(addr, pkt);
+        }
+    } else
+        emit('put', {'name':addr, 'error':-2});
+}
+
+function attach(addr, key, bridge)
+{
+    var k = key.substring(0, 16);
+    var iv = key.substring(16, 32);
+    var client = mqtt.connect('mqtt://' + bridge + ':' + bridgePort);
+
+    client.on('connect', function() {
+        client.subscribe(addr);
+    });
+
+    client.on('message', function(topic, message) {
+        var data = decrypt(message.toString(), k, iv);
+        var args = JSON.parse(data);
+
+        if ('join' == args.cmd) {
+            join(addr, args);
+        } else if ('response' == args.cmd) {
+            response(args);
+        } else
+            showError('failed to attach, invalid command');
+        log('attach, addr=' + addr + ', cmd=' + args.cmd);
+    });
+
+    listeners[addr] = client;
+}
+
+function detach(addr)
+{
+    if (addr in listeners) {
+        var client = listeners[addr];
+
+        delete listeners[addr];
+        client.unsubscribe(addr);
+        client.end();
+        log('detach, addr=' + addr);
+    }
+}
+
+function exist(addr)
+{
+    if (isReady(addr)) {
+        emit('exist', {'name':addr});
+        log('exist, addr=' + addr);
+    } else {
+        emit('exist', {'name':addr, 'error':-2});
+        log('exist, no connection, addr=' + addr);
+    }
+}
+
+function errMsg(err)
+{
+  if (typeof err === 'object') {
+    if (err.message)
+      showError(err.message);
+    if (err.stack)
+      showError(err.stack);
+  }
+}
+
+function start()
+{
+    try {
+        if (sourceAddr)
+            attach(sourceAddr, sourceKey, bridgeAddr);
+
+        if (adapterPort) {
+            var src = new Object();
+
+            if (sourceAddr) {
+                src.listen = true;
+                src.key = sourceKey;
+                src.addr = sourceAddr;
+                src.bridge = bridgeAddr;
+            }
+
+            var server = new zerorpc.Server({
+                request: function(op, args, reply) {
+                    log('op=' + op + ', addr=' + args.addr);
+                    if ('connect' == op) {
+                        if (!args.source)
+                            connect(args.addr, args.key, args.bridge, src);
+                        else
+                            connect(args.addr, args.key, args.bridge, args.source);
+                    } else if ('disconnect' == op) {
+                        disconnect(args.addr);
+                    } else if ('attach' == op) {
+                        attach(args.addr, args.key, args.bridge);
+                    } else if ('detach' == op) {
+                        detach(args.addr);
+                    } else if ('exist' == op) {
+                        exist(args.addr);
+                    } else if ('send' == op) {
+                        send(args.addr, args.buf);
+                    } else if ('put' == op) {
+                        put(args.addr, args.buf);
+                    } else
+                        showError('invalid operation');
+                    reply();
+                }
+            });
+
+            server.bind('tcp://' + localhost + ':' + adapterPort);
+        } else
+            showError('adapter port is not set')
+    } catch(err) {
+        showError('failed to initialize');
+        errMsg(err);
+    }
+}
+
+start();

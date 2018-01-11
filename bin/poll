@@ -13,19 +13,14 @@ sys.path.append(_dir)
 from lib.api import api_poll
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument('-u', dest='uid', default=None)
-	parser.add_argument('-s', '--supernode', action='store_true')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', dest='uid', default=None)
 
-	args = parser.parse_args(sys.argv[1:])
-	uid = args.uid
-	if not uid:
-		parser.print_help()
-		sys.exit()
+    args = parser.parse_args(sys.argv[1:])
+    uid = args.uid
+    if not uid:
+        parser.print_help()
+        sys.exit()
 
-	if args.supernode:
-		from lib.util import set_supernode
-		set_supernode()
-
-	ret = api_poll(uid)
-	print(str(ret))
+    ret = api_poll(uid)
+    print(str(ret))

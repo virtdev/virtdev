@@ -13,20 +13,15 @@ sys.path.append(_dir)
 from lib.api import api_enable
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument('-u', dest='uid', default=None)
-	parser.add_argument('-n', dest='name', default=None)
-	parser.add_argument('-s', '--supernode', action='store_true')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', dest='uid', default=None)
+    parser.add_argument('-n', dest='name', default=None)
 
-	args = parser.parse_args(sys.argv[1:])
-	uid = args.uid
-	name = args.name
-	if not uid or not name:
-		parser.print_help()
-		sys.exit()
+    args = parser.parse_args(sys.argv[1:])
+    uid = args.uid
+    name = args.name
+    if not uid or not name:
+        parser.print_help()
+        sys.exit()
 
-	if args.supernode:
-		from lib.util import set_supernode
-		set_supernode()
-
-	api_enable(uid, name)
+    api_enable(uid, name)
