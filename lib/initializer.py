@@ -109,8 +109,6 @@ def _clear(edgenode, supernode):
         _clear_default()
 
 def _check_settings():
-    if not SHADOW and EXPOSE:
-        raise Exception('Error: invalid settings')
     try:
         resource.setrlimit(resource.RLIMIT_NOFILE, (999999, 999999))
     except:

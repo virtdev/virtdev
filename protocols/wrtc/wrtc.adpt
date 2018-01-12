@@ -838,7 +838,7 @@ function start()
             server.bind('tcp://' + localhost + ':' + adapterPort);
         } else
             showError('adapter port is not set')
-    } catch(err) {
+    } catch (err) {
         showError('failed to initialize');
         errMsg(err);
     }
