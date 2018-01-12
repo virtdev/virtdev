@@ -4,29 +4,29 @@ python:
   - 2.7
 
 before_install:
-  - sudo apt-get install fuse
-  - sudo apt-get install memcached
-  - sudo apt-get install mosquitto
-  - sudo apt-get install libzmq-dev
-  - sudo apt-get install build-essential
-  - sudo apt-get install libopencv-dev
-  - sudo apt-get install librsync-dev
-  - sudo apt-get install libfuse-dev
-  - sudo apt-get install libzbar-dev
-  - sudo apt-get install lsof
-  - sudo apt-get install n2n
-  - sudo apt-get install python-all-dev
-  - sudo apt-get install python-dbus
-  - sudo apt-get install python-gevent
-  - sudo apt-get install python-gi-dev
-  - sudo apt-get install python-imaging
-  - sudo apt-get install python-numpy
-  - sudo apt-get install python-opencv
-  - sudo apt-get install python-pip
-  - sudo apt-get install python-pygame
-  - sudo apt-get install python-scipy
-  - sudo apt-get install python-zbar
-  - sudo apt-get install xvfb
+  - sudo apt-get install -y fuse
+  - sudo apt-get install -y memcached
+  - sudo apt-get install -y mosquitto
+  - sudo apt-get install -y libzmq-dev
+  - sudo apt-get install -y build-essential
+  - sudo apt-get install -y libopencv-dev
+  - sudo apt-get install -y librsync-dev
+  - sudo apt-get install -y libfuse-dev
+  - sudo apt-get install -y libzbar-dev
+  - sudo apt-get install -y lsof
+  - sudo apt-get install -y n2n
+  - sudo apt-get install -y python-all-dev
+  - sudo apt-get install -y python-dbus
+  - sudo apt-get install -y python-gevent
+  - sudo apt-get install -y python-gi-dev
+  - sudo apt-get install -y python-imaging
+  - sudo apt-get install -y python-numpy
+  - sudo apt-get install -y python-opencv
+  - sudo apt-get install -y python-pip
+  - sudo apt-get install -y python-pygame
+  - sudo apt-get install -y python-scipy
+  - sudo apt-get install -y python-zbar
+  - sudo apt-get install -y xvfb
   - sudo pip install pip --upgrade
   - sudo pip install xattr
   - sudo pip install pytz
@@ -70,11 +70,10 @@ services:
 
 before_script:
   - sudo mongo 127.0.0.1:27017/test --eval 'db.user.update({"user":"user"}, {$set:{"user":"user", "password":"00000000000000000000000000000000", "uid":"00000000000000000000000000000000"}}, true, false)'
-  - sleep 5
   - sudo bin/virtdev -s &
   - sleep 5
   - sudo bin/virtdev -e &
-  - sleep 15
+  - sleep 5
 
 dist:
   - xenial
