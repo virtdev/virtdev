@@ -12,5 +12,8 @@ Virtdev is an environment used for creating virtual devices
 ### 3. Configure
 The default settings can be found in conf/defaults.py
 
+# Version
+Stable version: 0.0.1
+
 # License
 Virtdev is released under the terms of the MIT License.

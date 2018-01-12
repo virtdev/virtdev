@@ -1,4 +1,4 @@
-5# vdfs.py
+# vdfs.py
 #
 # Copyright (C) 2016 Yi-Wei Ci
 #
