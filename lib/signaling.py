@@ -5,6 +5,7 @@
 # Distributed under the terms of the MIT license.
 #
 
+import time
 import uuid
 from lib import codec
 from lib.util import call
